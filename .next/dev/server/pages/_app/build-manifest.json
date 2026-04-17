@@ -1,0 +1,23 @@
+{
+  "devFiles": [],
+  "ampDevFiles": [],
+  "polyfillFiles": [],
+  "lowPriorityFiles": [],
+  "rootMainFiles": [],
+  "pages": {
+    "/_app": [
+      "static/chunks/0hft_next_dist_compiled_0450m97._.js",
+      "static/chunks/0hft_next_dist_shared_lib_081yobu._.js",
+      "static/chunks/0hft_next_dist_client_0jrqn83._.js",
+      "static/chunks/0hft_next_dist_0u0dmo0._.js",
+      "static/chunks/0hft_next_app_0c81tvr.js",
+      "static/chunks/[next]_entry_page-loader_ts_0xe.gyx._.js",
+      "static/chunks/0hft_react-dom_0-ekxhr._.js",
+      "static/chunks/0hft_0x_~n0c._.js",
+      "static/chunks/[root-of-the-server]__0_y28x1._.js",
+      "static/chunks/onicha_pages__app_07xvfw~._.js",
+      "static/chunks/turbopack-onicha_pages__app_07tgx2z._.js"
+    ]
+  },
+  "ampFirstPages": []
+}

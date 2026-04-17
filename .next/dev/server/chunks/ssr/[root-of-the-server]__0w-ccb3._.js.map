@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": [],
+  "sections": [
+    {"offset": {"line": 13, "column": 0}, "map": {"version":3,"sources":["file:///Users/akaminerinri/Desktop/2026%E5%B9%B4%E5%89%8D%E6%9C%9F/onc/onicha-dev/onicha/app/favicon.ico.mjs%20%28structured%20image%20object%29"],"sourcesContent":["import src from \"IMAGE\";\nexport default { src, width: 256, height: 256 }\n"],"names":["src","width","height"],"mappings":";;;;AAAA;;uCACe;IAAEA,KAAAA,6IAAG;IAAEC,OAAO;IAAKC,QAAQ;AAAI"}},
+    {"offset": {"line": 28, "column": 0}, "map": {"version":3,"sources":["file:///Users/akaminerinri/Desktop/2026%E5%B9%B4%E5%89%8D%E6%9C%9F/onc/onicha-dev/onicha/app/page.tsx"],"sourcesContent":["export default function Login() {\n  return (\n    <div>\n      <h1>ログイン</h1>\n      <input placeholder=\"メール\" />\n      <input placeholder=\"パスワード\" type=\"password\" />\n      <button>ログイン</button>\n    </div>\n  );\n}"],"names":["Login","placeholder","type"],"mappings":";;;;;;AAAe,SAASA;IACtB,qBACE,wPAAC;;0BACC,wPAAC;0BAAG;;;;;;0BACJ,wPAAC;gBAAMC,aAAY;;;;;;0BACnB,wPAAC;gBAAMA,aAAY;gBAAQC,MAAK;;;;;;0BAChC,wPAAC;0BAAO;;;;;;;;;;;;AAGd"}}]
+}
