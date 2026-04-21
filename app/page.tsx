@@ -1,65 +1,42 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { BookText, MessageCircle, Heart, Link as LinkIcon } from "lucide-react";
+
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+    <div className="flex flex-col">
+      <div className="border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
+        ホーム
+      </div>
+
+      <Tabs defaultValue="all" className="w-full">
+        <TabsList className="w-full border-b border-gray-200 bg-white rounded-none p-0">
+          <TabsTrigger value="all" className="flex-1">おすすめ</TabsTrigger>
+          <TabsTrigger value="follow" className="flex-1">フォロー中</TabsTrigger>
+          <TabsTrigger value="grade" className="flex-1">同学年</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all" className="p-6 space-y-8">
+          <div className="flex gap-4">
+            <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0" />
+            <div className="flex-1">
+              <p className="font-bold">田中太郎 <span className="text-gray-500 font-normal">@tanaka_taro・2時間前</span></p>
+              <p className="mt-1">今学期使った線形代数の教科書譲ります！</p>
+              <Card className="mt-3 bg-blue-50 border-blue-200 rounded-2xl">
+                <CardContent className="p-4">
+                  <span className="bg-blue-600 text-white px-3 py-1 text-sm rounded-full">譲ります</span>
+                  <p className="mt-3 font-bold text-lg">線形代数学</p>
+                  <p className="text-gray-600 text-sm mt-1 flex items-center gap-1">
+                    <BookText className="w-4 h-4" /> 数学
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
