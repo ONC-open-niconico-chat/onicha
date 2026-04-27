@@ -16,7 +16,7 @@ export function Sidebar() {
         {/* アイコン部分：publicフォルダに置いたonippi.jpgを表示 */}
         <div className="w-10 h-10 relative overflow-hidden rounded-xl">
           <Image 
-            src="/onippi.jpg" 
+            src="/onippii.jpg" 
             alt="オニチャ" 
             fill 
             className="object-cover" 
