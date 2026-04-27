@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, BookOpen, GraduationCap } from "lucide-react";
+// 検索アイコン(Search)を追加で読み込むようにしたよ！
+import { Home, Bell, MessageCircle, User, Search, GraduationCap } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -20,7 +21,8 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-2">
         <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
-        <SidebarItem href="/textbook" icon={<BookOpen className="w-5 h-5" />} label="教科書譲渡" active={isActive("/textbook")} />
+        {/* ここを /search に変更し、アイコンを Search に変更！ */}
+        <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
         <SidebarItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notifications")} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -32,8 +34,8 @@ export function Sidebar() {
 function SidebarItem({ href, icon, label, active }: { href: string, icon: React.ReactNode, label: string, active: boolean }) {
   return (
     <Link href={href}>
-      <Button 
-        variant={active ? "secondary" : "ghost"} 
+      <Button
+        variant={active ? "secondary" : "ghost"}
         className={`w-full justify-start gap-3 text-base py-6 rounded-full transition-all ${active ? "bg-blue-50 text-blue-600 font-bold hover:bg-blue-100" : "text-gray-600 hover:bg-gray-100"}`}
       >
         {icon}
