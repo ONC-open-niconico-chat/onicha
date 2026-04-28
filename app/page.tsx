@@ -1,6 +1,6 @@
 // app/page.tsx
-import { HomeView } from "@/components/HomeView";
+import { redirect } from 'next/navigation';
 
 export default function Page() {
-  return <HomeView />;
+  redirect('/home');
 }

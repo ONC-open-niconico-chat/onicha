@@ -4,8 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
-// mainブランチの最新機能（検索アイコンなど）を取り入れました
-import { Bell, MessageCircle, User, Search, GraduationCap } from "lucide-react";
+// Home アイコンを import に追加しました
+import { Home, Bell, MessageCircle, User, Search, GraduationCap } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -14,7 +14,7 @@ export function Sidebar() {
   return (
     <div className="w-72 border-r border-gray-200 p-6 flex flex-col gap-8 h-screen bg-white flex-shrink-0">
       <div className="flex items-center gap-3 px-2">
-        {/* アイコン部分：ユーザーの指定通り onippii.jpg を使用 */}
+        {/* サイドバー上部のロゴ画像はそのまま維持 */}
         <div className="w-10 h-10 relative overflow-hidden rounded-xl">
           <Image 
             src="/onippii.jpg" 
@@ -27,18 +27,12 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-col gap-2">
-        {/* ホームのアイコンを画像に変更するあなたの実装を優先 */}
         <SidebarItem 
           href="/" 
-          icon={
-            <div className="w-5 h-5 relative overflow-hidden rounded-full">
-              <Image src="/onippii.jpg" alt="Home" fill className="object-cover" />
-            </div>
-          } 
+          icon={<Home className="w-5 h-5" />} 
           label="ホーム" 
           active={isActive("/")} 
         />
-        {/* mainブランチで追加された検索機能 */}
         <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
         <SidebarItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notifications")} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
