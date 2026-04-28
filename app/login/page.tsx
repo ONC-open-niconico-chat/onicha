@@ -1,18 +1,20 @@
+'use client'
+
 import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
 
-export function Login() {
+export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = (e:any) => {
     e.preventDefault();
     console.log('ログイン:', { email, password });
-    // ここで実際の認証処理を行います
+    
   };
 
   return (
-    <div className="size-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50">
       <div className="w-full max-w-md mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
@@ -73,7 +75,7 @@ export function Login() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
+              className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
             >
               ログイン
             </button>
