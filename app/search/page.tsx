@@ -3,15 +3,56 @@
 import React, { useState } from "react";
 import { Search, ChevronLeft } from "lucide-react";
 import Link from "next/link";
+import { SearchForm } from "../../components/search/SearchForm";
+import { SearchList } from "../../components/search/SearchList";
+import { Textbook } from "../../types/textbook";
 
 export default function SearchPage() {
-  const [searchQuery, setSearchQuery] = useState("");
-
+  const [results, setResults] = useState<Textbook[]>([]);
+  const [loading, setLoading] = useState(false);
   // 仮のデータ（本来はSupabaseから取得）
-  const results = [
-    { id: 1, title: "キモすぎ概論", time: "月2、木2", prof: "宮本武佐彦", detail: "概論 -キモすぎ- 新改訂" },
-    { id: 2, title: "経済のなんか", time: "火3", prof: "山田太郎", detail: "経済学の基礎" },
+  const mockData: Textbook[] = [
+    {
+      id: "1",
+      course_name: "概論",
+      professor_name: "宮本武佐彦",
+      schedule: "月2、木2",
+      textbook_title: "キモすぎ概論",
+      edition: "新改訂",
+    },
+    { id: '2', 
+      course_name: "経済のなんか", 
+      schedule: "火3", 
+      professor_name: "山田太郎", 
+      textbook_title: "経済学の基礎" },
   ];
+
+  // 検索ロジックの追加
+  const handleSearch = async (params: {
+    textbookName: string;
+    professorName: string;
+    schedule: string;
+    courseName: string;
+  }) => {
+    setLoading(true);
+    // AND検索ロジック
+    const filtered = mockData.filter((item) => {
+      const matchesTextbook = params.textbookName && item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase());
+      const matchesProfessor = params.professorName && item.professor_name.toLowerCase().includes(params.professorName.toLowerCase());
+      const matchesSchedule = params.schedule && item.schedule.toLowerCase().includes(params.schedule.toLowerCase());
+      const matchesCourse = params.courseName && item.course_name.toLowerCase().includes(params.courseName.toLowerCase());
+
+      // AND条件：入力したフィールドだけを条件にする
+      return (
+        (!params.textbookName || item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase())) &&
+        (!params.professorName || item.professor_name.toLowerCase().includes(params.professorName.toLowerCase())) &&
+        (!params.schedule || item.schedule.toLowerCase().includes(params.schedule.toLowerCase())) &&
+        (!params.courseName || item.course_name.toLowerCase().includes(params.courseName.toLowerCase()))
+      );
+    });
+    setResults(filtered);
+    setLoading(false);
+  };
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">
@@ -24,38 +65,13 @@ export default function SearchPage() {
       </div>
 
       {/* 検索入力エリア */}
-      <div className="p-4 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="教科書名・教授名・授業名"
-            className="w-full bg-gray-100 border-none rounded-xl py-3 pl-10 pr-4 focus:ring-2 focus:ring-blue-500 outline-none"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <p className="text-xs text-gray-400 ml-1">一単語から検索可能です</p>
+      <div className="p-4">
+        <SearchForm onSearch={handleSearch} loading={loading} />
       </div>
 
-      {/* 検索結果一覧（PDFのイメージ再現） */}
+      {/* 検索結果一覧 */}
       <div className="flex-1 px-4 py-2">
-        <h2 className="text-sm font-bold text-gray-500 mb-4">検索結果一覧</h2>
-        
-        <div className="space-y-4">
-          {results.map((item) => (
-            <div key={item.id} className="border-b border-gray-100 pb-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-bold text-lg">{item.title}</h3>
-                  <p className="text-sm text-gray-600">{item.time} {item.prof}</p>
-                  <p className="text-sm text-gray-500 mt-1">{item.detail}</p>
-                </div>
-                <button className="text-blue-600 text-sm font-bold">詳細</button>
-              </div>
-            </div>
-          ))}
-        </div>
+        <SearchList results={results} />
       </div>
 
       {/* 下部ナビゲーション */}
