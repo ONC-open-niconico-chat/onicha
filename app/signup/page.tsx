@@ -1,7 +1,11 @@
+'use client'
+
 import { useState } from 'react';
+
+
 import { Mail, Lock, User, GraduationCap, BookOpen, School } from 'lucide-react';
 
-export function Signup() {
+export default function Signup() {
   const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [grade, setGrade] = useState('');
@@ -11,7 +15,7 @@ export function Signup() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = (e:any) => {
     e.preventDefault();
 
     if (password !== confirmPassword) {
@@ -24,7 +28,7 @@ export function Signup() {
   };
 
   return (
-    <div className="size-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 overflow-auto py-8">
+    <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50 overflow-auto py-8">
       <div className="w-full max-w-4xl mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-6">
@@ -34,25 +38,6 @@ export function Signup() {
 
           <form onSubmit={handleSignup}>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
-              <div>
-                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-                  氏名
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <User className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    placeholder="山田太郎"
-                    required
-                  />
-                </div>
-              </div>
 
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
@@ -222,7 +207,7 @@ export function Signup() {
             <div className="col-span-2 mt-4">
               <button
                 type="submit"
-                className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
+                className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
               >
                 アカウントを作成
               </button>
@@ -231,7 +216,7 @@ export function Signup() {
 
           <p className="mt-6 text-center text-sm text-gray-600">
             すでにアカウントをお持ちの方は{' '}
-            <a href="/" className="font-medium text-purple-600 hover:text-purple-700">
+            <a href="login" className="font-medium text-purple-600 hover:text-purple-700">
               ログイン
             </a>
           </p>
