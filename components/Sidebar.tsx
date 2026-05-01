@@ -10,7 +10,7 @@ export function Sidebar() {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <div className="w-72 border-r border-gray-200 p-6 flex flex-col gap-8 h-screen bg-white flex-shrink-0">
+    <div className="w-72 border-r border-gray-200 p-6 flex flex-col gap-8 h-screen bg-white shrink-0">
       <div className="flex items-center gap-2 px-2">
         <div className="bg-blue-600 p-2 rounded-xl text-white">
           <GraduationCap className="w-6 h-6" />
