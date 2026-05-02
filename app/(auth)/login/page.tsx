@@ -43,6 +43,14 @@ export default function Login() {
             <p className="text-gray-600">アカウントにログインしてください</p>
           </div>
 
+
+          {/* エラーメッセージ表示 */}
+          {errorMsg && (
+            <div className="mb-4 p-3 bg-red-50 text-red-500 text-sm rounded-lg border border-red-100">
+              {errorMsg}
+            </div>
+          )}
+
           <form action={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
@@ -96,7 +104,7 @@ export default function Login() {
               type="submit"
               className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
             >
-              ログイン
+              {loading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
 
