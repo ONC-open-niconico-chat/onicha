@@ -2,15 +2,36 @@
 
 import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+import { createBrowserClient } from '@supabase/ssr';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading,setLoading] = useState(false);
 
-  const handleLogin = (e:any) => {
-    e.preventDefault();
-    console.log('ログイン:', { email, password });
+  const handleLogin = async (formData:FormData) => {
+    setLoading(true);
+    setErrorMsg(null);
     
+
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      setErrorMsg("ログインに失敗しました。")
+      setLoading(false);
+    } else {
+      //window.location.href = '/';
+      router.push('/');
+      router.refresh();
+    }
   };
 
   return (
@@ -22,7 +43,7 @@ export default function Login() {
             <p className="text-gray-600">アカウントにログインしてください</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form action={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 メールアドレス
@@ -33,9 +54,8 @@ export default function Login() {
                 </div>
                 <input
                   id="email"
+                  name='email'
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="example@email.com"
                   required
@@ -54,8 +74,7 @@ export default function Login() {
                 <input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  name='password'
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="••••••••"
                   required
