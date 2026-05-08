@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { createBrowserClient } from '@supabase/ssr';
 
 export default function Login() {
   const router = useRouter();
@@ -28,7 +27,7 @@ export default function Login() {
       setErrorMsg("ログインに失敗しました。")
       setLoading(false);
     } else {
-      //window.location.href = '/';
+      
       router.push('/');
       router.refresh();
     }
