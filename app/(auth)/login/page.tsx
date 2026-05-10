@@ -1,18 +1,40 @@
+'use client'
+
 import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
-export function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+export default function Login() {
+  const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading,setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log('ログイン:', { email, password });
-    // ここで実際の認証処理を行います
+  const handleLogin = async (formData:FormData) => {
+    setLoading(true);
+    setErrorMsg(null);
+    
+
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (error) {
+      setErrorMsg("ログインに失敗しました。")
+      setLoading(false);
+    } else {
+      
+      router.push('/');
+      router.refresh();
+    }
   };
 
   return (
-    <div className="size-full flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50">
+    <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50">
       <div className="w-full max-w-md mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           <div className="text-center mb-8">
@@ -20,7 +42,15 @@ export function Login() {
             <p className="text-gray-600">アカウントにログインしてください</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+
+          {/* エラーメッセージ表示 */}
+          {errorMsg && (
+            <div className="mb-4 p-3 bg-red-50 text-red-500 text-sm rounded-lg border border-red-100">
+              {errorMsg}
+            </div>
+          )}
+
+          <form action={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
                 メールアドレス
@@ -31,9 +61,8 @@ export function Login() {
                 </div>
                 <input
                   id="email"
+                  name='email'
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="example@email.com"
                   required
@@ -52,8 +81,7 @@ export function Login() {
                 <input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  name='password'
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="••••••••"
                   required
@@ -73,9 +101,9 @@ export function Login() {
 
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
+              className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
             >
-              ログイン
+              {loading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
 

@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState } from "react";
-import { SearchForm } from "../../components/search/SearchForm";
-import { SearchList } from "../../components/search/SearchList";
-import { Textbook } from "../../types/textbook";
+import { SearchForm } from "../../../components/search/SearchForm";
+import { SearchList } from "../../../components/search/SearchList";
+import { Textbook } from "../../../types/textbook";
 
 export default function SearchPage() {
   const [results, setResults] = useState<Textbook[]>([]);
