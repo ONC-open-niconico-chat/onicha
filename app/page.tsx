@@ -20,7 +20,7 @@ export default function HomePage() {
 
         <TabsContent value="all" className="p-6 space-y-8">
           <div className="flex gap-4">
-            <div className="w-12 h-12 bg-gray-200 rounded-full flex-shrink-0" />
+            <div className="w-12 h-12 bg-gray-200 rounded-full shrink-0" />
             <div className="flex-1">
               <p className="font-bold">田中太郎 <span className="text-gray-500 font-normal">@tanaka_taro・2時間前</span></p>
               <p className="mt-1">今学期使った線形代数の教科書譲ります！</p>

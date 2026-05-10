@@ -1,8 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, ChevronLeft } from "lucide-react";
-import Link from "next/link";
 import { SearchForm } from "../../components/search/SearchForm";
 import { SearchList } from "../../components/search/SearchList";
 import { Textbook } from "../../types/textbook";
@@ -35,13 +33,9 @@ export default function SearchPage() {
     courseName: string;
   }) => {
     setLoading(true);
-    // AND検索ロジック
+    
     const filtered = mockData.filter((item) => {
-      const matchesTextbook = params.textbookName && item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase());
-      const matchesProfessor = params.professorName && item.professor_name.toLowerCase().includes(params.professorName.toLowerCase());
-      const matchesSchedule = params.schedule && item.schedule.toLowerCase().includes(params.schedule.toLowerCase());
-      const matchesCourse = params.courseName && item.course_name.toLowerCase().includes(params.courseName.toLowerCase());
-
+      
       // AND条件：入力したフィールドだけを条件にする
       return (
         (!params.textbookName || item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase())) &&
@@ -56,12 +50,8 @@ export default function SearchPage() {
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">
-      {/* ヘッダー */}
-      <div className="flex items-center px-4 py-4 border-b border-gray-100">
-        <Link href="/">
-          <ChevronLeft className="w-6 h-6 mr-2 cursor-pointer" />
-        </Link>
-        <h1 className="text-xl font-bold">教科書検索</h1>
+      <div className="border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
+        教科書検索
       </div>
 
       {/* 検索入力エリア */}
@@ -72,23 +62,7 @@ export default function SearchPage() {
       {/* 検索結果一覧 */}
       <div className="flex-1 px-4 py-2">
         <SearchList results={results} />
-      </div>
-
-      {/* 下部ナビゲーション */}
-      <div className="border-t border-gray-100 flex justify-around py-3 bg-white">
-        <Link href="/" className="flex flex-col items-center text-gray-400 text-xs">
-          <div className="w-6 h-6 bg-gray-200 rounded-sm mb-1"/>
-          ホーム
-        </Link>
-        <div className="flex flex-col items-center text-blue-600 text-xs">
-          <Search className="w-6 h-6 mb-1"/>
-          検索
-        </div>
-        <div className="flex flex-col items-center text-gray-400 text-xs">
-          <div className="w-6 h-6 bg-gray-200 rounded-sm mb-1"/>
-          通知
-        </div>
-      </div>
+      </div> 
     </div>
   );
 }
