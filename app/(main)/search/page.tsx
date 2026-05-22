@@ -4,47 +4,68 @@ import React, { useState } from "react";
 import { SearchForm } from "../../../components/search/SearchForm";
 import { SearchList } from "../../../components/search/SearchList";
 import { Textbook } from "../../../types/textbook";
+import { supabase } from "@/lib/supabase";
 
 export default function SearchPage() {
   const [results, setResults] = useState<Textbook[]>([]);
   const [loading, setLoading] = useState(false);
-  // 仮のデータ（本来はSupabaseから取得）
-  const mockData: Textbook[] = [
-    {
-      id: "1",
-      course_name: "概論",
-      professor_name: "宮本武佐彦",
-      schedule: "月2、木2",
-      textbook_title: "キモすぎ概論",
-      edition: "新改訂",
-    },
-    { id: '2', 
-      course_name: "経済のなんか", 
-      schedule: "火3", 
-      professor_name: "山田太郎", 
-      textbook_title: "経済学の基礎" },
-  ];
 
-  // 検索ロジックの追加
   const handleSearch = async (params: {
-    textbookName: string;
-    professorName: string;
-    schedule: string;
-    courseName: string;
-  }) => {
-    setLoading(true);
-    
-    const filtered = mockData.filter((item) => {
-      
-      // AND条件：入力したフィールドだけを条件にする
-      return (
-        (!params.textbookName || item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase())) &&
-        (!params.professorName || item.professor_name.toLowerCase().includes(params.professorName.toLowerCase())) &&
-        (!params.schedule || item.schedule.toLowerCase().includes(params.schedule.toLowerCase())) &&
-        (!params.courseName || item.course_name.toLowerCase().includes(params.courseName.toLowerCase()))
-      );
-    });
-    setResults(filtered);
+  textbookName: string;
+  professorName: string;
+  schedule: string;
+  courseName: string;
+}) => {
+  setLoading(true);
+
+  // 1. 基本となるクエリの作成
+  // リレーション名はテーブル名「教科書」を指定
+  let query = supabase
+    .from('授業')
+    .select(`
+      id,
+      title,
+      professor,
+      day,
+      period,
+      教科書!inner ( title, author )
+    `); 
+    // ※ 教科書名で絞り込む場合は !inner をつけるのがコツ！
+
+  // 2. フィルタリング条件の追加
+  if (params.courseName) {
+    query = query.ilike('title', `%${params.courseName}%`);
+  }
+  if (params.professorName) {
+    query = query.ilike('professor', `%${params.professorName}%`);
+  }
+  if (params.schedule) {
+    query = query.ilike('day', `%${params.schedule}%`);
+  }
+  // 教科書名で検索したい場合（結合先のカラムを指定）
+  if (params.textbookName) {
+    query = query.ilike('教科書.title', `%${params.textbookName}%`);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    // 鬼ちゃアドバイス：errorの中身を詳しく出すと解決が早いよ！
+    console.error('検索エラー詳細:', error.message, error.details, error.hint);
+    setLoading(false);
+    return;
+  }
+
+    // Textbook型に変換
+    const formatted: Textbook[] = (data || []).map((item: any) => ({
+      id: String(item.id),
+      course_name: item.title,
+      professor_name: item.professor,
+      schedule: `${item.day} ${item.period}`,
+      textbook_title: item.教科書?.title ?? '未設定',
+    }));
+
+    setResults(formatted);
     setLoading(false);
   };
 
@@ -53,16 +74,12 @@ export default function SearchPage() {
       <div className="border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
         教科書検索
       </div>
-
-      {/* 検索入力エリア */}
       <div className="p-4">
         <SearchForm onSearch={handleSearch} loading={loading} />
       </div>
-
-      {/* 検索結果一覧 */}
       <div className="flex-1 px-4 py-2">
         <SearchList results={results} />
-      </div> 
+      </div>
     </div>
   );
 }
