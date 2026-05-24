@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { ImageWithFallback } from '../../../components/profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, Mail } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 
 export default function App() {
@@ -17,39 +17,7 @@ export default function App() {
       likes: 342,
       retweets: 23,
       comments: 12
-    },
-    {
-      id: 2,
-      text: '新しいカメラを買いました！週末にいろいろ撮影してみようと思います📷',
-      time: '5時間前',
-      likes: 521,
-      retweets: 45,
-      comments: 28
-    },
-    {
-      id: 3,
-      text: 'おすすめのラーメン屋さん見つけた。スープが絶品でした🍜',
-      time: '1日前',
-      likes: 289,
-      retweets: 18,
-      comments: 34
-    },
-    {
-      id: 4,
-      text: '最近読んだ本がとても面白かった。みなさんにもおすすめしたいです📚',
-      time: '2日前',
-      likes: 456,
-      retweets: 32,
-      comments: 19
-    },
-    {
-      id: 5,
-      text: '朝のコーヒータイム☕️ 今日も一日頑張ります',
-      time: '3日前',
-      likes: 678,
-      retweets: 54,
-      comments: 41
-    },
+    }
   ];
 
   return (
@@ -77,7 +45,12 @@ export default function App() {
 
         <div className="pt-20 px-8 pb-6 border-b border-gray-200">
           <div className="mb-4">
-            <p className="font-medium">田中 太郎</p>
+            <div className="flex items-center gap-2 mb-1">
+              <p className="font-medium">田中 太郎</p>
+              <button className="bg-white border border-gray-300 p-1 rounded-md hover:bg-gray-50 flex items-center">
+                <Mail size={16} />
+              </button>
+            </div>
             <p className="text-gray-500">@tanaka_taro</p>
           </div>
 
