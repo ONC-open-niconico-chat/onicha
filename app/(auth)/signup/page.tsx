@@ -62,7 +62,7 @@ export default function Signup() {
     
     // 2. メールの末尾をチェック
     if (!email.endsWith(`@${allowedDomain}`)) {
-      alert(`琉大の知能情報コースのメールアドレス（@${allowedDomain}）のみ登録可能です。`);
+      alert(`琉球大学のメールアドレス（@${allowedDomain}）のみ登録可能です。`);
       return; // ここで処理を中断！
     }
     
@@ -126,7 +126,7 @@ export default function Signup() {
                     name="username"
                     type="text"
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    
+                    autoComplete="off"
                     required
                   />
                 </div>
