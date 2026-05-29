@@ -5,8 +5,9 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../../../components/profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut } from 'lucide-react'; // ⭕ LogOutアイコンを追加
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
+import EditProfile from '../editprofile/page';
 
 interface UserProfile {
   id: string;
@@ -14,6 +15,7 @@ interface UserProfile {
   grade: number;
   department_id: string | number;
   icon_src: string;
+  bio: string; // ⭕ 必須（またはオプショナル?）として定義
 }
 
 export default function App() {
@@ -21,6 +23,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
     async function fetchProfile() {
@@ -35,16 +38,23 @@ export default function App() {
           return;
         }
 
+        // ⭕ セレクトボックスに 'bio' を追加
         const { data, error } = await supabase
           .from('user')
-          .select('id, username, grade, department_id, icon_src')
+          .select('id, username, grade, department_id, icon_src, bio')
           .eq('id', user.id)
           .single();
 
         if (error) {
           console.error("❌ データベース検索エラー:", error.message);
         }
-        if (data) setProfile(data);
+        if (data) {
+          setProfile({
+            ...data,
+            // データベースのbioが空(null)だった場合の初期文字列をセット
+            bio: data.bio || '写真と旅行が好きです 📸 | 自然の美しさを記録しています | 東京在住 🗼'
+          });
+        }
       } catch (error) {
         console.error('Error fetching profile:', error);
       } finally {
@@ -55,14 +65,67 @@ export default function App() {
     fetchProfile();
   }, [router]);
 
-  // ⭕ ログアウト処理を追加
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
     if (error) {
       console.error('ログアウトエラー:', error.message);
     } else {
-      // 成功したらログイン画面に飛ばす
       router.push('/login');
+    }
+  };
+
+  // ⭕ 引数に newBio を追加
+  const handleSaveProfile = async (newUsername: string, newGrade: number, newBio: string, imageFile: File | null) => {
+    if (!profile) return;
+
+    try {
+      let uploadedIconUrl = profile.icon_src;
+
+      // 1. 画像アップロード処理
+      if (imageFile) {
+        const fileExt = imageFile.name.split('.').pop();
+        const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+        const filePath = `icons/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatars')
+          .upload(filePath, imageFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(filePath);
+
+        uploadedIconUrl = publicUrl;
+      }
+
+      // 2. データベースの更新 (bioを追加)
+      const { error: updateError } = await supabase
+        .from('user')
+        .update({
+          username: newUsername,
+          grade: newGrade,
+          bio: newBio, // ⭕ 自己紹介を更新
+          icon_src: uploadedIconUrl,
+        })
+        .eq('id', profile.id);
+
+      if (updateError) throw updateError;
+
+      // 3. 画面の表示を更新
+      setProfile({
+        ...profile,
+        username: newUsername,
+        grade: newGrade,
+        bio: newBio, // ⭕ 画面側も同期
+        icon_src: uploadedIconUrl
+      });
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error('プロフィール更新エラー:', error.message);
+      alert('プロフィールの更新に失敗しました。');
+      throw error;
     }
   };
 
@@ -85,8 +148,22 @@ export default function App() {
     username: 'データ未取得',
     grade: 0,
     department_id: '-',
-    icon_src: 'https://unsplash.com'
+    icon_src: 'https://unsplash.com',
+    bio: '写真と旅行が好きです 📸 | 自然の美しさを記録しています | 東京在住 🗼'
   };
+
+  if (isEditing && profile) {
+    return (
+      <EditProfile
+        initialUsername={profile.username}
+        initialGrade={profile.grade}
+        iconSrc={displayProfile.icon_src}
+        initialBio={displayProfile.bio} // ⭕ 編集コンポーネントに現在のbioを渡す
+        onClose={() => setIsEditing(false)}
+        onSave={handleSaveProfile}
+      />
+    );
+  }
 
   return (
     <div className="size-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
@@ -99,7 +176,6 @@ export default function App() {
             alt="Cover"
             className="w-full h-48 sm:h-52 object-cover bg-gray-200"
           />
-          {/* アバター */}
           <div className="absolute -bottom-16 left-4 sm:left-6">
             <Avatar
               src={displayProfile.icon_src}
@@ -115,7 +191,6 @@ export default function App() {
 
         {/* ボタンエリア */}
         <div className="flex justify-end pt-3 pr-4 sm:pr-6 h-16 gap-2">
-          {/* ⭕ ログアウトボタンを追加 */}
           <button 
             onClick={handleLogout}
             className="h-9 px-4 rounded-full border border-red-200 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
@@ -124,7 +199,10 @@ export default function App() {
             ログアウト
           </button>
 
-          <button className="h-9 px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2">
+          <button 
+            onClick={() => setIsEditing(true)}
+            className="h-9 px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2"
+          >
             <Settings size={16} />
             プロフィール編集
           </button>
@@ -146,8 +224,9 @@ export default function App() {
             </div>
           </div>
 
+          {/* ⭕ 保存された最新の自己紹介が表示されます */}
           <p className="text-[15px] leading-relaxed mb-3 whitespace-pre-wrap text-gray-600">
-            写真と旅行が好きです 📸 | 自然の美しさを記録しています | 東京在住 🗼
+            {displayProfile.bio}
           </p>
 
           <div className="flex gap-5 text-sm text-gray-500">
@@ -222,6 +301,6 @@ export default function App() {
           </Tabs.Content>
         </Tabs.Root>
       </div>
-    </div>
+    </div> 
   );
 }
