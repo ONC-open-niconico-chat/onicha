@@ -5,6 +5,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Plus, AlertCircle } from "lucide-react";
 import { PostDialog } from "@/components/post/PostDialog"; 
 import { PostTabsContent } from "@/components/post/PostTabsContent";
+import { FollowingTimeline } from "@/components/post/FollowingTimeline"; 
 import { Header } from "@/components/layout/Header"; 
 import { HomeTabHeader } from "@/components/home/HomeTabHeader"; 
 import { supabase } from "@/lib/supabase";
@@ -23,18 +24,24 @@ export default function HomePage() {
   
   const filterLabels = { grade: "同学年", dept: "同学科", faculty: "同学部" };
 
-  // ★ 究極のソート：1分以内は絶対最優先 ＆ それ以降は「いいね順」
+  // ★ 究極のソート：時差バグを完全修正した決定版
   const sortPostsByMixLogic = (rawPosts: any[]) => {
     const now = new Date().getTime();
 
-    // 1. まず全ポストの時差を計算して「たった今」かどうかを判定
+    // 1. 各ポストが本当に「1分以内の新規投稿」か厳密に判定
     const postsWithFlags = rawPosts.map(post => {
       const time = new Date(post.created_at).getTime();
-      const diff = (now - time) / 1000;
-      const absDiff = Math.abs(diff);
+      
+      // 純粋な経過秒数
+      const diffInSeconds = (now - time) / 1000;
+      
+      // データベース（UTC）とクライアント（JST）の9時間ズレを補正した秒数
+      const diffInSecondsAdjusted = diffInSeconds - 32400;
 
-      // 1分以内、または9時間時差の前後1分以内なら「たった今」認定
-      const isJustNow = absDiff < 60 || Math.abs(absDiff - 32400) < 60;
+      // 【超重要】未来方向への誤判定を防ぐため、かつ「0秒〜60秒の間」のみをターゲットにする
+      const isJustNow = 
+        (diffInSeconds >= 0 && diffInSeconds < 60) || 
+        (diffInSecondsAdjusted >= 0 && diffInSecondsAdjusted < 60);
 
       return {
         ...post,
@@ -71,7 +78,6 @@ export default function HomePage() {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.from('post').select(`*, user:user_id (username, grade, department_id, appartment:department_id(faculty_id))`);
-      // ★ 取得したデータを自作のミックスロジックでソートしてセット
       if (!error) setPosts(sortPostsByMixLogic(data || []));
     } catch (e) { setErrorMessage("通信に失敗しました"); } finally { setIsLoading(false); }
   };
@@ -138,7 +144,7 @@ export default function HomePage() {
         </TabsContent>
 
         <TabsContent value="follow" className="p-0 m-0">
-          <PostTabsContent posts={[]} emptyMessage="フォロー中の投稿はありません" />
+          <FollowingTimeline sortLogic={sortPostsByMixLogic} />
         </TabsContent>
 
         <TabsContent value="school" className="p-0 m-0">

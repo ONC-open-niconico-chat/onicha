@@ -5,6 +5,7 @@ import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Plus, AlertCircle } from "lucide-react";
 import { PostDialog } from "@/components/post/PostDialog"; 
 import { PostTabsContent } from "@/components/post/PostTabsContent";
+import { FollowingTimeline } from "@/components/post/FollowingTimeline"; // ★追加したインポート
 import { Header } from "@/components/layout/Header"; 
 import { HomeTabHeader } from "@/components/home/HomeTabHeader"; 
 import { supabase } from "@/lib/supabase";
@@ -112,8 +113,9 @@ export default function HomePage() {
           {errorMessage ? <div className="p-10 text-center text-red-500"><AlertCircle className="mb-2" /><p>{errorMessage}</p></div> : <PostTabsContent posts={posts} loading={isLoading} />}
         </TabsContent>
 
+        {/* ★ここだけを変更：検索用はシンプルな新着順でFollowingTimelineを表示 */}
         <TabsContent value="follow" className="p-0 m-0">
-          <PostTabsContent posts={[]} emptyMessage="フォロー中の投稿はありません" />
+          <FollowingTimeline />
         </TabsContent>
 
         <TabsContent value="school" className="p-0 m-0">
