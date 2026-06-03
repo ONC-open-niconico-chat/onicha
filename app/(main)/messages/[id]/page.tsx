@@ -18,14 +18,14 @@ interface ChatMessage {
 interface UserProfile {
   id: string;
   username: string;
-  avatar_url?: string;
+  icon_src?: string;
 }
 
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
   
-  // URLから相手のIDを取得（/message/abc -> "abc"）
+  // URLから相手のIDを取得（/messages/abc -> "abc"）
   const receiverId = params.id as string;
   
   // 状態管理
@@ -62,7 +62,7 @@ export default function ChatPage() {
         // ① 相手のユーザー情報を user テーブルから取得
         const { data: userData, error: userError } = await supabase
           .from("user")
-          .select("id, username, avatar_url")
+          .select("id, username, icon_src")
           .eq("id", receiverId)
           .single();
 
@@ -153,11 +153,22 @@ export default function ChatPage() {
     }
   };
 
-  // 時間の表示を「11:27 AM」のような形に整形する関数
+  // 時間の表示を整形する関数
   const formatTime = (isoString: string) => {
     try {
       const date = new Date(isoString);
       return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return "";
+    }
+  };
+
+  const formatDateLine = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      const month = date.getMonth() + 1;
+      const day = date.getDate();
+      return `${month}/${day}`;
     } catch {
       return "";
     }
@@ -176,6 +187,7 @@ export default function ChatPage() {
       
       <div className="w-full flex flex-col h-full bg-white relative">
         
+        {/* ヘッダー部分 */}
         <div className="sticky top-0 bg-white/90 backdrop-blur-md z-10 flex items-center border-b border-gray-100 p-4">
           <button 
             onClick={() => router.back()} 
@@ -183,6 +195,16 @@ export default function ChatPage() {
           >
             ←
           </button>
+          
+          {/* 💡 ヘッダーにも相手のアイコン画像を表示するエリアを追加 */}
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 mr-3 flex items-center justify-center border border-gray-100">
+            {partner?.icon_src ? (
+              <img src={partner.icon_src} alt={partner.username} className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-gray-500 text-sm">👤</span>
+            )}
+          </div>
+
           <div className="flex flex-col flex-1">
             <span className="font-bold text-lg">{partner?.username || "ユーザー"}</span>
             <span className="text-xs text-gray-500">@{partner?.username || "user"}</span>
@@ -190,11 +212,22 @@ export default function ChatPage() {
           <button className="text-gray-500 font-bold p-2 hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center">ⓘ</button>
         </div>
 
+        {/* チャットタイムライン部分 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-28">
           
+          {/* 中央のプロフィール紹介部分 */}
           <div className="flex flex-col items-center py-8 border-b border-gray-50 mb-6">
-            <div className="w-20 h-20 bg-gray-200 rounded-full flex items-center justify-center text-gray-500 text-3xl font-bold mb-3">
-              👤
+            {/* 💡 👤 絵文字から、実際の画像を表示するロジックに修正！ */}
+            <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center border border-gray-100 mb-3 shadow-sm">
+              {partner?.icon_src ? (
+                <img 
+                  src={partner.icon_src} 
+                  alt={partner.username} 
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-gray-500 text-3xl">👤</span>
+              )}
             </div>
             <span className="font-bold text-xl">{partner?.username || "ユーザー"}</span>
             <span className="text-gray-500 text-sm">@{partner?.username || "user"}</span>
@@ -202,60 +235,115 @@ export default function ChatPage() {
 
           <div className="text-center text-xs text-gray-400 my-4 font-bold">トークの開始</div>
 
-          {messages.map((msg) => {
+          {messages.map((msg, index) => {
             const isMe = msg.sender_id === myId;
-            
+            let showDateLine = false;
+            if (index === 0) {
+              showDateLine = true; 
+            } else {
+              const prevMsgDate = new Date(messages[index - 1].created_at).toDateString();
+              const currentMsgDate = new Date(msg.created_at).toDateString();
+              if (prevMsgDate !== currentMsgDate) {
+                showDateLine = true; 
+              }
+            }
             return (
-              <div key={msg.id} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
-                <div className="flex items-end gap-1 max-w-[70%]">
-                  <div
-                    className={`px-4 py-2.5 rounded-2xl text-[15px] leading-snug ${
-                      isMe
-                        ? "bg-[#1D9BF0] text-white rounded-br-none" 
-                        : "bg-[#EFF3F4] text-black rounded-bl-none" 
-                    }`}
-                  >
-                    {msg.content}
+              <div key={msg.id} className="w-full">
+                {showDateLine && (
+                    <div className="flex justify-center my-6">
+                      <span className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                        {formatDateLine(msg.created_at)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className={`flex flex-col ${isMe ? "items-end" : "items-start"} mb-4`}>
+                    <div className="flex items-end gap-1 max-w-[70%]">
+                      <div
+                        className={`px-4 py-2.5 rounded-2xl text-[15px] leading-snug ${
+                          isMe
+                            ? "bg-[#1D9BF0] text-white rounded-br-none"
+                            : "bg-[#EFF3F4] text-black rounded-bl-none"
+                        }`}
+                      >
+                        {msg.content}
+                      </div>
+                    </div>
+                    <span className="text-[11px] text-gray-400 mt-1 px-1">
+                      {formatTime(msg.created_at)}
+                    </span>
                   </div>
                 </div>
-                <span className="text-[11px] text-gray-500 mt-1 px-1">
-                  {formatTime(msg.created_at)}
-                </span>
-              </div>
             );
           })}
-          
           <div ref={messagesEndRef} />
         </div>
 
+        {/* フッター（メッセージ入力）部分 */}
         <div className="absolute bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-100 px-6">
           <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-[#EFF3F4] rounded-full px-5 py-2.5">
-            
-            <button type="button" className="text-[#1D9BF0] p-1 hover:bg-blue-50 rounded-full text-xl">🖼️</button>
-            
+    
+            {/* 📸 アルバムアイコン */}
+            <button 
+              type="button" 
+              className="text-[#1D9BF0] p-1 hover:bg-blue-50 rounded-full transition flex items-center justify-center"
+              title="画像を選択"
+            >
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="22" 
+                height="22" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="lucide lucide-album"
+              >
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
+                <polyline points="11 3 11 11 14 8 17 11 17 3"/>
+              </svg>
+            </button>
+    
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Start a message"
+              placeholder="メッセージを入力してください"
               className="flex-1 bg-transparent text-[15px] focus:outline-none placeholder-gray-500 text-black py-1"
             />
-            
+    
+            {/* 🚀 送信アイコン */}
             <button
               type="submit"
               disabled={!inputText.trim()}
-              className={`p-2 rounded-full transition ${
+              className={`p-2 rounded-full transition flex items-center justify-center ${
                 inputText.trim() 
                   ? "text-[#1D9BF0] hover:bg-blue-50" 
                   : "text-gray-300"
               }`}
+              title="メッセージを送信"
             >
-              <span className="text-xl font-bold">▶</span>
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                width="20" 
+                height="20" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="2" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="lucide lucide-send"
+              >
+                <path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/>
+                <path d="m21.854 2.147-10.94 10.939"/>
+              </svg>
             </button>
           </form>
         </div>
-
       </div>
     </div>
-    );
+  );
 }
