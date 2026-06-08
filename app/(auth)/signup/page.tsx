@@ -20,15 +20,15 @@ export default function Signup() {
   //全学部と全学科を取得
   useEffect(() => {
     const fetchData = async () => {
-      const { data:facultyData,error:facultyerror} = await supabase.from('学部').select('*')
-      const { data:deptData} = await supabase.from('学科').select('*')
+      const { data:facultyData,error:facultyerror} = await supabase.from('faculty').select('*')
+      const { data:deptData} = await supabase.from('department').select('*')
       
       if (facultyerror) console.error('学部取得エラー',facultyerror);
-      console.log('取得した学部データ:', facultyData); // ←ここを確認！
+      console.log('取得した学部データ:', facultyData); 
 
       if (facultyData) setFaculties(facultyData);
       if (deptData) setAllDepartments(deptData);
-      console.log('取得した学部データ2:', faculties); // ←ここを確認！
+      console.log('取得した学部データ2:', faculties); 
     };
     fetchData();
   },[]);

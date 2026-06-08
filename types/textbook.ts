@@ -1,8 +1,8 @@
 export type Textbook = {
   id: string;
-  course_name: string;
-  professor_name: string;
-  schedule: string;
-  textbook_title: string;
-  edition?: string;
+  title: string;
+  author: string;
+  publisher: string;
+  isbn: string;
+  pub_year: string;
 };

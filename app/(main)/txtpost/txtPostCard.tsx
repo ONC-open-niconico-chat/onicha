@@ -56,6 +56,36 @@ export function PostCard({ txtpost }: PostCardProps) {
             <div className="flex gap-4 text-sm text-gray-700">
               <span>{txtpost.condition?.name || ""}</span>
             </div>
+
+
+            <div className="flex justify-start pt-2 border-t border-dashed border-gray-200">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
+                  // 1. ボタンの種類によってメッセージを変える
+                  const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
+                  const confirmMessage = `${txtpost.user.username} さんに${actionText}のリクエストを送りますか？`;
+
+                  // 2. 「はい」「いいえ」のダイアログを表示
+                  const hasConfirmed = window.confirm(confirmMessage);
+
+                  // 3. 「はい」が押された場合だけ処理を実行
+                  if (hasConfirmed) {
+                    alert("リクエストを送信しました！相手からの返信をお待ちください。");
+                  } else {
+                    // 「いいえ」の時は何もしない
+                    console.log("リクエストがキャンセルされました。");
+                  }
+                }}
+                className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 ${
+                  txtpost.give_type === "offering"
+                    ? "bg-green-600 hover:bg-green-700 text-white" // 「譲ります」に対しては「譲ってください（グリーン）」
+                    : "bg-blue-600 hover:bg-blue-700 text-white"   // 「譲ってください」に対しては「譲ります（ブルー）」
+                }`}
+              >
+                {txtpost.give_type === "offering" ? "譲ってください 🙌" : "譲ります 📚"}
+              </button>
+            </div>
           </div>
         </div>
       </div>
