@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../../../../components/profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image, Send } from 'lucide-react'; // 💡 Image, Send を追加
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -31,18 +31,25 @@ interface Post {
 }
 
 interface Props {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 export default function App({ params }: Props) {
+  const unwrappedParams = use(params);
+  const userId = unwrappedParams.id;
+
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+
+  // 💡 新規投稿テキストの状態管理を追加
+  const [newPostText, setNewPostText] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // フォロー・フォロワー数の状態管理
   const [followingCount, setFollowingCount] = useState(0);
@@ -52,8 +59,8 @@ export default function App({ params }: Props) {
   const [myId, setMyId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
 
-  // このページが「自分自身のページ」かどうか
-  const isMe = myId === params.id;
+  const isMe = myId === userId;
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -68,11 +75,10 @@ export default function App({ params }: Props) {
 
         setMyId(user.id);
 
-        // 1. URLのID(params.id)に該当するユーザーのプロフィール情報を取得
         const { data: profileData, error: profileError } = await supabase
           .from('user')
           .select('id, username, grade, department_id, icon_src, cover_src, bio')
-          .eq('id', params.id)
+          .eq('id', userId)
           .single();
 
         if (profileError) console.error("❌ ユーザー検索エラー:", profileError.message);
@@ -84,37 +90,35 @@ export default function App({ params }: Props) {
           });
         }
 
-        // 2. ページの主のフォロー・フォロワー数のカウントを取得
         const { count: following, error: followingError } = await supabase
           .from('follows')
           .select('*', { count: 'exact', head: true })
-          .eq('follower_id', params.id);
+          .eq('follower_id', userId);
 
         const { count: followers, error: followersError } = await supabase
           .from('follows')
           .select('*', { count: 'exact', head: true })
-          .eq('following_id', params.id);
+          .eq('following_id', userId);
 
         if (!followingError && following !== null) setFollowingCount(following);
         if (!followersError && followers !== null) setFollowerCount(followers);
-
-        // 2.5 自分がこのユーザーをフォローしているかチェック
-        if (user.id !== params.id) {
+        // 2.5 自分がこのユーザー(userId)をフォローしているかチェック
+        if (user.id !== userId) {
           const { data: followData } = await supabase
             .from('follows')
             .select('id')
             .eq('follower_id', user.id)
-            .eq('following_id', params.id)
+            .eq('following_id', userId)
             .maybeSingle();
 
           setIsFollowing(!!followData);
         }
 
-        // 3. ページの主の投稿をすべて取得
+        // 3. ページの主(userId)の投稿をすべて取得
         const { data: postsData, error: postsError } = await supabase
           .from('post')
           .select('id, content, image_url, created_at, number_of_likes')
-          .eq('user_id', params.id)
+          .eq('user_id', userId)
           .order('created_at', { ascending: false });
 
         if (postsError) throw postsError;
@@ -124,7 +128,7 @@ export default function App({ params }: Props) {
 
           // 自分がいいねしている投稿のIDを取得
           const { data: myLikes } = await supabase
-            .from('likes')
+            .from('like')
             .select('post_id')
             .eq('user_id', user.id)
             .in('post_id', postIds);
@@ -163,12 +167,56 @@ export default function App({ params }: Props) {
     }
 
     fetchData();
-  }, [router, params.id]);
+  }, [router, userId]);
+
+  // 💡 新規投稿（ツイート）をSupabaseに保存する関数を追加
+  const handleCreatePost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPostText.trim() || !myId || isSubmitting) return;
+
+    try {
+      setIsSubmitting(true);
+
+      // Supabaseのpostテーブルにデータを挿入
+      const { data: insertedPost, error } = await supabase
+        .from('post')
+        .insert({
+          user_id: myId,
+          content: newPostText,
+          number_of_likes: 0
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // 画面上の投稿一覧の先頭に、今つぶやいた投稿をリアルタイムで追加
+      const newPostFormatted: Post = {
+        id: insertedPost.id,
+        text: insertedPost.content || '',
+        time: 'たった今',
+        likes_count: 0,
+        is_liked_by_me: false,
+        comments: 0,
+        retweets: 0,
+        image_url: insertedPost.image_url
+      };
+
+      setPosts(prev => [newPostFormatted, ...prev]);
+      setNewPostText(''); // 入力欄を空にする
+
+    } catch (error: any) {
+      console.error('投稿に失敗しました詳細:', error?.message || JSON.stringify(error));
+      alert(`エラー内容: ${error?.message || error?.details || '不明なエラー'}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     router.push('/login');
   };
-
   const handleSaveProfile = async (
     newUsername: string, 
     newGrade: number, 
@@ -270,14 +318,14 @@ export default function App({ params }: Props) {
 
       if (isLikedByMe) {
         const { error: deleteLikeError } = await supabase
-          .from('likes')
+          .from('like')
           .delete()
           .eq('user_id', myId)
           .eq('post_id', postId);
         if (deleteLikeError) throw deleteLikeError;
       } else {
         const { error: insertLikeError } = await supabase
-          .from('likes')
+          .from('like')
           .insert({ user_id: myId, post_id: postId });
         if (insertLikeError) throw insertLikeError;
       }
@@ -289,8 +337,9 @@ export default function App({ params }: Props) {
         
       if (updatePostError) throw updatePostError;
 
-    } catch (error) {
-      console.error('いいねの更新に失敗しました:', error);
+    } catch (error: any) {
+      console.error('いいね更新エラー詳細:', error?.message || JSON.stringify(error));
+      alert(`いいねエラー内容: ${error?.message || error?.details || '不明なエラー'}`);
       setPosts(prevPosts =>
         prevPosts.map(post =>
           post.id === postId
@@ -335,6 +384,7 @@ export default function App({ params }: Props) {
       setFollowerCount(prev => prev + (isFollowing ? 1 : -1));
     }
   };
+
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-gray-500 font-medium">読み込み中...</div>;
   }
@@ -361,7 +411,6 @@ export default function App({ params }: Props) {
       />
     );
   }
-
   return (
     <div className="size-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
       <div className="max-w-2xl mx-auto border-x border-gray-100 min-h-screen">
@@ -479,6 +528,37 @@ export default function App({ params }: Props) {
           </Tabs.List>
 
           <Tabs.Content value="posts">
+            {/* 💡 ツイッター風の新規投稿フォーム（自分のページのみ表示） */}
+            {isMe && (
+              <form onSubmit={handleCreatePost} className="p-4 border-b border-gray-100 flex gap-3 bg-gray-50/30">
+                <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
+                <div className="flex-1">
+                  <textarea
+                    value={newPostText}
+                    onChange={(e) => setNewPostText(e.target.value)}
+                    placeholder="いまどうしてる？"
+                    rows={2}
+                    className="w-full text-[17px] bg-transparent outline-none resize-none placeholder-gray-400 text-gray-900"
+                    disabled={isSubmitting}
+                  />
+                  <div className="flex justify-between items-center pt-2 border-t border-gray-100/50 mt-1">
+                    <div className="text-blue-500 hover:bg-blue-50 p-2 rounded-full cursor-pointer transition">
+                      <Image size={18} />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={!newPostText.trim() || isSubmitting}
+                      className="bg-blue-500 text-white font-bold px-4 py-1.5 rounded-full text-sm hover:bg-blue-600 transition disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <Send size={14} />
+                      {isSubmitting ? '送信中...' : 'ツイート'}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+
+            {/* 投稿一覧 */}
             <div className="divide-y divide-gray-200">
               {posts.map((post) => (
                 <div key={post.id} className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3">
