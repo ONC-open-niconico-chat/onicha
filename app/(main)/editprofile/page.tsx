@@ -9,16 +9,18 @@ interface EditProfileProps {
   initialUsername: string;
   initialGrade: number;
   iconSrc: string;
-  initialBio: string; // ⭕ 名前を initialBio に変更
+  initialCoverSrc: string; // ⭕ 加える：初期カバー画像URL
+  initialBio: string;
   onClose: () => void;
-  // ⭕ 引数に bio を追加
-  onSave: (username: string, grade: number, bio: string, imageFile: File | null) => Promise<void>; 
+  // ⭕ 加える：引数の最後に coverFile を追加
+  onSave: (username: string, grade: number, bio: string, imageFile: File | null, coverFile: File | null) => Promise<void>; 
 }
 
 export default function EditProfile({
   initialUsername,
   initialGrade,
   iconSrc,
+  initialCoverSrc, // ⭕ 加える
   initialBio,
   onClose,
   onSave
@@ -28,10 +30,17 @@ export default function EditProfile({
   const [bio, setBio] = useState(initialBio || "");
   const [isSaving, setIsSaving] = useState(false);
 
+  // アバター画像用
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>(iconSrc);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // ⭕ 加える：カバー画像用のStateとRef
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [previewCoverUrl, setPreviewCoverUrl] = useState<string>(initialCoverSrc);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  // アバター画像が選択されたとき
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -40,8 +49,22 @@ export default function EditProfile({
     }
   };
 
+  // ⭕ 加える：カバー画像が選択されたとき
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setCoverFile(file);
+      setPreviewCoverUrl(URL.createObjectURL(file));
+    }
+  };
+
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
+  };
+
+  // ⭕ 加える：カバー画像エリアがクリックされたとき
+  const handleCoverClick = () => {
+    coverInputRef.current?.click();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -50,8 +73,8 @@ export default function EditProfile({
 
     try {
       setIsSaving(true);
-      // ⭕ 親コンポーネントに bio も一緒に渡す
-      await onSave(username, grade, bio, imageFile); 
+      // ⭕ 加える：imageFile の後ろに coverFile も添えて親に送る
+      await onSave(username, grade, bio, imageFile, coverFile); 
     } catch (error) {
       console.error(error);
     } finally {
@@ -85,6 +108,7 @@ export default function EditProfile({
           </button>
         </div>
 
+        {/* アバター用の隠しインプット */}
         <input 
           type="file" 
           ref={fileInputRef}
@@ -93,19 +117,29 @@ export default function EditProfile({
           className="hidden"
         />
 
+        {/* ⭕ 加える：カバー画像用の隠しインプット */}
+        <input 
+          type="file" 
+          ref={coverInputRef}
+          onChange={handleCoverChange}
+          accept="image/*"
+          className="hidden"
+        />
+
         {/* カバー・アバター画像 */}
         <div className="relative">
-          <div className="relative group">
+          {/* ⭕ 変更：クリックイベントを追加し、divタグに変更して扱いやすく */}
+          <div onClick={handleCoverClick} className="relative group cursor-pointer">
             <ImageWithFallback
-              src="https://unsplash.com"
+              src={previewCoverUrl} // ⭕ 変更：固定URLからプレビューStateに変更
               alt="Cover"
               className="w-full h-48 sm:h-52 object-cover bg-gray-200"
             />
-            <button type="button" className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center">
               <div className="bg-black/60 p-2.5 rounded-full">
                 <Camera size={22} className="text-white" />
               </div>
-            </button>
+            </div>
           </div>
 
           <div className="absolute -bottom-16 left-4 sm:left-6">
@@ -156,7 +190,6 @@ export default function EditProfile({
             </select>
           </div>
 
-          {/* ⭕ 自己紹介の編集エリア（入力可能に変更） */}
           <div>
             <div className="flex justify-between items-center mb-1">
               <label className="block text-xs font-bold text-gray-500">自己紹介</label>

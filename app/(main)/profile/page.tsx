@@ -15,7 +15,8 @@ interface UserProfile {
   grade: number;
   department_id: string | number;
   icon_src: string;
-  bio: string; // ⭕ 必須（またはオプショナル?）として定義
+  cover_src: string; // ⭕ 1. 型定義に cover_src を追加
+  bio: string;
 }
 
 export default function App() {
@@ -33,15 +34,14 @@ export default function App() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         
         if (authError || !user) {
-          console.log("未ログインのため、ログイン画面へ遷移します");
           router.push('/login');
           return;
         }
 
-        // ⭕ セレクトボックスに 'bio' を追加
+        // Supabaseから cover_src も一緒に取得
         const { data, error } = await supabase
           .from('user')
-          .select('id, username, grade, department_id, icon_src, bio')
+          .select('id, username, grade, department_id, icon_src, cover_src, bio')
           .eq('id', user.id)
           .single();
 
@@ -51,8 +51,8 @@ export default function App() {
         if (data) {
           setProfile({
             ...data,
-            // データベースのbioが空(null)だった場合の初期文字列をセット
-            bio: data.bio || '写真と旅行が好きです 📸 | 自然の美しさを記録しています | 東京在住 🗼'
+            bio: data.bio || '',
+            cover_src: data.cover_src || '' // 空なら空文字をセット
           });
         }
       } catch (error) {
@@ -66,60 +66,84 @@ export default function App() {
   }, [router]);
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('ログアウトエラー:', error.message);
-    } else {
-      router.push('/login');
-    }
+    await supabase.auth.signOut();
+    router.push('/login');
   };
 
-  // ⭕ 引数に newBio を追加
-  const handleSaveProfile = async (newUsername: string, newGrade: number, newBio: string, imageFile: File | null) => {
+  // ⭕ 2. 保存関数で coverFile も受け取ってアップデートするよう拡張
+  const handleSaveProfile = async (
+    newUsername: string, 
+    newGrade: number, 
+    newBio: string, 
+    imageFile: File | null,
+    coverFile: File | null // ⭕ 追加
+  ) => {
     if (!profile) return;
 
     try {
       let uploadedIconUrl = profile.icon_src;
+      let uploadedCoverUrl = profile.cover_src;
 
-      // 1. 画像アップロード処理
+      // アバター画像のアップロード処理
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
-        const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+        const fileName = `icon-${profile.id}-${Date.now()}.${fileExt}`;
         const filePath = `icons/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('avatars')
+          .from('avatar')
           .upload(filePath, imageFile, { upsert: true });
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
+          .from('avatar')
           .getPublicUrl(filePath);
 
         uploadedIconUrl = publicUrl;
       }
 
-      // 2. データベースの更新 (bioを追加)
+      // ⭕ カバー画像（背景）のアップロード処理を追加
+      if (coverFile) {
+        const fileExt = coverFile.name.split('.').pop();
+        const fileName = `cover-${profile.id}-${Date.now()}.${fileExt}`;
+        const filePath = `covers/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('avatar')
+          .upload(filePath, coverFile, { upsert: true });
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatar')
+          .getPublicUrl(filePath);
+
+        uploadedCoverUrl = publicUrl;
+      }
+
+      // データベースの更新 (cover_srcも追加)
       const { error: updateError } = await supabase
         .from('user')
         .update({
           username: newUsername,
           grade: newGrade,
-          bio: newBio, // ⭕ 自己紹介を更新
+          bio: newBio,
           icon_src: uploadedIconUrl,
+          cover_src: uploadedCoverUrl // ⭕ 保存
         })
         .eq('id', profile.id);
 
       if (updateError) throw updateError;
 
-      // 3. 画面の表示を更新
+      // 画面の表示を更新
       setProfile({
         ...profile,
         username: newUsername,
         grade: newGrade,
-        bio: newBio, // ⭕ 画面側も同期
-        icon_src: uploadedIconUrl
+        bio: newBio,
+        icon_src: uploadedIconUrl,
+        cover_src: uploadedCoverUrl
       });
       setIsEditing(false);
     } catch (error: any) {
@@ -144,21 +168,25 @@ export default function App() {
     return <div className="flex items-center justify-center min-h-screen text-gray-500 font-medium">読み込み中...</div>;
   }
 
-  const displayProfile = profile || {
-    username: 'データ未取得',
-    grade: 0,
-    department_id: '-',
-    icon_src: 'https://unsplash.com',
-    bio: '写真と旅行が好きです 📸 | 自然の美しさを記録しています | 東京在住 🗼'
+  // ⭕ 各項目ごとに安全にデータを展開（null / 空文字の時はデフォルト画像URLを出す）
+  const displayProfile = {
+    username: profile?.username || 'データ未取得',
+    grade: profile?.grade || 0,
+    department_id: profile?.department_id || '-',
+    icon_src: profile?.icon_src || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
+    cover_src: profile?.cover_src || 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800', // デフォルト背景
+    bio: profile?.bio || 'プロフィールは未設定です。'
   };
 
+  // ⭕ 3. <EditProfile /> に不足していた新しいPropsを渡す
   if (isEditing && profile) {
     return (
       <EditProfile
         initialUsername={profile.username}
         initialGrade={profile.grade}
         iconSrc={displayProfile.icon_src}
-        initialBio={displayProfile.bio} // ⭕ 編集コンポーネントに現在のbioを渡す
+        initialCoverSrc={displayProfile.cover_src} // ⭕ 追加
+        initialBio={displayProfile.bio}
         onClose={() => setIsEditing(false)}
         onSave={handleSaveProfile}
       />
@@ -172,7 +200,7 @@ export default function App() {
         {/* ヘッダー */}
         <div className="relative">
           <ImageWithFallback
-            src="https://unsplash.com"
+            src={displayProfile.cover_src} // ⭕ 保存された背景URLを表示
             alt="Cover"
             className="w-full h-48 sm:h-52 object-cover bg-gray-200"
           />
@@ -224,7 +252,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* ⭕ 保存された最新の自己紹介が表示されます */}
           <p className="text-[15px] leading-relaxed mb-3 whitespace-pre-wrap text-gray-600">
             {displayProfile.bio}
           </p>
