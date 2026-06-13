@@ -4,8 +4,10 @@ import { Heart, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 
+// ★ 修正：型定義に onRefresh?: () => void を追加して ts(2322) エラーを完全抹殺
 interface PostListProps {
   posts: any[];
+  onRefresh?: () => void; // 親（page.tsx）のデータ一括再取得関数
 }
 
 function formatTime(dateString: string) {
@@ -30,13 +32,13 @@ function formatTime(dateString: string) {
   return postDate.toLocaleDateString('ja-JP');
 }
 
-export function PostList({ posts }: PostListProps) {
+export function PostList({ posts, onRefresh }: PostListProps) {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [myLikes, setMyLikes] = useState<Set<number>>(new Set());
-  const [myFollows, setMyFollows] = useState<Set<string>>(new Set()); // ★フォロー中のユーザーID（UUIDの文字列）を管理
+  const [myFollows, setMyFollows] = useState<Set<string>>(new Set()); 
   const [localPosts, setLocalPosts] = useState<any[]>(posts);
 
-  // 1. 親から新しい投稿データが降ってきたら同期
+  // 1. 親から新しい投稿データ（最新のいいね数など）が降ってきたら同期
   useEffect(() => {
     setLocalPosts(posts);
   }, [posts]);
@@ -53,7 +55,7 @@ export function PostList({ posts }: PostListProps) {
             if (likes) setMyLikes(new Set(likes.map(l => l.post_id)));
           });
 
-        // ★ フォロー中の一覧を取得してセット
+        // フォロー中の一覧を取得してセット
         supabase.from('follows').select('following_id').eq('follower_id', userId)
           .then(({ data: follows, error }) => {
             if (error) console.error("フォローデータの取得エラー:", error);
@@ -69,6 +71,8 @@ export function PostList({ posts }: PostListProps) {
     const { error } = await supabase.from('post').delete().eq('id', postId).eq('user_id', currentUserId);
     if (!error) {
       setLocalPosts(prev => prev.filter(p => p.id !== postId));
+      // 削除時も親に通知して全体を同期
+      if (onRefresh) onRefresh();
     }
   };
 
@@ -79,6 +83,7 @@ export function PostList({ posts }: PostListProps) {
     const isLiked = myLikes.has(postId);
     const newCount = isLiked ? Math.max(0, currentLikes - 1) : currentLikes + 1;
 
+    // 先にローカルの見た目を瞬時に切り替える
     setMyLikes(prev => {
       const n = new Set(prev);
       isLiked ? n.delete(postId) : n.add(postId);
@@ -89,6 +94,7 @@ export function PostList({ posts }: PostListProps) {
       p.id === postId ? { ...p, number_of_likes: newCount } : p
     ));
 
+    // Supabaseへのデータ更新（非同期）
     if (!isLiked) {
       await supabase.from('like').insert([{ user_id: currentUserId, post_id: postId }]);
     } else {
@@ -96,16 +102,21 @@ export function PostList({ posts }: PostListProps) {
     }
     
     await supabase.from('post').update({ number_of_likes: newCount }).eq('id', postId);
+
+    // ★ 究極の修正：いいねのDB更新が終わったら、親（page.tsx）の一括更新を即座に叩く！
+    // これにより、おすすめタブ・同学年タブ両方のデータが一瞬で最新化されます。
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
-  // ★ 3. フォロー・フォロー解除ボタンを押した時の処理
+  // 3. フォロー・フォロー解除ボタンを押した時の処理
   const toggleFollow = async (targetUserId: string) => {
     if (!currentUserId) return alert("ログインが必要です");
-    if (currentUserId === targetUserId) return; // 自分自身はフォロー不可
+    if (currentUserId === targetUserId) return; 
 
     const isFollowing = myFollows.has(targetUserId);
 
-    // 先に画面の見た目を切り替える（オプティミスティックアップデート）
     setMyFollows(prev => {
       const n = new Set(prev);
       isFollowing ? n.delete(targetUserId) : n.add(targetUserId);
@@ -113,17 +124,14 @@ export function PostList({ posts }: PostListProps) {
     });
 
     if (!isFollowing) {
-      // フォローする処理
       const { error } = await supabase
         .from('follows')
         .insert([{ follower_id: currentUserId, following_id: targetUserId }]);
       if (error) {
         console.error("フォローに失敗しました:", error);
-        // エラー時は状態を元に戻す
         setMyFollows(prev => { const n = new Set(prev); n.delete(targetUserId); return n; });
       }
     } else {
-      // フォロー解除する処理
       const { error } = await supabase
         .from('follows')
         .delete()
@@ -131,7 +139,6 @@ export function PostList({ posts }: PostListProps) {
         .eq('following_id', targetUserId);
       if (error) {
         console.error("フォロー解除に失敗しました:", error);
-        // エラー時は状態を元に戻す
         setMyFollows(prev => { const n = new Set(prev); n.add(targetUserId); return n; });
       }
     }
@@ -154,7 +161,6 @@ export function PostList({ posts }: PostListProps) {
                 <span className="font-bold text-sm">{post.user?.username || "名無し"}</span>
                 <span className="text-[11px] text-gray-400">{formatTime(post.created_at)}</span>
                 
-                {/* ★ フォロー/解除ボタン：自分以外の投稿の時だけ表示 */}
                 {currentUserId && post.user_id && currentUserId !== post.user_id && (
                   <button
                     onClick={() => toggleFollow(post.user_id)}
