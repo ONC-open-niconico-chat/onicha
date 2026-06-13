@@ -58,11 +58,13 @@ export default function Signup() {
     const deptId = formData.get('department_id') as string;
     const username = formData.get('username') as string;
 
+    const fullEmail = `${email}@${allowedDomain}`;
+
     
     
     // 2. メールの末尾をチェック
-    if (!email.endsWith(`@${allowedDomain}`)) {
-      alert(`琉大の知能情報コースのメールアドレス（@${allowedDomain}）のみ登録可能です。`);
+    if (!fullEmail.endsWith(`@${allowedDomain}`)) {
+      alert(`琉球大学のメールアドレス（@${allowedDomain}）のみ登録可能です。`);
       return; // ここで処理を中断！
     }
     
@@ -73,7 +75,7 @@ export default function Signup() {
     }
 
     const { error } = await supabase.auth.signUp({
-      email,
+      email: fullEmail,
       password,
       options : {
         data: {
@@ -83,12 +85,6 @@ export default function Signup() {
         },
       },
     });
-
-    console.log(email)
-    console.log(password)
-    console.log(grade)
-    console.log(deptId)
-    console.log(username)
 
     if (error) {
       alert("エラーが発生しました：");
@@ -126,7 +122,7 @@ export default function Signup() {
                     name="username"
                     type="text"
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -159,21 +155,27 @@ export default function Signup() {
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  メールアドレス
+                  メールアドレス(eから始まる学籍番号を入力してください)
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    name="email"
-                    type="email"
-                    className={"block w-full pl-10 pr-3 py-2.5 border border-gray-300 focus:border-purple-500"}
-                    placeholder="example@cs.u-ryukyu.ac.jp"
-                    required
-                  />
+                <div className="flex items-center w-full border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500 bg-white transition-colors">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      name="email"
+                      type="text"
+                      className={"block w-full pl-10 pr-3 py-2.5 border border-gray-300 focus:border-purple-500"}
+                      placeholder="eXXXXXX"
+                      autoComplete="one-time-code"
+                      required
+                    />
 
-                  
+                    
+                  </div>
+                  <div className="text-gray-500 text-sm px-4 py-3 border-l border-gray-200 select-none font-medium">
+                    @cs.u-ryukyu.ac.jp
+                  </div>
                 </div>
               </div>
 
@@ -241,6 +243,7 @@ export default function Signup() {
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     placeholder="8文字以上"
                     minLength={8}
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -260,6 +263,7 @@ export default function Signup() {
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     placeholder="パスワードを再入力"
                     minLength={8}
+                    autoComplete="off"
                     required
                   />
                 </div>
