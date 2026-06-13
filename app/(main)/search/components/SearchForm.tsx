@@ -52,7 +52,6 @@ export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
             name="professorName"
             value={params.professorName}
             onChange={handleChange}
-            placeholder="例：山田孝治"
             className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
           />
         </div>

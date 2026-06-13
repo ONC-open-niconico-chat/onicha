@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useState, useCallback, useRef } from "react";
-import { SearchForm } from "../../../components/search/SearchForm";
-import { SearchList } from "../../../components/search/SearchList";
+import { SearchForm } from "./components/SearchForm";
+import { SearchList } from "./components/SearchList";
 import { Textbook } from "../../../types/textbook";
-import { supabase } from "../../../utils/supabaseClient";
+import { supabase } from "@/lib/supabase";
 
 export default function SearchPage() {
   const [results, setResults] = useState<Textbook[]>([]);
