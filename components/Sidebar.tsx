@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
 // 検索アイコン(Search)を追加で読み込むようにしたよ！
-import { Home, Bell, MessageCircle, User, Search, GraduationCap, Handshake } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Search, GraduationCap,Calendar, Handshake } from "lucide-react";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -26,6 +26,7 @@ export function Sidebar() {
         <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5"/>} label="教科書譲渡" active={isActive("/txtpost")} />
         <SidebarItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notifications")} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
+        <SidebarItem href="/calendar" icon={<Calendar className="w-5 h-5" />} label="カレンダー" active={isActive("/calendar")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
         
       </nav>
