@@ -4,7 +4,12 @@ import { useState } from "react";
 import { Search } from "lucide-react";
 
 interface SearchFormProps {
-  onSearch: (params: any) => void;
+  onSearch: (params: {
+    textbookName: string;
+    professorName: string;
+    schedule: string;
+    courseName: string;
+  }) => void;
   loading: boolean;
 }
 
@@ -16,8 +21,11 @@ export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
     courseName: "",
   });
 
+  // 1文字入力のたびに検索（デバウンスは親側で管理）
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setParams({ ...params, [e.target.name]: e.target.value });
+    const updated = { ...params, [e.target.name]: e.target.value };
+    setParams(updated);
+    onSearch(updated);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -44,12 +52,11 @@ export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
             name="professorName"
             value={params.professorName}
             onChange={handleChange}
-            placeholder="例：宮本武佐彦"
             className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
           />
         </div>
         <div>
-          <label className="text-xs font-bold text-gray-500 ml-1">時間割</label>
+          <label className="text-xs font-bold text-gray-500 ml-1">曜日・時限</label>
           <input
             name="schedule"
             value={params.schedule}
@@ -64,7 +71,7 @@ export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
             name="courseName"
             value={params.courseName}
             onChange={handleChange}
-            placeholder="例：数学"
+            placeholder="例：プログラミング"
             className="w-full mt-1 p-3 bg-gray-50 border-none rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition"
           />
         </div>
@@ -72,7 +79,7 @@ export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
       <button
         type="submit"
         disabled={loading}
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition disabled:opacity-60"
       >
         <Search className="w-5 h-5" />
         {loading ? "検索中..." : "検索する"}
