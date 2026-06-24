@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 // 💡 あなたのプロジェクトのSupabaseクライアントのパスに書き換えてください
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
+import { createNotification } from "@/lib/notifications";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -139,18 +140,31 @@ export default function ChatPage() {
     setInputText(""); // 先に入力欄を空にしてサクサク感を出す
 
     // Supabaseの `chat` テーブルにデータを挿入
-    const { error } = await supabase.from("chat").insert([
-      {
-        sender_id: myId,
-        receiver_id: receiverId,
-        content: messageContent,
-      },
-    ]);
+    const { data: inserted, error } = await supabase
+      .from("chat")
+      .insert([
+        {
+          sender_id: myId,
+          receiver_id: receiverId,
+          content: messageContent,
+        },
+      ])
+      .select("id")
+      .single();
 
     if (error) {
       console.error("メッセージの送信に失敗しました:", error);
       alert("送信に失敗しました。もう一度お試しください。");
+      return;
     }
+
+    // 相手に「メッセージが届いた」通知を作成
+    await createNotification({
+      receiverId,
+      senderId: myId,
+      type: "message",
+      chatId: inserted?.id ?? null,
+    });
   };
 
   // 時間の表示を整形する関数
