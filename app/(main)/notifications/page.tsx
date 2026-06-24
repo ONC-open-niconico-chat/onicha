@@ -3,9 +3,13 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { createNotification } from "@/lib/notifications";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Bell, Handshake, MessageCircle, UserPlus } from "lucide-react";
+import { Bell, Check, Handshake, MessageCircle, UserPlus, X } from "lucide-react";
+
+// 譲渡リクエストを承諾したときに投稿へ設定するステータス
+const STATUS_MATCHED = "成立";
 
 // DB の notification テーブル 1 行分
 interface NotificationRow {
@@ -36,6 +40,8 @@ export default function NotificationsPage() {
   const [myId, setMyId] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<DisplayNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  // 承諾／拒否の処理中の通知 ID（ボタンの二重押し防止）
+  const [processingId, setProcessingId] = useState<number | null>(null);
 
   // 通知一覧をまとめて取得して整形する
   const fetchNotifications = useCallback(async (currentUserId: string) => {
@@ -151,16 +157,70 @@ export default function NotificationsPage() {
       .eq("is_read", false);
   };
 
+  // 譲渡リクエストを承諾する：投稿を成立にし、相手に承諾通知を送り、この通知を既読化
+  const handleAccept = async (n: DisplayNotification) => {
+    if (!myId || processingId != null) return;
+    setProcessingId(n.id);
+    try {
+      if (n.txt_post_id != null) {
+        const { error } = await supabase
+          .from("txt_post")
+          .update({ status: STATUS_MATCHED })
+          .eq("id", n.txt_post_id);
+        if (error) throw error;
+      }
+      await createNotification({
+        receiverId: n.sender_id,
+        senderId: myId,
+        type: "request_accepted",
+        txtPostId: n.txt_post_id,
+      });
+      await markAsRead(n.id);
+    } catch (err) {
+      console.error("承諾の処理に失敗しました:", err);
+      alert("承諾の処理に失敗しました。もう一度お試しください。");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // 譲渡リクエストを拒否する：相手に拒否通知を送り、この通知を既読化（投稿は募集中のまま）
+  const handleReject = async (n: DisplayNotification) => {
+    if (!myId || processingId != null) return;
+    setProcessingId(n.id);
+    try {
+      await createNotification({
+        receiverId: n.sender_id,
+        senderId: myId,
+        type: "request_rejected",
+        txtPostId: n.txt_post_id,
+      });
+      await markAsRead(n.id);
+    } catch (err) {
+      console.error("拒否の処理に失敗しました:", err);
+      alert("拒否の処理に失敗しました。もう一度お試しください。");
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
   // 通知をクリックしたときの遷移先と既読処理
   const handleClick = (n: DisplayNotification) => {
+    // 譲渡リクエストは承諾／拒否ボタンで対応するため、本体クリックでは既読にしない
+    if (n.notification_type === "request_for_offering") {
+      router.push("/txtpost");
+      return;
+    }
+
     if (!n.is_read) markAsRead(n.id);
 
     switch (n.notification_type) {
       case "message":
         router.push(`/messages/${n.sender_id}`);
         break;
-      case "request_for_offering":
-        router.push(n.txt_post_id != null ? `/txtpost` : `/messages/${n.sender_id}`);
+      case "request_accepted":
+      case "request_rejected":
+        router.push("/txtpost");
         break;
       case "follow":
         router.push(`/profile/${n.sender_id}`);
@@ -204,7 +264,14 @@ export default function NotificationsPage() {
       ) : (
         <div className="divide-y divide-gray-100">
           {notifications.map((n) => (
-            <NotificationItem key={n.id} notification={n} onClick={() => handleClick(n)} />
+            <NotificationItem
+              key={n.id}
+              notification={n}
+              onClick={() => handleClick(n)}
+              onAccept={() => handleAccept(n)}
+              onReject={() => handleReject(n)}
+              processing={processingId === n.id}
+            />
           ))}
         </div>
       )}
@@ -223,6 +290,26 @@ function describe(n: DisplayNotification): { icon: React.ReactNode; text: React.
           <>
             <span className="font-bold">{name}</span> さんが
             {n.bookTitle ? `「${n.bookTitle}」` : "あなたの出品"}にリクエストしました
+          </>
+        ),
+      };
+    case "request_accepted":
+      return {
+        icon: <Check className="w-5 h-5 text-green-600" />,
+        text: (
+          <>
+            <span className="font-bold">{name}</span> さんがあなたの
+            {n.bookTitle ? `「${n.bookTitle}」` : ""}リクエストを承諾しました🎉
+          </>
+        ),
+      };
+    case "request_rejected":
+      return {
+        icon: <X className="w-5 h-5 text-gray-500" />,
+        text: (
+          <>
+            <span className="font-bold">{name}</span> さんが
+            {n.bookTitle ? `「${n.bookTitle}」` : ""}リクエストを見送りました
           </>
         ),
       };
@@ -259,9 +346,15 @@ function describe(n: DisplayNotification): { icon: React.ReactNode; text: React.
 function NotificationItem({
   notification,
   onClick,
+  onAccept,
+  onReject,
+  processing,
 }: {
   notification: DisplayNotification;
   onClick: () => void;
+  onAccept: () => void;
+  onReject: () => void;
+  processing: boolean;
 }) {
   const { icon, text } = describe(notification);
   const relativeTime = (() => {
@@ -271,6 +364,10 @@ function NotificationItem({
       return "";
     }
   })();
+
+  // 譲渡リクエストの未対応のものだけ、承諾／拒否ボタンを出す
+  const isRequest = notification.notification_type === "request_for_offering";
+  const showActions = isRequest && !notification.is_read;
 
   return (
     <div
@@ -298,6 +395,33 @@ function NotificationItem({
       <div className="flex-1 min-w-0">
         <p className="text-[15px] leading-snug text-black">{text}</p>
         <span className="text-xs text-gray-400">{relativeTime}</span>
+
+        {/* 承諾／拒否ボタン（未対応のリクエストのみ） */}
+        {showActions && (
+          <div className="flex gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={onAccept}
+              disabled={processing}
+              className="flex items-center gap-1 bg-green-600 text-white text-sm font-bold px-4 py-1.5 rounded-full hover:bg-green-700 transition disabled:opacity-50"
+            >
+              <Check className="w-4 h-4" />
+              承諾
+            </button>
+            <button
+              onClick={onReject}
+              disabled={processing}
+              className="flex items-center gap-1 bg-gray-100 text-gray-700 text-sm font-bold px-4 py-1.5 rounded-full hover:bg-gray-200 transition disabled:opacity-50"
+            >
+              <X className="w-4 h-4" />
+              拒否
+            </button>
+          </div>
+        )}
+
+        {/* 対応済みのリクエストの表示 */}
+        {isRequest && notification.is_read && (
+          <p className="text-xs text-gray-400 mt-2 font-bold">対応済み</p>
+        )}
       </div>
 
       {!notification.is_read && <span className="mt-2 w-2.5 h-2.5 rounded-full bg-blue-500 shrink-0" />}

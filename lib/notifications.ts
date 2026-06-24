@@ -3,6 +3,8 @@ import { supabase } from "@/lib/supabase";
 // 通知の種類。DB の notification.notification_type に対応する。
 export type NotificationType =
   | "request_for_offering" // 出品（譲ります）へのリクエスト
+  | "request_accepted" // リクエストが承諾された（リクエスト元へ通知）
+  | "request_rejected" // リクエストが拒否された（リクエスト元へ通知）
   | "message" // メッセージ受信
   | "follow"; // フォローされた
 
