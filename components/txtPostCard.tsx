@@ -7,8 +7,15 @@ interface PostCardProps {
 }
 
 export function PostCard({ txtpost }: PostCardProps) {
+  // 譲渡リクエストが承諾され成立済みの投稿
+  const isMatched = txtpost.status === "成立";
+
   return (
-    <article className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+    <article
+      className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+        isMatched ? "opacity-70" : ""
+      }`}
+    >
       <div className="flex gap-3">
         <Link href={`/profile/${txtpost.user.id}`}>
           <img
@@ -40,7 +47,7 @@ export function PostCard({ txtpost }: PostCardProps) {
                 : "bg-green-50 border-green-200"
             }`}
           >
-            <div className="mb-2">
+            <div className="mb-2 flex items-center gap-2">
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${
                   txtpost.give_type === "offering"
@@ -50,6 +57,11 @@ export function PostCard({ txtpost }: PostCardProps) {
               >
                 {txtpost.give_type === "offering" ? "譲ります" : "譲ってください"}
               </span>
+              {isMatched && (
+                <span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-700 text-white">
+                  ✓ 成立
+                </span>
+              )}
             </div>
 
             <h3 className="font-bold text-lg mb-1">{txtpost.book.title}</h3>
