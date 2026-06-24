@@ -72,7 +72,7 @@ export default function Signup() {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options : {
@@ -93,6 +93,21 @@ export default function Signup() {
     if (error) {
       alert("エラーが発生しました：");
     } else {
+      if (data?.user) {
+        const { error: historyError } = await supabase
+          .from('point')
+          .insert({
+            user_id: data.user.id,        // 新しく生成されたユーザーのID
+            amount: 1000,                 // 累計計算の基準となる最初の1000ポイント
+            point_type: 'signup_bonus'    // 運営が判別するためのタイプ名
+          });
+
+        if (historyError) {
+          // 万が一履歴の作成に失敗してもアカウント作成自体は邪魔しないよう、ログだけ吐き出します
+          console.error("初回ポイント履歴の作成に失敗しました:", historyError);
+        }
+      }
+
       alert("確認メールを送信しました。メールのリンクからログインしてください");
       router.push('/login');
     }
