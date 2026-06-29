@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/utils/supabaseClient";
 import type { ReviewWithCourse } from "@/types/review";
+import Link from "next/link";
+import styles from "./reviews.module.css";
 
 export default function ReviewsPage() {
   const [query, setQuery] = useState("");
@@ -38,6 +40,7 @@ export default function ReviewsPage() {
   }, []);
 
   const filteredReviews = reviews.filter((review) => {
+    if (!review.lecture) return false;
     const keyword = query.trim().toLowerCase();
     if (!keyword) return true;
 
@@ -48,20 +51,20 @@ export default function ReviewsPage() {
   });
 
   return (
-    <div style={{ padding: "24px" }}>
-      <h1>授業レビュー</h1>
+    <div className={styles.container}>
+      <div className={styles.headerArea}>
+        <h1 className={styles.pageTitle}>授業レビュー</h1>
+        <Link href="/reviews/new" className={styles.postLink}>
+          <button className={styles.postButton}>レビューを投稿</button>
+        </Link>
+      </div>
 
       <input
         type="text"
         placeholder="授業名 or 教授名で検索"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        style={{
-          width: "100%",
-          maxWidth: "500px",
-          padding: "10px 12px",
-          marginBottom: "20px",
-        }}
+        className={styles.searchInput}
       />
 
       {loading ? (
@@ -69,20 +72,13 @@ export default function ReviewsPage() {
       ) : filteredReviews.length === 0 ? (
         <p>レビューがありません</p>
       ) : (
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div className={styles.reviewGrid}>
           {filteredReviews.map((review) => (
-            <div
-              key={review.id}
-              style={{
-                border: "1px solid #ddd",
-                borderRadius: "12px",
-                padding: "16px",
-              }}
-            >
+            <div key={review.id} className={styles.reviewCard}>
               <p><strong>授業名:</strong> {review.lecture.title}</p>
               <p><strong>教授名:</strong> {review.lecture.professor}</p>
               <p><strong>評価:</strong> {review.rating} / 5</p>
-              <p style={{ whiteSpace: "pre-wrap" }}>{review.review_text}</p>
+              <p className={styles.reviewText}>{review.review_text}</p>
             </div>
           ))}
         </div>

@@ -1,0 +1,76 @@
+@charset "UTF-8";
+
+
+.container{
+    padding: 24px;
+}
+
+.headerArea{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.postLink{
+    display: inline-block;
+    margin-bottom: 0;
+}
+
+.postButton{
+    padding: 10px 16px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+/*
+ホバー時に濃い青にする
+*/
+.postButton:hover{
+    background-color:#0051a8;
+}
+
+/*
+クリックした時に沈むエフェクト
+*/
+.postButton:active{
+    transform: scale(0.95);
+}
+
+.pageTitle{
+    margin: 0;
+}
+
+.searchInput{
+    width: 100%;
+    max-width: 500px;
+    padding: 10px 12px;
+    margin-bottom: 20px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+.reviewGrid{
+    display: grid;
+    gap: 16px;
+}
+
+.reviewCard{
+    border: 1px solid #ddd;
+    border-radius: 12px;
+    padding: 16px;
+    background-color: #fff;
+}
+
+.reviewText{
+    white-space: pre-wrap;
+    margin: 8px 0 0 0;
+}
+

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/utils/supabaseClient";
-
+import styles from "./NewReview.module.css";
 
 export default function NewReviewPage() {
   const router = useRouter();
@@ -79,12 +79,12 @@ export default function NewReviewPage() {
   };
 
   return (
-    <div style={{ padding: 24 }}>
-      <h1>レビューを書く</h1>
+    <div className={styles.container}>
+      <h1 className={styles.pageTitle}>レビューを書く</h1>
 
-      <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16, maxWidth: 600 }}>
-        <div>
-          <label>授業を検索</label>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.searchWrapper}>
+          <label className={styles.label}>授業を検索</label>
           <input 
             type="text"
             placeholder="授業名または教授名で検索" 
@@ -95,12 +95,12 @@ export default function NewReviewPage() {
               if (selectedLectureId) setSelectedLectureId(""); // 打ち直したらリセット
             }}
             onFocus={() => setIsDropdownOpen(true)} // 👈 クリックした時もリストを開く
-            style={{ width: "100%", padding: 8, marginBottom: 8 }}
+            className={styles.searchInput}
           />
 
           {/* 💡 もし検索窓に何か文字が入っていて、かつ絞り込まれた授業候補が1件以上ある場合だけ、以下の候補リストを表示する（条件分岐） */}
           {isDropdownOpen && searchQuery && filteredLectures.length > 0 && (
-            <div style={{ border: "1px solid #ddd", borderRadius: 4, maxHeight: 200, overflow: "auto" }}>
+            <div className={styles.dropdown}>
               {filteredLectures.map((lecture) => ( // 絞り込まれた候補リスト（配列）を、`.map` を使って1件ずつの表示にループ展開する
                 <div // 候補に表示される、授業1件分のクリックエリア（行）
                   key={lecture.id} // Reactが裏側でこの行を識別するために必要な、データベース上の固有の番号（ID）
@@ -109,13 +109,7 @@ export default function NewReviewPage() {
                     setSelectedLectureId(String(lecture.id)); // クリックされた授業のIDを「これが選ばれた！」と `selectedLectureId` に保存する
                     setIsDropdownOpen(false); // クリックされたらリストを閉じる
                   }}
-                  style={{
-                    padding: 8,
-                    borderBottom: "1px solid #eee",
-                    cursor: "pointer",
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#f0f0f0")} // マウスがこの行の上に乗った瞬間、背景を薄いグレーにして「選べそう」と視覚的に伝える
-                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "white")} // マウスが離れたら、背景色を元の白に戻す
+                  className={styles.dropdownItem}
                   >
                   {lecture.title} / {lecture.professor}
                 </div> 
@@ -124,41 +118,40 @@ export default function NewReviewPage() {
           )}
         </div>
 
-
-
-
-
         <div>
-          <label>レビュー</label>
+          <label className={styles.label}>レビュー</label>
           <textarea
             value={reviewText}
             onChange={(e) => setReviewText(e.target.value)} // ユーザーが文字を書くたびに、その内容を即座に `reviewText` に上書き保存する
             required
             rows={6}
-            style={{ width: "100%", padding: 8 }}
+            className={styles.textarea}
           />
         </div>
 
         <div>
-          <label>評価</label>
-          <select
-            value={rating}
-            onChange={(e) => setRating(e.target.value)}// 別の数字が選ばれたら、その数字を `rating` の箱に上書き保存する
-            style={{ width: "100%", padding: 8 }}
-          >
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select>
+          <label className={styles.label}>評価</label>
+            <div className={styles.starContainer}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  type="button" // ⚠️ これを忘れるとボタンを押したときにフォームが送信されてしまいます
+                  // 今選ばれている数（Number(rating)）以上の星は「空の星」、以下の星は「塗られた星」のクラスを当てる
+                  className={star <= Number(rating) ? styles.starFilled : styles.starEmpty}
+                  onClick={() => setRating(String(star))}
+                >
+                  ★
+                </button>
+              ))}
+              <span className={styles.ratingText}>{rating} / 5</span>
+            </div>
         </div>
 
-        <button type="submit" disabled={loading || !selectedLectureId}>
+        <button type="submit" disabled={loading || !selectedLectureId} className={styles.submitButton}>
           {loading ? "保存中..." : "保存する"}
         </button>
 
-        {message && <p>{message}</p>}
+        {message && <p className={styles.message}>{message}</p>}
       </form>
     </div>
   );
