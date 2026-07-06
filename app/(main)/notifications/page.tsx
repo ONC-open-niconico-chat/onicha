@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
-import { Bell, Check, Handshake, MessageCircle, UserPlus, X } from "lucide-react";
+import { Bell, Check, Gift, Handshake, MessageCircle, UserPlus, X } from "lucide-react";
 
 // 譲渡リクエストを承諾したときに投稿へ設定するステータス
 const STATUS_MATCHED = "成立";
@@ -283,6 +283,16 @@ export default function NotificationsPage() {
 function describe(n: DisplayNotification): { icon: React.ReactNode; text: React.ReactNode } {
   const name = n.sender?.username || "ユーザー";
   switch (n.notification_type) {
+    case "welcome":
+      // システム通知：送信者名は出さない
+      return {
+        icon: <Gift className="w-5 h-5 text-pink-500" />,
+        text: (
+          <>
+            <span className="font-bold">オニチャへようこそ！</span> ご登録ありがとうございます🎉
+          </>
+        ),
+      };
     case "request_for_offering":
       return {
         icon: <Handshake className="w-5 h-5 text-green-600" />,
