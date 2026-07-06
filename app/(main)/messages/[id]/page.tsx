@@ -77,6 +77,15 @@ export default function ChatPage() {
           .order("created_at", { ascending: true }); // 古い順（上から下へ流れる）
 
         if (chatData) setMessages(chatData);
+
+        // ③ このチャット相手からのメッセージ通知を既読にする（開いたら未読を消す）
+        await supabase
+          .from("notification")
+          .update({ is_read: true })
+          .eq("receiver_id", myId)
+          .eq("sender_id", receiverId)
+          .eq("notification_type", "message")
+          .eq("is_read", false);
       } catch (error) {
         console.error("データの取得に失敗しました:", error);
       } finally {
