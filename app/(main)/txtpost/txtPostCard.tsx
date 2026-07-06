@@ -1,5 +1,8 @@
 import  Link  from "next/link";
 import type { Post } from "@/app/(main)/txtpost/page";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/loginUser";
+
 
 interface PostCardProps {
   txtpost: Post;
@@ -7,6 +10,8 @@ interface PostCardProps {
 }
 
 export function PostCard({ txtpost }: PostCardProps) {
+  const { userProfile, loading } = useAuth();
+
   return (
     <article className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
       <div className="flex gap-3">
@@ -60,7 +65,7 @@ export function PostCard({ txtpost }: PostCardProps) {
 
             <div className="flex justify-start pt-2 border-t border-dashed border-gray-200">
               <button
-                onClick={(e) => {
+                onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
                   // 1. ボタンの種類によってメッセージを変える
                   const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
@@ -71,12 +76,21 @@ export function PostCard({ txtpost }: PostCardProps) {
 
                   // 3. 「はい」が押された場合だけ処理を実行
                   if (hasConfirmed) {
-                    alert("リクエストを送信しました！相手からの返信をお待ちください。");
+                    const {data,error} = await supabase.from("notification").insert({
+                      receiver_id : txtpost.user.id,
+                      sender_id : userProfile?.id,
+                      notification_type : txtpost.give_type === "offering" ? "request_for_offering" : "request_for_request",
+                    });
+
+                  if (error) {
+                    console.error("❌ Supabaseインサートエラー詳細:", error);
+                    alert(`エラーが発生しました: ${error.message}`);
                   } else {
-                    // 「いいえ」の時は何もしない
-                    console.log("リクエストがキャンセルされました。");
+                    alert("リクエストを送信しました！相手からの返信をお待ちください。");
                   }
+                  } 
                 }}
+                
                 className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 ${
                   txtpost.give_type === "offering"
                     ? "bg-green-600 hover:bg-green-700 text-white" // 「譲ります」に対しては「譲ってください（グリーン）」

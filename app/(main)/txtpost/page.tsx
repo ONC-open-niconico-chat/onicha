@@ -9,6 +9,7 @@ import CreatePostForm from "./createNewPost";
 import { Plus } from "lucide-react";
 
 
+
 export interface Post {
   id: number;
   user: {
@@ -37,6 +38,7 @@ export default function TxtPostPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRequest, setIsRequest] = useState(false);
 
   
   //データ取得用の関数
