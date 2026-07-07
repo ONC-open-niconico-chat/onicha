@@ -50,6 +50,23 @@ export default function ReviewsPage() {
     );
   });
 
+  const renderStars = (rating: number) => {
+      return (
+        <div className={styles.ratingBox}>
+          {[1, 2, 3, 4, 5].map((num) => (
+            <span
+              key={num}
+              className={num <= rating ? styles.starFilled : styles.starEmpty}
+            >
+              ★
+            </span>
+          ))}
+          <span className={styles.ratingNumber}>{rating} / 5</span>
+        </div>
+      );
+    };
+
+
   return (
     <div className={styles.container}>
       <div className={styles.headerArea}>
@@ -75,9 +92,9 @@ export default function ReviewsPage() {
         <div className={styles.reviewGrid}>
           {filteredReviews.map((review) => (
             <div key={review.id} className={styles.reviewCard}>
-              <p><strong>授業名:</strong> {review.lecture.title}</p>
-              <p><strong>教授名:</strong> {review.lecture.professor}</p>
-              <p><strong>評価:</strong> {review.rating} / 5</p>
+              <h3 className={styles.courseTitle}>{review.lecture.title}</h3>
+              <p className={styles.professorName}>教授: {review.lecture.professor}</p>
+              {renderStars(review.rating)}
               <p className={styles.reviewText}>{review.review_text}</p>
             </div>
           ))}
