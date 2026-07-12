@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
+import { useRouter } from "next/navigation";
 
 
 
@@ -31,6 +32,7 @@ interface NotificationItem {
 export default function NotificationPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchNotifications = async () => {
@@ -78,6 +80,18 @@ export default function NotificationPage() {
 
     fetchNotifications();
   }, []);
+
+
+  // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
+const handleAcceptAndNavigate = (senderId: string, senderName: string) => {
+  // ① {相手の名前}で確認ダイアログを出す
+  const isConfirmed = window.confirm(`${senderName} さんとのチャットを開始しますか？`);
+  
+  if (isConfirmed) {
+    // ② OKならチャット画面へ遷移。その際、URLの末尾に「?first=true」という目印をくっつける！
+    router.push(`/messages/${senderId}?first=true`);
+  }
+};
 
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
@@ -127,6 +141,7 @@ export default function NotificationPage() {
                             <button
                             //onClick={() => handleAction(notif.id, "accepted")}
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                            onClick={() => handleAcceptAndNavigate(notif.sender_id, senderName)}
                             >
                             承諾
                             </button>

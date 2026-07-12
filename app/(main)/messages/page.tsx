@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+
 interface ChatPartner {
   id: string;
   username: string;
@@ -17,6 +18,9 @@ export default function MessageListPage() {
   const [myId, setMyId] = useState<string | null>(null);
   const [partners, setPartners] = useState<ChatPartner[]>([]);
   const [loading, setLoading] = useState(true);
+  
+
+  
 
   useEffect(() => {
     const init = async () => {
