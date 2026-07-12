@@ -24,7 +24,7 @@ export function Sidebar() {
         {/* ここを /search に変更し、アイコンを Search に変更！ */}
         <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
         <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5"/>} label="教科書譲渡" active={isActive("/txtpost")} />
-        <SidebarItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notifications")} />
+        <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
         

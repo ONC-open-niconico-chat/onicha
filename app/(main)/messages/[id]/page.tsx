@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 // 💡 あなたのプロジェクトのSupabaseクライアントのパスに書き換えてください
 import { supabase } from "@/lib/supabase"; 
+import { useSearchParams } from "next/navigation";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -24,6 +25,8 @@ interface UserProfile {
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const [showToast, setShowToast] = useState(false);
   
   // URLから相手のIDを取得（/messages/abc -> "abc"）
   const receiverId = params.id as string;
@@ -37,6 +40,22 @@ export default function ChatPage() {
 
   // 最下部へスクロールするための参照
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  //教科書譲渡のマッチングからチャットを始める際に、メッセージを表示
+  useEffect(() => {
+      // URLに「?first=true」という目印があるかチェック
+      const isFirstTime = searchParams.get("first");
+  
+      if (isFirstTime === "true") {
+        setShowToast(true);
+        const timer = setTimeout(() => {
+        setShowToast(false);
+      }, 3000);
+
+      return () => clearTimeout(timer); 
+        
+      }
+    }, [searchParams]);
 
   // 1. ログイン中の「自分」のIDを取得する
   useEffect(() => {
@@ -184,6 +203,16 @@ export default function ChatPage() {
 
   return (
     <div className="flex bg-white h-screen text-black w-full">
+      {showToast && (
+        <div className="fixed top-10 right-0  z-50 animate-bounce">
+          <div className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-3 rounded-2xl shadow-xl border border-indigo-500 transition-all duration-300">
+            <span className="text-base">🤝</span>
+            <p className="text-sm font-bold tracking-wide">
+              マッチング成立！譲渡の方法を話し合いましょう
+            </p>
+          </div>
+        </div>
+      )}
       
       <div className="w-full flex flex-col h-full bg-white relative">
         
