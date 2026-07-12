@@ -3,11 +3,11 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Plus, AlertCircle } from "lucide-react";
-import { PostDialog } from "@/components/post/PostDialog"; 
-import { PostTabsContent } from "@/components/post/PostTabsContent";
-import { FollowingTimeline } from "@/components/post/FollowingTimeline"; 
-import { Header } from "@/components/layout/Header"; 
-import { HomeTabHeader } from "@/components/home/HomeTabHeader"; 
+import { PostDialog } from "@/app/(main)/homecomponent/post/PostDialog"; 
+import { PostTabsContent } from "@/app/(main)/homecomponent/post/PostTabsContent";
+import { FollowingTimeline } from "@/app/(main)/homecomponent/post/FollowingTimeline"; 
+import { Header } from "@/app/(main)/homecomponent/layout/Header"; 
+import { HomeTabHeader } from "@/app/(main)/homecomponent/home/HomeTabHeader"; 
 import { supabase } from "@/lib/supabase";
 
 export default function HomePage() {
@@ -24,7 +24,7 @@ export default function HomePage() {
   
   const filterLabels = { grade: "同学年", dept: "同学科", faculty: "同学部" };
 
-  // ★ 究極のソート：時差バグを完全修正した決定版
+  // 時差バグを完全修正した決定版
   const sortPostsByMixLogic = (rawPosts: any[]) => {
     const now = new Date().getTime();
 
