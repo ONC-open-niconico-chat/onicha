@@ -34,7 +34,7 @@ export default function NotificationPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
+  
     const fetchNotifications = async () => {
       try {
         setLoading(true);
@@ -64,6 +64,7 @@ export default function NotificationPage() {
                 )
             `)
           .eq("receiver_id", currentUserId)
+          .eq("is_read", false) // 未読の通知のみ取得
           .order("created_at", { ascending: false });
 
           
@@ -77,21 +78,61 @@ export default function NotificationPage() {
         setLoading(false);
       }
     };
-
-    fetchNotifications();
-  }, []);
+  
+  
+    useEffect(() => {
+      fetchNotifications();
+    }, []);
 
 
   // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
-const handleAcceptAndNavigate = (senderId: string, senderName: string) => {
+const handleAcceptAndNavigate = async (notificationId: string, senderId: string, senderName: string) => {
   // ① {相手の名前}で確認ダイアログを出す
   const isConfirmed = window.confirm(`${senderName} さんとのチャットを開始しますか？`);
   
   if (isConfirmed) {
-    // ② OKならチャット画面へ遷移。その際、URLの末尾に「?first=true」という目印をくっつける！
+    await fetchNotifications();
+
+    try {
+    // 🟢 追記：Supabaseの notification テーブルの is_read を true（既読）に更新！
+    const { error } = await supabase
+      .from("notification")
+      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
+
+    if (error) throw error; // もしエラーが起きたら catch ブロックへ飛ばす
+
+    // ② 既読更新が成功したら、チャット画面へ遷移！
+    router.push(`/messages/${senderId}?first=true`);
+    
+  } catch (error) {
+    console.error("通知の既読更新に失敗しました:", error);
     router.push(`/messages/${senderId}?first=true`);
   }
+    router.push(`/messages/${senderId}?first=true`);
+
+  }
 };
+
+const handleReject = async (notificationId: string) => {
+  const isConfirmed = window.confirm("このリクエストを拒否しますか？");
+  
+  if (isConfirmed) {
+    await fetchNotifications();
+    
+    try {
+      // 🔴 追記：Supabaseの notification テーブルの is_read を true（既読）に更新！
+      const { error } = await supabase
+      .from("notification")
+      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("通知の既読更新に失敗しました:", error);
+  }
+};
+}
 
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
@@ -141,7 +182,7 @@ const handleAcceptAndNavigate = (senderId: string, senderName: string) => {
                             <button
                             //onClick={() => handleAction(notif.id, "accepted")}
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={() => handleAcceptAndNavigate(notif.sender_id, senderName)}
+                            onClick={() => handleAcceptAndNavigate(notif.id,notif.sender_id, senderName)}
                             >
                             承諾
                             </button>
@@ -150,7 +191,9 @@ const handleAcceptAndNavigate = (senderId: string, senderName: string) => {
                             <button
                             //onClick={() => handleAction(notif.id, "rejected")}
                             className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-bold text-sm rounded-xl shadow-sm transition-all"
+                            onClick={() => handleReject(notif.id)}
                             >
+                              
                             拒否
                             </button>
                         </>
