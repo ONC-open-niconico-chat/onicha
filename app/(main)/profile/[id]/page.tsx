@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, use } from 'react';
+import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../../../../components/profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -44,11 +44,15 @@ interface Props {
   }>;
 }
 
+// 画像アップロードの制限（バリデーション用）
+const MAX_IMAGE_SIZE_MB = 5;
+const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+
 // 💡 投稿日時を「〇分前」「〇日前」「〇週間前」に変換する関数
 function formatPostTime(createdAtString: string): string {
   const postDate = new Date(createdAtString);
   const diffMs = Date.now() - postDate.getTime();
-  
+
   const diffMins = Math.floor(diffMs / (1000 * 60));
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -59,8 +63,19 @@ function formatPostTime(createdAtString: string): string {
   if (diffHours < 24) return `${diffHours}時間前`;
   if (diffDays < 7) return `${diffDays}日前`;
   if (diffWeeks < 5) return `${diffWeeks}週間前`;
-  
+
   return postDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
+}
+
+// 💡 画像ファイルのバリデーション（種類・サイズ）
+function validateImageFile(file: File): string | null {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    return '対応していないファイル形式です（JPEG, PNG, GIF, WEBPのみ）';
+  }
+  if (file.size > MAX_IMAGE_SIZE_MB * 1024 * 1024) {
+    return `画像サイズは${MAX_IMAGE_SIZE_MB}MB以下にしてください`;
+  }
+  return null;
 }
 
 export default function App({ params }: Props) {
@@ -80,7 +95,7 @@ export default function App({ params }: Props) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 💡 画像拡大表示用の状態管理を追加
+  // 💡 画像拡大表示用の状態管理
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
 
   // フォロー・フォロワー数の状態管理
@@ -90,6 +105,7 @@ export default function App({ params }: Props) {
   // ログイン情報・フォロー状態の管理
   const [myId, setMyId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowPending, setIsFollowPending] = useState(false); // 💡 フォロー連打防止
 
   // FF欄モーダルの状態管理
   const [ffModalOpen, setFfModalOpen] = useState(false);
@@ -97,12 +113,23 @@ export default function App({ params }: Props) {
   const [ffUsers, setFfUsers] = useState<FFUser[]>([]);
   const [loadingFF, setLoadingFF] = useState(false);
 
+  // 💡 いいね連打防止（処理中の投稿IDを保持）
+  const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
+
+  // 💡 alert()の代わりに使うエラーバナー
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
   const isMe = myId === userId;
+
+  const showError = useCallback((message: string) => {
+    setErrorMessage(message);
+  }, []);
+
   // 💡 投稿後に直接呼び出して画面を完全同期するため、fetchDataを共通関数として定義
-  const fetchAllData = async () => {
+  const fetchAllData = useCallback(async () => {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      
+
       if (authError || !user) {
         router.push('/login');
         return;
@@ -194,20 +221,29 @@ export default function App({ params }: Props) {
 
     } catch (error) {
       console.error('データ取得エラー:', error);
+      showError('データの取得に失敗しました。再読み込みしてください。');
     } finally {
       setLoading(false);
     }
-  };
+  }, [router, userId, showError]);
 
-  // 初回読み込み時の実行
+  // 初回読み込み時の実行（userIdが変わった時のみ再取得）
   useEffect(() => {
     setLoading(true);
     fetchAllData();
-  }, [router, userId]);
-  // 画像が選択された時の処理
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // 画像が選択された時の処理（バリデーション付き）
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        showError(validationError);
+        e.target.value = ''; // 同じファイルを選び直せるようにリセット
+        return;
+      }
       setSelectedImage(file);
       setImagePreview(URL.createObjectURL(file)); // プレビュー用URLの生成
     }
@@ -263,7 +299,7 @@ export default function App({ params }: Props) {
 
     } catch (error: any) {
       console.error('投稿に失敗しました詳細:', error?.message || JSON.stringify(error));
-      alert(`エラー内容: ${error?.message || '不明なエラー'}`);
+      showError(`投稿に失敗しました: ${error?.message || '不明なエラー'}`);
     } finally {
       setIsSubmitting(false);
     }
@@ -275,13 +311,23 @@ export default function App({ params }: Props) {
   };
 
   const handleSaveProfile = async (
-    newUsername: string, 
-    newGrade: number, 
-    newBio: string, 
+    newUsername: string,
+    newGrade: number,
+    newBio: string,
     imageFile: File | null,
     coverFile: File | null
   ) => {
     if (!profile) return;
+
+    // 💡 アップロード前にまとめてバリデーション
+    if (imageFile) {
+      const err = validateImageFile(imageFile);
+      if (err) { showError(err); return; }
+    }
+    if (coverFile) {
+      const err = validateImageFile(coverFile);
+      if (err) { showError(err); return; }
+    }
 
     try {
       let uploadedIconUrl = profile.icon_src;
@@ -340,12 +386,15 @@ export default function App({ params }: Props) {
       setIsEditing(false);
     } catch (error: any) {
       console.error('プロフィール更新エラー:', error.message);
-      alert('プロフィールの更新に失敗しました。');
+      showError('プロフィールの更新に失敗しました。');
     }
   };
 
+  // 💡 いいね連打防止つき + 楽観的アップデート
   const handleLikeToggle = async (postId: number, isLikedByMe: boolean) => {
-    if (!myId) return;
+    if (!myId || pendingLikeIds.has(postId)) return;
+
+    setPendingLikeIds(prev => new Set(prev).add(postId));
 
     // 画面の数値を先行して切り替える（楽観的アップデート）
     setPosts(prevPosts =>
@@ -389,12 +438,22 @@ export default function App({ params }: Props) {
 
     } catch (error: any) {
       console.error('いいね更新エラー詳細:', error?.message || JSON.stringify(error));
+      showError('いいねの更新に失敗しました。');
       await fetchAllData(); // 失敗時は正しい状態に再取得
+    } finally {
+      setPendingLikeIds(prev => {
+        const next = new Set(prev);
+        next.delete(postId);
+        return next;
+      });
     }
   };
-  const handleFollowToggle = async () => {
-    if (!myId || !profile || isMe) return;
 
+  // 💡 フォロー連打防止つき
+  const handleFollowToggle = async () => {
+    if (!myId || !profile || isMe || isFollowPending) return;
+
+    setIsFollowPending(true);
     const nextFollowingState = !isFollowing;
     setIsFollowing(nextFollowingState);
     setFollowerCount(prev => prev + (nextFollowingState ? 1 : -1));
@@ -418,8 +477,11 @@ export default function App({ params }: Props) {
       }
     } catch (error) {
       console.error('フォロー処理に失敗しました:', error);
+      showError('フォロー処理に失敗しました。');
       setIsFollowing(isFollowing);
       setFollowerCount(prev => prev + (isFollowing ? 1 : -1));
+    } finally {
+      setIsFollowPending(false);
     }
   };
 
@@ -469,11 +531,11 @@ export default function App({ params }: Props) {
       }
     } catch (error) {
       console.error('FFリストの取得に失敗しました:', error instanceof Error ? error.message : error);
+      showError('リストの取得に失敗しました。');
     } finally {
       setLoadingFF(false);
     }
   };
-
 
   if (loading) {
     return <div className="flex items-center justify-center min-h-screen text-gray-500 font-medium">読み込み中...</div>;
@@ -504,8 +566,23 @@ export default function App({ params }: Props) {
 
   return (
     <div className="w-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
+      {/* 💡 エラーバナー（alert()の代替） */}
+      {errorMessage && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)] bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 shadow-lg flex items-start gap-2">
+          <AlertCircle size={18} className="shrink-0 mt-0.5" />
+          <p className="text-sm flex-1">{errorMessage}</p>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="shrink-0 text-red-400 hover:text-red-600 transition"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <div className="w-full min-h-screen border-l border-gray-100">
-        
+
         {/* ヘッダー・カバー */}
         <div className="relative">
           <ImageWithFallback
@@ -516,9 +593,9 @@ export default function App({ params }: Props) {
           <div className="absolute -bottom-16 left-4 sm:left-6">
             <Avatar
               src={displayProfile.icon_src}
-              sx={{ 
-                width: { xs: 96, sm: 136 }, 
-                height: { xs: 96, sm: 136 }, 
+              sx={{
+                width: { xs: 96, sm: 136 },
+                height: { xs: 96, sm: 136 },
                 border: '4px solid white',
                 backgroundColor: '#e5e7eb'
               }}
@@ -530,7 +607,7 @@ export default function App({ params }: Props) {
         <div className="flex justify-end pt-3 pr-4 sm:pr-6 h-16 gap-2">
           {isMe ? (
             <>
-              <button 
+              <button
                 onClick={handleLogout}
                 className="h-9 px-4 rounded-full border border-red-200 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
               >
@@ -538,7 +615,7 @@ export default function App({ params }: Props) {
                 ログアウト
               </button>
 
-              <button 
+              <button
                 onClick={() => setIsEditing(true)}
                 className="h-9 px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2"
               >
@@ -547,11 +624,12 @@ export default function App({ params }: Props) {
               </button>
             </>
           ) : (
-            <button 
+            <button
               onClick={handleFollowToggle}
-              className={`h-9 px-5 rounded-full text-sm font-bold transition-all border duration-200 ${
-                isFollowing 
-                  ? 'bg-white text-gray-900 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group' 
+              disabled={isFollowPending}
+              className={`h-9 px-5 rounded-full text-sm font-bold transition-all border duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
+                isFollowing
+                  ? 'bg-white text-gray-900 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group'
                   : 'bg-gray-900 text-white border-transparent hover:bg-gray-800'
               }`}
             >
@@ -600,7 +678,7 @@ export default function App({ params }: Props) {
 
             {!isMe && (
               <button
-                onClick={() => router.push(`/messages/${userId}`)} 
+                onClick={() => router.push(`/messages/${userId}`)}
                 className="h-7 px-3 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm shrink-0 flex items-center gap-1.5 ml-1"
               >
                 <Mail size={13} />
@@ -689,70 +767,74 @@ export default function App({ params }: Props) {
             )}
             {/* 投稿一覧（タイムライン） */}
             <div className="divide-y divide-gray-200">
-              {posts.map((post) => (
-                <div key={post.id} className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3">
-                  <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
-                      <span className="font-bold hover:underline">{displayProfile.username}</span>
-                      <span className="text-gray-500 text-sm">·</span>
-                      <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
-                    </div>
-                    <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
-                    
-                    {/* 💡 Supabaseから取得した画像URLがある場合に16:9で綺麗に表示 */}
-                    {post.image_url && (
-                      <div 
-                        onClick={(e) => {
-                          e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
-                          setActiveImageUrl(post.image_url || null); // 💡 クリックされた画像を拡大表示
-                        }}
-                        className="mt-2 mb-3 w-full aspect-[16/9] max-h-72 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
-                      >
-                        <img 
-                          src={post.image_url} 
-                          alt="Post media" 
-                          className="w-full h-full object-cover group-hover:brightness-95 transition duration-200" 
-                        />
+              {posts.map((post) => {
+                const isLikePending = pendingLikeIds.has(post.id);
+                return (
+                  <div key={post.id} className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3">
+                    <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
+                        <span className="font-bold hover:underline">{displayProfile.username}</span>
+                        <span className="text-gray-500 text-sm">·</span>
+                        <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
                       </div>
-                    )}
+                      <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
 
-                    {/* アクションボタン（いいね等） */}
-                    <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2">
-                      <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
-                        <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
-                        <span className="text-xs">{post.comments}</span>
-                      </button>
-                      <button type="button" className="flex items-center gap-1.5 hover:text-green-500 group p-2 rounded-full transition">
-                        <Repeat2 size={18} className="group-hover:bg-green-50 rounded-full transition" />
-                        <span className="text-xs">{post.retweets}</span>
-                      </button>
-                      
-                      <button 
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation(); // 親要素のクリックイベントを防止
-                          handleLikeToggle(post.id, post.is_liked_by_me);
-                        }}
-                        className={`flex items-center gap-1.5 group p-2 rounded-full transition ${
-                          post.is_liked_by_me ? 'text-red-500' : 'hover:text-red-500 text-gray-500'
-                        }`}
-                      >
-                        <Heart 
-                          size={18} 
-                          className="group-hover:bg-red-50 rounded-full transition" 
-                          fill={post.is_liked_by_me ? "currentColor" : "none"} 
-                        />
-                        <span className="text-xs">{post.likes_count}</span>
-                      </button>
+                      {/* 💡 Supabaseから取得した画像URLがある場合に16:9で綺麗に表示 */}
+                      {post.image_url && (
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
+                            setActiveImageUrl(post.image_url || null); // 💡 クリックされた画像を拡大表示
+                          }}
+                          className="mt-2 mb-3 w-full aspect-[16/9] max-h-72 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
+                        >
+                          <img
+                            src={post.image_url}
+                            alt="Post media"
+                            className="w-full h-full object-cover group-hover:brightness-95 transition duration-200"
+                          />
+                        </div>
+                      )}
 
-                      <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
-                        <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
-                      </button>
+                      {/* アクションボタン（いいね等） */}
+                      <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2">
+                        <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
+                          <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
+                          <span className="text-xs">{post.comments}</span>
+                        </button>
+                        <button type="button" className="flex items-center gap-1.5 hover:text-green-500 group p-2 rounded-full transition">
+                          <Repeat2 size={18} className="group-hover:bg-green-50 rounded-full transition" />
+                          <span className="text-xs">{post.retweets}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={isLikePending}
+                          onClick={(e) => {
+                            e.stopPropagation(); // 親要素のクリックイベントを防止
+                            handleLikeToggle(post.id, post.is_liked_by_me);
+                          }}
+                          className={`flex items-center gap-1.5 group p-2 rounded-full transition disabled:opacity-60 disabled:cursor-not-allowed ${
+                            post.is_liked_by_me ? 'text-red-500' : 'hover:text-red-500 text-gray-500'
+                          }`}
+                        >
+                          <Heart
+                            size={18}
+                            className="group-hover:bg-red-50 rounded-full transition"
+                            fill={post.is_liked_by_me ? "currentColor" : "none"}
+                          />
+                          <span className="text-xs">{post.likes_count}</span>
+                        </button>
+
+                        <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
+                          <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Tabs.Content>
 
@@ -773,7 +855,7 @@ export default function App({ params }: Props) {
           <div className="relative bg-white w-full max-w-md h-[80vh] rounded-2xl flex flex-col shadow-xl overflow-hidden">
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <h2 className="text-lg font-bold text-gray-900">{ffModalTitle}</h2>
-              <button 
+              <button
                 type="button"
                 onClick={() => setFfModalOpen(false)}
                 className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 font-bold text-sm transition"
@@ -793,8 +875,8 @@ export default function App({ params }: Props) {
                 </div>
               ) : (
                 ffUsers.map((u) => (
-                  <div 
-                    key={u.id} 
+                  <div
+                    key={u.id}
                     onClick={() => {
                       setFfModalOpen(false);
                       router.push(`/profile/${u.id}`);
@@ -821,9 +903,9 @@ export default function App({ params }: Props) {
         </div>
       )}
 
-      {/* 💡 新機能：画像拡大表示用ポップアップモーダル */}
+      {/* 💡 画像拡大表示用ポップアップモーダル */}
       {activeImageUrl && (
-        <div 
+        <div
           onClick={() => setActiveImageUrl(null)} // 黒背景クリックで閉じる
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
         >
@@ -834,7 +916,7 @@ export default function App({ params }: Props) {
           >
             閉じる
           </button>
-          
+
           <div className="relative max-w-5xl max-h-[90vh] flex items-center justify-center">
             <img
               src={activeImageUrl}
