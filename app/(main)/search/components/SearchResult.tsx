@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { BookText, User, Calendar, GraduationCap } from "lucide-react";
-import { Textbook } from "../../types/textbook";
+import { Textbook } from "@/types/textbook";
 
 export const SearchResult = ({ item }: { item: Textbook }) => {
   return (
