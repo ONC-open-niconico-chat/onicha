@@ -6,8 +6,7 @@ export type NotificationType =
   | "request_accepted" // リクエストが承諾された（リクエスト元へ通知）
   | "request_rejected" // リクエストが拒否された（リクエスト元へ通知）
   | "message" // メッセージ受信
-  | "follow" // フォローされた
-  | "welcome"; // 新規登録時のウェルカム通知（DBトリガーで作成）
+  | "follow"; // フォローされた
 
 export interface CreateNotificationParams {
   receiverId: string; // 通知を受け取るユーザー
