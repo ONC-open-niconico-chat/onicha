@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ImageWithFallback } from '../../../../components/profile/ImageWithFallback';
+import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
 import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -48,7 +48,7 @@ interface Props {
 const MAX_IMAGE_SIZE_MB = 5;
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-// 💡 投稿日時を「〇分前」「〇日前」「〇週間前」に変換する関数
+// 投稿日時を「〇分前」「〇日前」「〇週間前」に変換する関数
 function formatPostTime(createdAtString: string): string {
   const postDate = new Date(createdAtString);
   const diffMs = Date.now() - postDate.getTime();
@@ -67,7 +67,7 @@ function formatPostTime(createdAtString: string): string {
   return postDate.toLocaleDateString('ja-JP', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-// 💡 画像ファイルのバリデーション（種類・サイズ）
+// 画像ファイルのバリデーション（種類・サイズ）
 function validateImageFile(file: File): string | null {
   if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
     return '対応していないファイル形式です（JPEG, PNG, GIF, WEBPのみ）';
@@ -95,7 +95,7 @@ export default function App({ params }: Props) {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 💡 画像拡大表示用の状態管理
+  // 画像拡大表示用の状態管理
   const [activeImageUrl, setActiveImageUrl] = useState<string | null>(null);
 
   // フォロー・フォロワー数の状態管理
@@ -105,7 +105,7 @@ export default function App({ params }: Props) {
   // ログイン情報・フォロー状態の管理
   const [myId, setMyId] = useState<string | null>(null);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [isFollowPending, setIsFollowPending] = useState(false); // 💡 フォロー連打防止
+  const [isFollowPending, setIsFollowPending] = useState(false); // フォロー連打防止
 
   // FF欄モーダルの状態管理
   const [ffModalOpen, setFfModalOpen] = useState(false);
@@ -113,10 +113,10 @@ export default function App({ params }: Props) {
   const [ffUsers, setFfUsers] = useState<FFUser[]>([]);
   const [loadingFF, setLoadingFF] = useState(false);
 
-  // 💡 いいね連打防止（処理中の投稿IDを保持）
+  // いいね連打防止（処理中の投稿IDを保持）
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
 
-  // 💡 alert()の代わりに使うエラーバナー
+  // alert()の代わりに使うエラーバナー
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const isMe = myId === userId;
@@ -125,7 +125,7 @@ export default function App({ params }: Props) {
     setErrorMessage(message);
   }, []);
 
-  // 💡 投稿後に直接呼び出して画面を完全同期するため、fetchDataを共通関数として定義
+  // 投稿後に直接呼び出して画面を完全同期するため、fetchDataを共通関数として定義
   const fetchAllData = useCallback(async () => {
     try {
       const { data: { user }, error: authError } = await supabase.auth.getUser();
@@ -319,7 +319,7 @@ export default function App({ params }: Props) {
   ) => {
     if (!profile) return;
 
-    // 💡 アップロード前にまとめてバリデーション
+    //  アップロード前にまとめてバリデーション
     if (imageFile) {
       const err = validateImageFile(imageFile);
       if (err) { showError(err); return; }
@@ -390,7 +390,7 @@ export default function App({ params }: Props) {
     }
   };
 
-  // 💡 いいね連打防止つき + 楽観的アップデート
+  //  いいね連打防止つき + 楽観的アップデート
   const handleLikeToggle = async (postId: number, isLikedByMe: boolean) => {
     if (!myId || pendingLikeIds.has(postId)) return;
 
@@ -449,7 +449,7 @@ export default function App({ params }: Props) {
     }
   };
 
-  // 💡 フォロー連打防止つき
+  // フォロー連打防止つき
   const handleFollowToggle = async () => {
     if (!myId || !profile || isMe || isFollowPending) return;
 
@@ -566,7 +566,7 @@ export default function App({ params }: Props) {
 
   return (
     <div className="w-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
-      {/* 💡 エラーバナー（alert()の代替） */}
+      {/*  エラーバナー（alert()の代替） */}
       {errorMessage && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)] bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 shadow-lg flex items-start gap-2">
           <AlertCircle size={18} className="shrink-0 mt-0.5" />
@@ -709,7 +709,7 @@ export default function App({ params }: Props) {
           </Tabs.List>
 
           <Tabs.Content value="posts">
-            {/* 💡 画像アップロード・プレビューに対応した新規投稿フォーム */}
+            {/*  画像アップロード・プレビューに対応した新規投稿フォーム */}
             {isMe && (
               <form onSubmit={handleCreatePost} className="p-4 border-b border-gray-100 flex gap-3 bg-gray-50/30">
                 <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
@@ -723,7 +723,7 @@ export default function App({ params }: Props) {
                     disabled={isSubmitting}
                   />
 
-                  {/* 💡 画像が選択されている場合はプレビューと削除ボタンを表示 */}
+                  {/*  画像が選択されている場合はプレビューと削除ボタンを表示 */}
                   {imagePreview && (
                     <div className="relative mt-2 mb-3 max-h-60 rounded-xl overflow-hidden border border-gray-200 inline-block">
                       <img src={imagePreview} alt="Selected preview" className="max-h-60 object-cover rounded-xl" />
@@ -741,7 +741,7 @@ export default function App({ params }: Props) {
                   )}
 
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100/50 mt-1">
-                    {/* 💡 画像アイコンをクリックすると隠しinput[type=file]が動く仕組み */}
+                    {/* 画像アイコンをクリックすると隠しinput[type=file]が動く仕組み */}
                     <label className="text-blue-500 hover:bg-blue-50 p-2 rounded-full cursor-pointer transition flex items-center justify-center">
                       <ImageIcon size={18} />
                       <input
@@ -780,12 +780,12 @@ export default function App({ params }: Props) {
                       </div>
                       <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
 
-                      {/* 💡 Supabaseから取得した画像URLがある場合に16:9で綺麗に表示 */}
+                      {/*  Supabaseから取得した画像URLがある場合に16:9で綺麗に表示 */}
                       {post.image_url && (
                         <div
                           onClick={(e) => {
                             e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
-                            setActiveImageUrl(post.image_url || null); // 💡 クリックされた画像を拡大表示
+                            setActiveImageUrl(post.image_url || null); //  クリックされた画像を拡大表示
                           }}
                           className="mt-2 mb-3 w-full aspect-[16/9] max-h-72 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
                         >
@@ -903,7 +903,7 @@ export default function App({ params }: Props) {
         </div>
       )}
 
-      {/* 💡 画像拡大表示用ポップアップモーダル */}
+      {/*  画像拡大表示用ポップアップモーダル */}
       {activeImageUrl && (
         <div
           onClick={() => setActiveImageUrl(null)} // 黒背景クリックで閉じる

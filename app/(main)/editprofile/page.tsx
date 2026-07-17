@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { ImageWithFallback } from '../../../components/profile/ImageWithFallback';
+import { ImageWithFallback } from '../profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
 import { X, Camera } from 'lucide-react';
 
@@ -9,10 +9,10 @@ interface EditProfileProps {
   initialUsername: string;
   initialGrade: number;
   iconSrc: string;
-  initialCoverSrc: string; // ⭕ 加える：初期カバー画像URL
+  initialCoverSrc: string; //初期カバー画像URL
   initialBio: string;
   onClose: () => void;
-  // ⭕ 加える：引数の最後に coverFile を追加
+  // 引数の最後に coverFile を追加
   onSave: (username: string, grade: number, bio: string, imageFile: File | null, coverFile: File | null) => Promise<void>; 
 }
 
@@ -20,7 +20,7 @@ export default function EditProfile({
   initialUsername,
   initialGrade,
   iconSrc,
-  initialCoverSrc, // ⭕ 加える
+  initialCoverSrc, 
   initialBio,
   onClose,
   onSave
@@ -35,7 +35,7 @@ export default function EditProfile({
   const [previewUrl, setPreviewUrl] = useState<string>(iconSrc);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ⭕ 加える：カバー画像用のStateとRef
+  // カバー画像用のStateとRef
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [previewCoverUrl, setPreviewCoverUrl] = useState<string>(initialCoverSrc);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -49,7 +49,7 @@ export default function EditProfile({
     }
   };
 
-  // ⭕ 加える：カバー画像が選択されたとき
+  // カバー画像が選択されたとき
   const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
@@ -62,7 +62,7 @@ export default function EditProfile({
     fileInputRef.current?.click();
   };
 
-  // ⭕ 加える：カバー画像エリアがクリックされたとき
+  // カバー画像エリアがクリックされたとき
   const handleCoverClick = () => {
     coverInputRef.current?.click();
   };
@@ -73,7 +73,7 @@ export default function EditProfile({
 
     try {
       setIsSaving(true);
-      // ⭕ 加える：imageFile の後ろに coverFile も添えて親に送る
+      // imageFile の後ろに coverFile も添えて親に送る
       await onSave(username, grade, bio, imageFile, coverFile); 
     } catch (error) {
       console.error(error);
@@ -117,7 +117,7 @@ export default function EditProfile({
           className="hidden"
         />
 
-        {/* ⭕ 加える：カバー画像用の隠しインプット */}
+        {/* カバー画像用の隠しインプット */}
         <input 
           type="file" 
           ref={coverInputRef}
@@ -128,10 +128,10 @@ export default function EditProfile({
 
         {/* カバー・アバター画像 */}
         <div className="relative">
-          {/* ⭕ 変更：クリックイベントを追加し、divタグに変更して扱いやすく */}
+          {/* クリックイベントを追加し、divタグに変更して扱いやすく */}
           <div onClick={handleCoverClick} className="relative group cursor-pointer">
             <ImageWithFallback
-              src={previewCoverUrl} // ⭕ 変更：固定URLからプレビューStateに変更
+              src={previewCoverUrl} // 固定URLからプレビューStateに変更
               alt="Cover"
               className="w-full h-48 sm:h-52 object-cover bg-gray-200"
             />
