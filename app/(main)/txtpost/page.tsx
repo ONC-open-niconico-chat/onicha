@@ -38,7 +38,7 @@ export default function TxtPostPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isRequest, setIsRequest] = useState(false);
+  const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
 
   
   //データ取得用の関数
@@ -116,6 +116,11 @@ export default function TxtPostPage() {
     fetchPosts();
   }, []);
 
+  const filteredPosts =
+    filter === "all"
+      ? posts
+      : posts.filter((post) => post.give_type === filter);
+
   if (loading) return <div>読み込み中...</div>
 
   
@@ -131,20 +136,41 @@ export default function TxtPostPage() {
         教科書ポスト
         </div>
         <div className="flex border-t border-gray-200">
-          <button className="flex-1 py-3 hover:bg-gray-100 transition-colors border-b-2 border-blue-600 text-blue-600 font-medium">
+          <button
+            onClick={() => setFilter("all")}
+            className={`flex-1 py-3 hover:bg-gray-100 transition-colors ${
+              filter === "all"
+                ? "border-b-2 border-blue-600 text-blue-600 font-medium"
+                : "text-gray-600"
+            }`}
+          >
             すべて
           </button>
-          <button className="flex-1 py-3 hover:bg-gray-100 transition-colors text-gray-600">
+          <button
+            onClick={() => setFilter("offering")}
+            className={`flex-1 py-3 hover:bg-gray-100 transition-colors ${
+              filter === "offering"
+                ? "border-b-2 border-blue-600 text-blue-600 font-medium"
+                : "text-gray-600"
+            }`}
+          >
             譲ります
           </button>
-          <button className="flex-1 py-3 hover:bg-gray-100 transition-colors text-gray-600">
+          <button
+            onClick={() => setFilter("seeking")}
+            className={`flex-1 py-3 hover:bg-gray-100 transition-colors ${
+              filter === "seeking"
+                ? "border-b-2 border-blue-600 text-blue-600 font-medium"
+                : "text-gray-600"
+            }`}
+          >
             譲ってください
           </button>
         </div>
       </div>
 
       <div className="divide-y divide-gray-200">
-        {posts.map((post) => (
+        {filteredPosts.map((post) => (
           <PostCard key={post.id} txtpost={post}  />
         ))}
       </div>
