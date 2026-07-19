@@ -35,9 +35,13 @@ export default async function proxy(request: NextRequest) {
 
   // 3. セッションの有効チェック
   const { data: { user } } = await supabase.auth.getUser()
+  const publicPaths = ['/login', '/signup']
+  const isPublic = publicPaths.some((path) =>
+  request.nextUrl.pathname.startsWith(path)
+  )
 
   // 4. 【リダイレクト設定】ログインしていない場合はログイン画面へ
-  if (!user && request.nextUrl.pathname === '/') {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
