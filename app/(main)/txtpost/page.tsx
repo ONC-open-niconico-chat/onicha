@@ -1,10 +1,13 @@
 'use client'
 
 import { useEffect, useState } from "react";
-import { PostCard } from "@/components/txtPostCard";
+import { PostCard } from "@/app/(main)/txtpost/txtPostCard";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
+import CreatePostForm from "./createNewPost";
+import { Plus } from "lucide-react";
+
 
 
 export interface Post {
@@ -35,9 +38,83 @@ export default function TxtPostPage() {
     
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isRequest, setIsRequest] = useState(false);
 
+  
+  //データ取得用の関数
+  const fetchPosts = async () => {
+      setLoading(true);
 
+      const {data,error} = await supabase
+      .from('txt_post') 
+      .select(`
+          id,
+          user:"user" (  
+          id,
+          username,
+          icon_src
+          ),
+          book:"textbook" (     
+          id,
+          title
+          ),
+          condition:"txtbook_condition" (
+          id,
+          name
+          ),
+          description,
+          give_type,
+          created_at
+          
+          
+
+      `)
+      .order('created_at',{ascending:false})
+
+      if (error) {
+          console.error("データ取得エラー:",error);
+      } else if(data) {
+      const formattedPosts: Post[] = data.map((item: any) => {
+
+          const postDate = new Date(item.created_at);
+
+          // 「今からどれくらい前か」を日本語で計算
+          const relativeTime = formatDistanceToNow(postDate, {
+              addSuffix: true, // 「〜前」という言葉を付ける
+              locale: ja,      // 日本語に設定
+          });
+      
+          // 日付オブジェクトを作成（自動的にブラウザのローカル時間、日本時間に）
+          const date = new Date(item.created_at);
+          
+          // 読みやすい形式に変換（例：2026/05/12 15:42）
+          const formattedDate = date.toLocaleString('ja-JP', {
+              year: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+          });
+
+          return {
+              ...item,
+              user: Array.isArray(item.user) ? item.user[0] : item.user,
+              book: Array.isArray(item.book) ? item.book[0] : item.book,
+              condition: Array.isArray(item.condition) ? item.condition[0] : item.condition,
+              // ここで変換後の日付を入れる！
+              created_at: relativeTime
+          };
+      });
+      setPosts(formattedPosts);
+      console.log("データ",formattedPosts);
+      setLoading(false);
+          };
+      
+  }
+    
   useEffect(() => {
+<<<<<<< HEAD
     //データ取得用の関数
     const fetchPosts = async () => {
         setLoading(true);
@@ -109,12 +186,14 @@ export default function TxtPostPage() {
             };
         
     }
+=======
+>>>>>>> main
     fetchPosts();
-  },[]);
+  }, []);
 
   if (loading) return <div>読み込み中...</div>
 
-
+  
   
   
 
@@ -144,6 +223,24 @@ export default function TxtPostPage() {
           <PostCard key={post.id} txtpost={post}  />
         ))}
       </div>
+
+
+      {/* ─── 画面右下に固定されたプラスボタン（FAB） ─── */}
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-linear-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-90 hover:rotate-90"
+        title="新規投稿"
+      >
+        <Plus />
+      </button>
+
+      {/* ─── 状態が true の時だけ投稿フォーム（モーダル）を表示 ─── */}
+      {isModalOpen && (
+        <CreatePostForm
+          onPostCreated={fetchPosts} // 投稿成功後にタイムラインを更新する関数を渡す
+          onclose={() => setIsModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

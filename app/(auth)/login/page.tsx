@@ -11,10 +11,9 @@ export default function Login() {
   const [loading,setLoading] = useState(false);
   const allowedDomain = 'cs.u-ryukyu.ac.jp';
 
-  const handleLogin = async (formData:FormData) => {
+  const handleLogin = async (formData: FormData) => {
     setLoading(true);
     setErrorMsg(null);
-    
 
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
@@ -30,9 +29,8 @@ export default function Login() {
       setErrorMsg("ログインに失敗しました。")
       setLoading(false);
     } else {
-      
-      router.push('/');
-      router.refresh();
+      // ⭕ 画面を丸ごとリロードして移動させ、Cookie（ログイン情報）の書き込みを確実に完了させます
+      window.location.href = '/';
     }
   };
 
@@ -44,7 +42,6 @@ export default function Login() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">ログイン</h1>
             <p className="text-gray-600">アカウントにログインしてください</p>
           </div>
-
 
           {/* エラーメッセージ表示 */}
           {errorMsg && (

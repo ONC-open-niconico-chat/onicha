@@ -24,11 +24,11 @@ export default function Signup() {
       const { data:deptData} = await supabase.from('department').select('*')
       
       if (facultyerror) console.error('学部取得エラー',facultyerror);
-      console.log('取得した学部データ:', facultyData); // ←ここを確認！
+      console.log('取得した学部データ:', facultyData); 
 
       if (facultyData) setFaculties(facultyData);
       if (deptData) setAllDepartments(deptData);
-      console.log('取得した学部データ2:', faculties); // ←ここを確認！
+      console.log('取得した学部データ2:', faculties); 
     };
     fetchData();
   },[]);
