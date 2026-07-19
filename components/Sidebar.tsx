@@ -27,6 +27,7 @@ export function Sidebar() {
         <SidebarItem href="/notifications" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notifications")} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
+        <SidebarItem href="/cafeteria" icon={<User className="w-5 h-5" />} label="カフェテリア" active={isActive("/cafeteria")} />
         
       </nav>
     </div>
