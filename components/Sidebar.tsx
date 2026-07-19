@@ -4,22 +4,24 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// 検索アイコン(Search)を追加で読み込むようにしたよ！
 import { Home, Bell, MessageCircle, User, Search, GraduationCap, Handshake } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/loginUser";
 
 export function Sidebar() {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
+  const { authUser, loading: authLoading } = useAuth();
 
   // 未読通知の件数（バッジ表示用）
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    let myId: string | null = null;
+    if (authLoading) return;
+    if (!authUser) return;
+    const myId = authUser.id;
 
     const fetchUnread = async () => {
-      if (!myId) return;
       const { count } = await supabase
         .from("notification")
         .select("*", { count: "exact", head: true })
@@ -28,40 +30,27 @@ export function Sidebar() {
       setUnreadCount(count ?? 0);
     };
 
-    const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      myId = session.user.id;
-      await fetchUnread();
+    fetchUnread();
 
-      // 通知の追加・既読化をリアルタイムに反映
-      const channel = supabase
-        .channel("sidebar-notifications")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "notification" },
-          (payload) => {
-            // サーバー側フィルタは使わず JS 側で判定（INSERT/UPDATE は new、DELETE は old を参照）
-            const rec =
-              (payload.new as { receiver_id?: string })?.receiver_id ??
-              (payload.old as { receiver_id?: string })?.receiver_id;
-            if (rec === myId) fetchUnread();
-          }
-        )
-        .subscribe();
+    // 通知の追加・既読化をリアルタイムに反映
+    const channel = supabase
+      .channel("sidebar-notifications")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "notification" },
+        (payload) => {
+          const rec =
+            (payload.new as { receiver_id?: string })?.receiver_id ??
+            (payload.old as { receiver_id?: string })?.receiver_id;
+          if (rec === myId) fetchUnread();
+        }
+      )
+      .subscribe();
 
-      return channel;
-    };
-
-    const channelPromise = init();
     return () => {
-      channelPromise.then((channel) => {
-        if (channel) supabase.removeChannel(channel);
-      });
+      supabase.removeChannel(channel);
     };
-  }, []);
+  }, [authUser, authLoading]);
 
 
   return (
@@ -81,7 +70,7 @@ export function Sidebar() {
         <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
-        
+
       </nav>
     </div>
   );

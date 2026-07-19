@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/components/loginUser";
 
 
 
@@ -33,56 +34,53 @@ export default function NotificationPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const { authUser, loading: authLoading } = useAuth();
 
-  
-    const fetchNotifications = async () => {
-      try {
-        setLoading(true);
+  const fetchNotifications = useCallback(async () => {
+    if (!authUser) return;
+    try {
+      setLoading(true);
+      const currentUserId = authUser.id;
 
-        // 1. 現在ログインしているユーザーのセッションを取得
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) return;
+      const { data, error } = await supabase
+        .from("notification")
+        .select(`
+              id,
+              sender_id,
+              receiver_id,
+              notification_type,
+              created_at,
 
-        const currentUserId = session.user.id;
+              sender_profile:user!notification_sender_id_fkey (username),
+              txt_post(
+              id,
+              book:textbook_id (
+                  title
+              )
+              )
+          `)
+        .eq("receiver_id", currentUserId)
+        .eq("is_read", false)
+        .order("created_at", { ascending: false });
 
-        // 2. 自分が「受け取り手（receiver_id）」になっている通知を、新しい順（desc）で取得
-        const { data, error } = await supabase
-          .from("notification")
-          .select(`
-                id,
-                sender_id,
-                receiver_id,
-                notification_type,
-                created_at,
-            
-                sender_profile:user!notification_sender_id_fkey (username),
-                txt_post(
-                id,
-                book:textbook_id (
-                    title
-                )
-                )
-            `)
-          .eq("receiver_id", currentUserId)
-          .eq("is_read", false) // 未読の通知のみ取得
-          .order("created_at", { ascending: false });
+      if (error) throw error;
 
-          
+      setNotifications(data as any || []);
+    } catch (error) {
+      console.error("通知の取得に失敗しました:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [authUser]);
 
-        if (error) throw error;
-
-        setNotifications(data as any || []);
-      } catch (error) {
-        console.error("通知の取得に失敗しました:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-  
-  
-    useEffect(() => {
-      fetchNotifications();
-    }, []);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setLoading(false);
+      return;
+    }
+    fetchNotifications();
+  }, [authUser, authLoading, fetchNotifications]);
 
 
   // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
@@ -134,7 +132,7 @@ const handleReject = async (notificationId: string) => {
 };
 }
 
-  if (loading) return <div className="p-4">通知を読み込み中...</div>;
+  //if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
   return (
     <div className="w-full ml-4 p-4">

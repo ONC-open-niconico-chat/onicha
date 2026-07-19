@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 // 💡 あなたのプロジェクトのSupabaseクライアントのパスに書き換えてください
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
+import { useAuth } from "@/components/loginUser";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -31,12 +32,13 @@ interface UserProfile {
 export default function ChatPage() {
   const params = useParams();
   const router = useRouter();
-  
+  const { authUser, loading: authLoading } = useAuth();
+
   // URLから相手のIDを取得（/messages/abc -> "abc"）
   const receiverId = params.id as string;
-  
+
   // 状態管理
-  const [myId, setMyId] = useState<string | null>(null);
+  const myId = authUser?.id ?? null;
   // 💡 【追加】ログイン中の「自分」のユーザー情報を保持するState
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -68,29 +70,28 @@ export default function ChatPage() {
 
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // 1. ログイン中の「自分」のIDおよびユーザー情報を取得する
+  // 1. ログイン中の「自分」のユーザー情報を取得する
+  //    myId は useAuth() から取得しているので、ここではプロフィールのみ取得
   useEffect(() => {
-    const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setMyId(session.user.id);
+    if (authLoading) return;
+    if (!authUser) {
+      router.push("/login");
+      return;
+    }
 
-        // 💡 【追加】ログインユーザーのusernameとicon_srcをuserテーブルから取得
-        const { data: myData } = await supabase
-          .from("user")
-          .select("id, username, icon_src")
-          .eq("id", session.user.id)
-          .single();
-        
-        if (myData) {
-          setCurrentUser(myData);
-        }
-      } else {
-        router.push("/login");
+    const fetchMyProfile = async () => {
+      const { data: myData } = await supabase
+        .from("user")
+        .select("id, username, icon_src")
+        .eq("id", authUser.id)
+        .single();
+
+      if (myData) {
+        setCurrentUser(myData);
       }
     };
-    getSession();
-  }, [router]);
+    fetchMyProfile();
+  }, [authUser, authLoading, router]);
 
   // 2. 相手のプロフィールと、過去のチャット履歴を取得する
   useEffect(() => {

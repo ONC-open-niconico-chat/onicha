@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { PostTabsContent } from "./PostTabsContent";
+import { useAuth } from "@/components/loginUser";
 
 interface FollowingTimelineProps {
   // 親（page.tsx）の最強ソートロジックをここでも使い回せるように関数として受け取る
@@ -10,24 +11,27 @@ interface FollowingTimelineProps {
 }
 
 export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
+  const { authUser, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (authLoading) return;
+    if (!authUser) {
+      setPosts([]);
+      setLoading(false);
+      return;
+    }
+    const currentUserId = authUser.id;
+
     const fetchFollowingPosts = async () => {
       setLoading(true);
       try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser) {
-          setPosts([]);
-          return;
-        }
-
         // 1. 自分がフォローしている人のIDリストを取得
         const { data: followData, error: followError } = await supabase
           .from("follows")
           .select("following_id")
-          .eq("follower_id", currentUser.id);
+          .eq("follower_id", currentUserId);
 
         if (followError) throw followError;
 
@@ -66,7 +70,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     };
 
     fetchFollowingPosts();
-  }, [sortLogic]);
+  }, [sortLogic, authUser, authLoading]);
 
   return (
     <PostTabsContent 

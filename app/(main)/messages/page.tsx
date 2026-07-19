@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/loginUser";
 
 interface ChatPartner {
   id: string;
@@ -15,21 +16,19 @@ interface ChatPartner {
 
 export default function MessageListPage() {
   const router = useRouter();
-  const [myId, setMyId] = useState<string | null>(null);
+  const { authUser, loading: authLoading } = useAuth();
   const [partners, setPartners] = useState<ChatPartner[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const init = async () => {
-      // 1. ログイン中の自分のIDを取得
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        router.push("/login");
-        return;
-      }
-      const currentUserId = session.user.id;
-      setMyId(currentUserId);
+    if (authLoading) return;
+    if (!authUser) {
+      router.push("/login");
+      return;
+    }
+    const currentUserId = authUser.id;
 
+    const init = async () => {
       try {
         // 2. 自分が関わっているチャット履歴をすべて取得
         const { data: chatData, error } = await supabase
@@ -102,7 +101,7 @@ export default function MessageListPage() {
     };
 
     init();
-  }, [router]);
+  }, [authUser, authLoading, router]);
 
   if (loading) {
     return <div className="flex justify-center items-center h-screen bg-white text-gray-500">読み込み中...</div>;

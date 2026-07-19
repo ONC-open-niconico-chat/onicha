@@ -3,16 +3,18 @@
 import { useState, useEffect } from "react";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Plus, AlertCircle } from "lucide-react";
-import { PostDialog } from "@/app/(main)/homecomponent/post/PostDialog"; 
+import { PostDialog } from "@/app/(main)/homecomponent/post/PostDialog";
 import { PostTabsContent } from "@/app/(main)/homecomponent/post/PostTabsContent";
-import { FollowingTimeline } from "@/app/(main)/homecomponent/post/FollowingTimeline"; 
-import { Header } from "@/app/(main)/homecomponent/layout/Header"; 
-import { HomeTabHeader } from "@/app/(main)/homecomponent/home/HomeTabHeader"; 
+import { FollowingTimeline } from "@/app/(main)/homecomponent/post/FollowingTimeline";
+import { Header } from "@/app/(main)/homecomponent/layout/Header";
+import { HomeTabHeader } from "@/app/(main)/homecomponent/home/HomeTabHeader";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/loginUser";
 
 export default function HomePage() {
+  const { authUser, loading: authLoading } = useAuth();
   const [posts, setPosts] = useState<any[]>([]);
-  const [schoolPosts, setSchoolPosts] = useState<any[]>([]); 
+  const [schoolPosts, setSchoolPosts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSchoolLoading, setIsSchoolLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -78,10 +80,8 @@ export default function HomePage() {
     } catch (e) { setErrorMessage("通信に失敗しました"); } finally { setIsLoading(false); }
   };
 
-  const fetchMyInfo = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase.from('user').select(`grade, department_id, appartment:department_id(faculty_id)`).eq('id', user.id).single();
+  const fetchMyInfo = async (userId: string) => {
+    const { data } = await supabase.from('user').select(`grade, department_id, appartment:department_id(faculty_id)`).eq('id', userId).single();
     if (data) setMyInfo({ grade: data.grade, department_id: data.department_id, faculty_id: (data.appartment as any)?.faculty_id || 0 });
   };
 
@@ -106,7 +106,13 @@ export default function HomePage() {
     if (myInfo) fetchSchoolPosts(schoolFilter, myInfo);
   };
 
-  useEffect(() => { fetchPosts(); fetchMyInfo(); }, []);
+  useEffect(() => {
+    fetchPosts();
+  }, []);
+  useEffect(() => {
+    if (authLoading) return;
+    if (authUser) fetchMyInfo(authUser.id);
+  }, [authUser, authLoading]);
   useEffect(() => { if (myInfo) fetchSchoolPosts(schoolFilter, myInfo); }, [myInfo]);
 
   const handleFilterChange = (type: "grade" | "dept" | "faculty") => {
@@ -116,11 +122,10 @@ export default function HomePage() {
   };
 
   const handleAddPost = async (content: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+    if (!authUser) return;
     const exactNow = new Date().toISOString();
 
-    const { error } = await supabase.from('post').insert([{ user_id: user.id, content, number_of_likes: 0, created_at: exactNow }]);
+    const { error } = await supabase.from('post').insert([{ user_id: authUser.id, content, number_of_likes: 0, created_at: exactNow }]);
     if (!error) { 
       setIsPostOpen(false); 
       setTimeout(() => {

@@ -43,6 +43,7 @@ export default function TxtPostPage() {
   
   //データ取得用の関数
   const fetchPosts = async () => {
+      console.log("fetchPosts 開始");
       setLoading(true);
 
       const {data,error} = await supabase
@@ -70,6 +71,7 @@ export default function TxtPostPage() {
 
       `)
       .order('created_at',{ascending:false})
+      console.log("Supabase から応答あり", { data, error });  
 
       if (error) {
           console.error("データ取得エラー:",error);
@@ -112,11 +114,23 @@ export default function TxtPostPage() {
       
   }
     
-  useEffect(() => {
-    fetchPosts();
-  }, []);
 
-  if (loading) return <div>読み込み中...</div>
+  useEffect(() => {
+  fetchPosts();
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState === 'visible') {
+      fetchPosts(); // タブに戻ってきたら再取得
+    }
+  };
+
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  return () => {
+    document.removeEventListener('visibilitychange', handleVisibilityChange);
+  };
+}, []);
+
+  //if (loading) return <div>読み込み中...</div>
 
   
   

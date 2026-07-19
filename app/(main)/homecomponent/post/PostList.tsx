@@ -3,6 +3,7 @@
 import { Heart, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/loginUser";
 
 // ★ 修正：型定義に onRefresh?: () => void を追加して ts(2322) エラーを完全抹殺
 interface PostListProps {
@@ -33,9 +34,10 @@ function formatTime(dateString: string) {
 }
 
 export function PostList({ posts, onRefresh }: PostListProps) {
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const { authUser, loading: authLoading } = useAuth();
+  const currentUserId = authUser?.id ?? null;
   const [myLikes, setMyLikes] = useState<Set<number>>(new Set());
-  const [myFollows, setMyFollows] = useState<Set<string>>(new Set()); 
+  const [myFollows, setMyFollows] = useState<Set<string>>(new Set());
   const [localPosts, setLocalPosts] = useState<any[]>(posts);
 
   // 1. 親から新しい投稿データ（最新のいいね数など）が降ってきたら同期
@@ -44,26 +46,23 @@ export function PostList({ posts, onRefresh }: PostListProps) {
   }, [posts]);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        const userId = data.user.id;
-        setCurrentUserId(userId);
-        
-        // いいね一覧の取得
-        supabase.from('like').select('post_id').eq('user_id', userId)
-          .then(({ data: likes }) => {
-            if (likes) setMyLikes(new Set(likes.map(l => l.post_id)));
-          });
+    if (authLoading) return;
+    if (!authUser) return;
+    const userId = authUser.id;
 
-        // フォロー中の一覧を取得してセット
-        supabase.from('follows').select('following_id').eq('follower_id', userId)
-          .then(({ data: follows, error }) => {
-            if (error) console.error("フォローデータの取得エラー:", error);
-            if (follows) setMyFollows(new Set(follows.map(f => f.following_id)));
-          });
-      }
-    });
-  }, []);
+    // いいね一覧の取得
+    supabase.from('like').select('post_id').eq('user_id', userId)
+      .then(({ data: likes }) => {
+        if (likes) setMyLikes(new Set(likes.map(l => l.post_id)));
+      });
+
+    // フォロー中の一覧を取得してセット
+    supabase.from('follows').select('following_id').eq('follower_id', userId)
+      .then(({ data: follows, error }) => {
+        if (error) console.error("フォローデータの取得エラー:", error);
+        if (follows) setMyFollows(new Set(follows.map(f => f.following_id)));
+      });
+  }, [authUser, authLoading]);
 
   const handleDelete = async (postId: number) => {
     if (!currentUserId || !confirm("削除しますか？")) return;
