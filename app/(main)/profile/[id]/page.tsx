@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -311,6 +311,19 @@ export default function App({ params }: Props) {
     router.push('/login');
   };
 
+  // アカウント削除（自分のデータと認証ユーザーを削除する）
+  const handleDeleteAccount = async () => {
+    if (!confirm("本当にアカウントを削除しますか？\nこの操作は取り消せません。投稿・メッセージ・フォローなどすべてのデータが削除されます。")) return;
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) {
+      console.error('アカウント削除に失敗しました:', error);
+      showError('アカウントの削除に失敗しました。');
+      return;
+    }
+    await supabase.auth.signOut();
+    router.push('/signup');
+  };
+
   const handleSaveProfile = async (
     newUsername: string,
     newGrade: number,
@@ -448,6 +461,24 @@ export default function App({ params }: Props) {
         return next;
       });
     }
+  };
+
+  // 自分の投稿を削除する
+  const handleDeletePost = async (postId: number) => {
+    if (!myId || !confirm("この投稿を削除しますか？")) return;
+    // 先に紐づくいいねを削除してから投稿本体を削除
+    await supabase.from('like').delete().eq('post_id', postId);
+    const { error } = await supabase
+      .from('post')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', myId);
+    if (error) {
+      console.error('投稿の削除に失敗しました:', error);
+      showError('投稿の削除に失敗しました。');
+      return;
+    }
+    setPosts(prev => prev.filter(p => p.id !== postId));
   };
 
   // フォロー連打防止つき
@@ -620,6 +651,14 @@ export default function App({ params }: Props) {
               </button>
 
               <button
+                onClick={handleDeleteAccount}
+                className="h-9 px-4 rounded-full border border-red-300 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
+              >
+                <Trash2 size={16} />
+                アカウント削除
+              </button>
+
+              <button
                 onClick={() => setIsEditing(true)}
                 className="h-9 px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2"
               >
@@ -781,6 +820,19 @@ export default function App({ params }: Props) {
                         <span className="font-bold hover:underline">{displayProfile.username}</span>
                         <span className="text-gray-500 text-sm">·</span>
                         <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
+                        {isMe && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePost(post.id);
+                            }}
+                            className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                            title="投稿を削除"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                       <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
 
