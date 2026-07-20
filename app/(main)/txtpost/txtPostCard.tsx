@@ -12,8 +12,15 @@ interface PostCardProps {
 export function PostCard({ txtpost }: PostCardProps) {
   const { userProfile, loading } = useAuth();
 
+  // マッチングが成立して譲渡済みになったポスト
+  const isMatched = txtpost.status === "譲渡済み";
+
   return (
-    <article className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+    <article
+      className={`p-4 hover:bg-gray-50 transition-colors cursor-pointer ${
+        isMatched ? "opacity-60" : ""
+      }`}
+    >
       <div className="flex gap-3">
         <Link href={`/profile/${txtpost.user.id}`}>
           <img
@@ -45,7 +52,7 @@ export function PostCard({ txtpost }: PostCardProps) {
                 : "bg-green-50 border-green-200"
             }`}
           >
-            <div className="mb-2">
+            <div className="mb-2 flex items-center gap-2">
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full ${
                   txtpost.give_type === "offering"
@@ -55,6 +62,11 @@ export function PostCard({ txtpost }: PostCardProps) {
               >
                 {txtpost.give_type === "offering" ? "譲ります" : "譲ってください"}
               </span>
+              {isMatched && (
+                <span className="text-xs font-bold px-2 py-1 rounded-full bg-gray-700 text-white">
+                  ✓ 譲渡済み
+                </span>
+              )}
             </div>
 
             <h3 className="font-bold text-lg mb-1">{txtpost.book.title}</h3>
@@ -64,6 +76,9 @@ export function PostCard({ txtpost }: PostCardProps) {
 
 
             <div className="flex justify-start pt-2 border-t border-dashed border-gray-200">
+              {isMatched ? (
+                <span className="text-sm font-bold text-gray-500">この取引は成立しました</span>
+              ) : (
               <button
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
@@ -100,6 +115,7 @@ export function PostCard({ txtpost }: PostCardProps) {
               >
                 {txtpost.give_type === "offering" ? "譲ってください 🙌" : "譲ります 📚"}
               </button>
+              )}
             </div>
           </div>
         </div>

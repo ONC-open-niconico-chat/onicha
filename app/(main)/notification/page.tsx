@@ -86,10 +86,10 @@ export default function NotificationPage() {
 
 
   // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
-const handleAcceptAndNavigate = async (notificationId: string, senderId: string, senderName: string) => {
+const handleAcceptAndNavigate = async (notificationId: string, senderId: string, senderName: string, txtPostId?: string | null) => {
   // ① {相手の名前}で確認ダイアログを出す
   const isConfirmed = window.confirm(`${senderName} さんとのチャットを開始しますか？`);
-  
+
   if (isConfirmed) {
     await fetchNotifications();
 
@@ -101,6 +101,14 @@ const handleAcceptAndNavigate = async (notificationId: string, senderId: string,
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error; // もしエラーが起きたら catch ブロックへ飛ばす
+
+    // 🤝 マッチング成立：該当する教科書譲渡ポストを「譲渡済み」にする
+    if (txtPostId) {
+      await supabase
+        .from("txt_post")
+        .update({ status: "譲渡済み" })
+        .eq("id", txtPostId);
+    }
 
     // ② 既読更新が成功したら、チャット画面へ遷移！
     router.push(`/messages/${senderId}?first=true`);
@@ -182,7 +190,7 @@ const handleReject = async (notificationId: string) => {
                             <button
                             //onClick={() => handleAction(notif.id, "accepted")}
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={() => handleAcceptAndNavigate(notif.id,notif.sender_id, senderName)}
+                            onClick={() => handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id)}
                             >
                             承諾
                             </button>
