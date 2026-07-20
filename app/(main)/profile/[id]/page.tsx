@@ -14,6 +14,7 @@ interface UserProfile {
   username: string;
   grade: number;
   department_id: number;
+  department?: { name: string } | { name: string }[] | null;
   icon_src: string;
   cover_src: string;
   bio: string;
@@ -140,7 +141,7 @@ export default function App({ params }: Props) {
       // プロフィール情報の取得
       const { data: profileData, error: profileError } = await supabase
         .from('user')
-        .select('id, username, grade, department_id, icon_src, cover_src, bio')
+        .select('id, username, grade, department_id, icon_src, cover_src, bio, department:department_id(name)')
         .eq('id', userId)
         .single();
 
@@ -541,10 +542,13 @@ export default function App({ params }: Props) {
     return <div className="flex items-center justify-center min-h-screen text-gray-500 font-medium">読み込み中...</div>;
   }
 
+  // 学科名を取り出す（Supabaseのネスト取得はオブジェクト/配列どちらの可能性もあるため両対応）
+  const dept = Array.isArray(profile?.department) ? profile?.department[0] : profile?.department;
   const displayProfile = {
     username: profile?.username || 'データ未取得',
     grade: profile?.grade || 0,
     department_id: profile?.department_id || '-',
+    departmentName: dept?.name || '未設定',
     icon_src: profile?.icon_src || 'https://unsplash.com',
     cover_src: profile?.cover_src || 'https://unsplash.com',
     bio: profile?.bio || 'プロフィールは未設定です。'
@@ -656,7 +660,7 @@ export default function App({ params }: Props) {
                 {displayProfile.grade}年生
               </span>
               <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                所属ID: {displayProfile.department_id}
+                {displayProfile.departmentName}
               </span>
             </div>
           </div>
