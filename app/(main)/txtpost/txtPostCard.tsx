@@ -80,6 +80,7 @@ export function PostCard({ txtpost }: PostCardProps) {
                       receiver_id : txtpost.user.id,
                       sender_id : userProfile?.id,
                       notification_type : txtpost.give_type === "offering" ? "request_for_offering" : "request_for_request",
+                      txt_post_id : txtpost.id,
                     });
 
                   if (error) {
