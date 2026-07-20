@@ -116,10 +116,8 @@ const handleAcceptAndNavigate = async (notificationId: string, senderId: string,
 
 const handleReject = async (notificationId: string) => {
   const isConfirmed = window.confirm("このリクエストを拒否しますか？");
-  
+
   if (isConfirmed) {
-    await fetchNotifications();
-    
     try {
       // 🔴 追記：Supabaseの notification テーブルの is_read を true（既読）に更新！
       const { error } = await supabase
@@ -128,6 +126,8 @@ const handleReject = async (notificationId: string) => {
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error;
+
+    await fetchNotifications();
   } catch (error) {
     console.error("通知の既読更新に失敗しました:", error);
   }
