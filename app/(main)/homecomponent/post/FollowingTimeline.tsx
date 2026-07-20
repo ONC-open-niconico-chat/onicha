@@ -42,7 +42,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
         // 2. その人たちの投稿だけを絞り込んで取得
         const { data: followingPosts, error: postsError } = await supabase
           .from("post")
-          .select(`*, user:user_id (username, grade, department_id, appartment:department_id(faculty_id))`);
+          .select(`*, user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id))`);
 
         if (postsError) throw postsError;
 
