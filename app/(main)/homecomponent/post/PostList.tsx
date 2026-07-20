@@ -199,7 +199,14 @@ export function PostList({ posts, onRefresh }: PostListProps) {
               )}
             </div>
             <p className="text-gray-800 text-sm my-1 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-            <button 
+            {post.image_url && (
+              <img
+                src={post.image_url}
+                alt="投稿画像"
+                className="mt-2 mb-1 w-full max-h-80 object-cover rounded-2xl border border-gray-100"
+              />
+            )}
+            <button
               onClick={() => toggleLike(post.id, post.number_of_likes || 0)}
               className={`flex items-center gap-1 text-xs transition-colors ${myLikes.has(post.id) ? "text-red-500 font-bold" : "text-gray-400"}`}
             >

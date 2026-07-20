@@ -115,14 +115,32 @@ export default function HomePage() {
     setIsMenuOpen(false);
   };
 
-  const handleAddPost = async (content: string) => {
+  const handleAddPost = async (content: string, file: File | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const exactNow = new Date().toISOString();
 
-    const { error } = await supabase.from('post').insert([{ user_id: user.id, content, number_of_likes: 0, created_at: exactNow }]);
-    if (!error) { 
-      setIsPostOpen(false); 
+    // 画像が選ばれていれば images バケットにアップロードして公開URLを取得
+    let imageUrl: string | null = null;
+    if (file) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(filePath);
+        imageUrl = publicUrl;
+      } catch (uploadErr) {
+        console.error('画像のアップロードに失敗しました:', uploadErr);
+        alert('画像のアップロードに失敗しました。');
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('post').insert([{ user_id: user.id, content, image_url: imageUrl, number_of_likes: 0, created_at: exactNow }]);
+    if (!error) {
+      setIsPostOpen(false);
       setTimeout(() => {
         mutateAll();
       }, 100);
@@ -166,8 +184,13 @@ export default function HomePage() {
       </Tabs>
 
       <PostDialog open={isPostOpen} onOpenChange={setIsPostOpen} onPost={handleAddPost} />
-      <button onClick={() => setIsPostOpen(true)} className="fixed bottom-10 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center z-50 border border-blue-400">
-        <Plus className="w-8 h-8" />
+      {/* 教科書譲渡ページのプラスボタンとデザイン・位置を統一 */}
+      <button
+        onClick={() => setIsPostOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-linear-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-90 hover:rotate-90"
+        title="新規投稿"
+      >
+        <Plus />
       </button>
     </div>
   );
