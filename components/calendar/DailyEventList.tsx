@@ -11,26 +11,24 @@ interface EventItem {
   backgroundColor?: string;
   description?: string;
   location?: string;
+  circle_id?: string | number;   // 💡 サークルIDの型
+  isMyCircleEvent?: boolean;     // 💡 自分が作ったイベントかどうかの判定フラグ
 }
 
 interface DailyEventListProps {
   selectedDate: string;
   events: EventItem[];
-  onDeleteEvent: (id: string) => void; 
+  onDeleteEvent?: (id: string) => void; 
 }
 
 export function DailyEventList({ selectedDate, events, onDeleteEvent }: DailyEventListProps) {
   
-  // 💡 ★【バグ修正】選択された日付が「開始日」から「終了日」の期間内にあるかを判定
+  // 💡 選択された日付が「開始日」から「終了日」の期間内にあるかを判定
   const dailyEvents = events.filter((event) => {
-    // 比較しやすくするために時間を排除して「YYYY-MM-DD」の Date オブジェクトを作る
     const targetDate = new Date(selectedDate);
-    
     const eventStartDate = new Date(event.start.split("T")[0]);
-    // 終了日がない（単発時間）場合は開始日と同じにする
     const eventEndDate = event.end ? new Date(event.end.split("T")[0]) : new Date(event.start.split("T")[0]);
 
-    // 選択した日が、開始日以上 かつ 終了日以下 ならリストに含める！
     return targetDate >= eventStartDate && targetDate <= eventEndDate;
   });
 
@@ -40,7 +38,6 @@ export function DailyEventList({ selectedDate, events, onDeleteEvent }: DailyEve
     return `${parseInt(month, 10)}月${parseInt(day, 10)}日`;
   };
 
-  // 複数日イベントの場合は「終日」または「○日目」のように見やすく時間をパース
   const formatTime = (event: EventItem) => {
     const isMultiDay = event.end && event.start.split("T")[0] !== event.end.split("T")[0];
     
@@ -105,13 +102,16 @@ export function DailyEventList({ selectedDate, events, onDeleteEvent }: DailyEve
                 )}
               </div>
 
-              <button
-                onClick={() => onDeleteEvent(event.id)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
-                title="予定を削除"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              {/* 💡 ★ 修正：ログインしており、かつ「自分が今選択しているサークルの予定（isMyCircleEvent）」の時だけゴミ箱ボタンを出現させる */}
+              {onDeleteEvent && event.isMyCircleEvent && (
+                <button
+                  onClick={() => onDeleteEvent(event.id)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all opacity-100 md:opacity-0 group-hover:opacity-100"
+                  title="予定を削除"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
         </div>
