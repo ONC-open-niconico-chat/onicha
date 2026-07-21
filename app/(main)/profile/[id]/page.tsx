@@ -801,12 +801,12 @@ export default function App({ params }: Props) {
                             e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
                             setActiveImageUrl(post.image_url || null); //  クリックされた画像を拡大表示
                           }}
-                          className="mt-2 mb-3 w-full aspect-[16/9] max-h-72 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
+                          className="mt-2 mb-3 inline-block max-w-full rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
                         >
                           <img
                             src={post.image_url}
                             alt="Post media"
-                            className="w-full h-full object-cover group-hover:brightness-95 transition duration-200"
+                            className="max-w-full max-h-96 w-auto object-contain group-hover:brightness-95 transition duration-200"
                           />
                         </div>
                       )}
