@@ -152,9 +152,17 @@ export function PostList({ posts, onRefresh }: PostListProps) {
     <div className="divide-y divide-gray-100 pb-20">
       {localPosts.map((post) => (
         <div key={post.id} className="p-4 flex gap-3">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold">
-            {post.user?.username?.substring(0, 1) || "U"}
-          </div>
+          {post.user?.icon_src ? (
+            <img
+              src={post.user.icon_src}
+              alt={post.user?.username || "ユーザー"}
+              className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold">
+              {post.user?.username?.substring(0, 1) || "U"}
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">

@@ -73,7 +73,7 @@ export default function HomePage() {
   const fetchPosts = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.from('post').select(`*, user:user_id (username, grade, department_id, appartment:department_id(faculty_id))`);
+      const { data, error } = await supabase.from('post').select(`*, user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id))`);
       if (!error) setPosts(sortPostsByMixLogic(data || []));
     } catch (e) { setErrorMessage("通信に失敗しました"); } finally { setIsLoading(false); }
   };
@@ -88,7 +88,7 @@ export default function HomePage() {
   const fetchSchoolPosts = async (type: "grade" | "dept" | "faculty", info = myInfo) => {
     if (!info) return;
     setIsSchoolLoading(true);
-    const { data, error } = await supabase.from('post').select(`*, user:user_id (username, grade, department_id, appartment:department_id(faculty_id))`);
+    const { data, error } = await supabase.from('post').select(`*, user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id))`);
     if (!error && data) {
       const filtered = data.filter((p: any) => {
         if (type === "grade") return p.user?.grade === info.grade;
