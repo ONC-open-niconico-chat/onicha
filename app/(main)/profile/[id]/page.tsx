@@ -14,7 +14,10 @@ interface UserProfile {
   username: string;
   grade: number;
   department_id: number;
-  department?: { name: string } | { name: string }[] | null;
+  department?:
+    | { name: string; faculty?: { name: string } | { name: string }[] | null }
+    | { name: string; faculty?: { name: string } | { name: string }[] | null }[]
+    | null;
   icon_src: string;
   cover_src: string;
   bio: string;
@@ -141,18 +144,20 @@ export default function App({ params }: Props) {
       // プロフィール情報の取得
       const { data: profileData, error: profileError } = await supabase
         .from('user')
-        .select('id, username, grade, department_id, icon_src, cover_src, bio, department:department_id(name)')
+        .select('id, username, grade, department_id, icon_src, cover_src, bio, department:department_id(name,faculty:faculty_id(name))')
         .eq('id', userId)
         .single();
+        console.log("Fetched profile data:", profileData); // デバッグ用ログ --- IGNORE ---
 
       if (profileError) console.error("❌ ユーザー検索エラー:", profileError.message);
       if (profileData) {
         setProfile({
           ...profileData,
           bio: profileData.bio || '',
-          cover_src: profileData.cover_src || ''
+          cover_src: profileData.cover_src || '',
         });
       }
+      //console.log("Profile state after fetch:", profile); // デバッグ用ログ --- IGNORE ---
 
       // フォロー・フォロワー数の取得
       const { count: following, error: followingError } = await supabase
@@ -544,11 +549,13 @@ export default function App({ params }: Props) {
 
   // 学科名を取り出す（Supabaseのネスト取得はオブジェクト/配列どちらの可能性もあるため両対応）
   const dept = Array.isArray(profile?.department) ? profile?.department[0] : profile?.department;
+  const facul = Array.isArray(dept?.faculty) ? dept?.faculty[0] : dept?.faculty;
   const displayProfile = {
     username: profile?.username || 'データ未取得',
     grade: profile?.grade || 0,
     department_id: profile?.department_id || '-',
     departmentName: dept?.name || '未設定',
+    facultyName: facul?.name || '未設定',
     icon_src: profile?.icon_src || 'https://unsplash.com',
     cover_src: profile?.cover_src || 'https://unsplash.com',
     bio: profile?.bio || 'プロフィールは未設定です。'
@@ -658,6 +665,9 @@ export default function App({ params }: Props) {
             <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
               <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
                 {displayProfile.grade}年生
+              </span>
+              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                {displayProfile.facultyName}
               </span>
               <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
                 {displayProfile.departmentName}
