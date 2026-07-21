@@ -166,8 +166,13 @@ export default function HomePage() {
       </Tabs>
 
       <PostDialog open={isPostOpen} onOpenChange={setIsPostOpen} onPost={handleAddPost} />
-      <button onClick={() => setIsPostOpen(true)} className="fixed bottom-10 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-xl flex items-center justify-center z-50 border border-blue-400">
-        <Plus className="w-8 h-8" />
+      {/* 教科書譲渡ページのプラスボタンとデザイン・位置を統一 */}
+      <button
+        onClick={() => setIsPostOpen(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-linear-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-90 hover:rotate-90"
+        title="新規投稿"
+      >
+        <Plus />
       </button>
     </div>
   );
