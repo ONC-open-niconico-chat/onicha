@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// 検索アイコン(Search)を追加で読み込むようにしたよ！
-import { Home, Bell, MessageCircle, User, Search, GraduationCap, Handshake } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Search, Handshake } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -16,53 +16,52 @@ export function Sidebar() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
-    let myId: string | null = null;
+      // 1. useEffect の直下でチャンネルを作成する
+      const channel = supabase.channel("sidebar-notifications");
 
-    const fetchUnread = async () => {
-      if (!myId) return;
-      const { count } = await supabase
-        .from("notification")
-        .select("*", { count: "exact", head: true })
-        .eq("receiver_id", myId)
-        .eq("is_read", false);
-      setUnreadCount(count ?? 0);
-    };
+      const setupRealtime = async () => {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        
+        const myId = session?.user?.id;
+        if (!myId) return;
 
-    const init = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.user) return;
-      myId = session.user.id;
-      await fetchUnread();
+        // 未読件数の取得
+        const fetchUnread = async () => {
+          const { count } = await supabase
+            .from("notification")
+            .select("*", { count: "exact", head: true })
+            .eq("receiver_id", myId)
+            .eq("is_read", false);
+          setUnreadCount(count ?? 0);
+        };
 
-      // 通知の追加・既読化をリアルタイムに反映
-      const channel = supabase
-        .channel("sidebar-notifications")
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: "notification" },
-          (payload) => {
-            // サーバー側フィルタは使わず JS 側で判定（INSERT/UPDATE は new、DELETE は old を参照）
-            const rec =
-              (payload.new as { receiver_id?: string })?.receiver_id ??
-              (payload.old as { receiver_id?: string })?.receiver_id;
-            if (rec === myId) fetchUnread();
-          }
-        )
-        .subscribe();
+        // 初回取得
+        await fetchUnread();
 
-      return channel;
-    };
+        // 2. .on() を設定してから .subscribe() を呼ぶ
+        channel
+          .on(
+            "postgres_changes",
+            { event: "*", schema: "public", table: "notification" },
+            (payload) => {
+              const rec =
+                (payload.new as { receiver_id?: string })?.receiver_id ??
+                (payload.old as { receiver_id?: string })?.receiver_id;
+              if (rec === myId) fetchUnread();
+            }
+          )
+          .subscribe();
+      };
 
-    const channelPromise = init();
-    return () => {
-      channelPromise.then((channel) => {
-        if (channel) supabase.removeChannel(channel);
-      });
-    };
-  }, []);
+      setupRealtime();
 
+      // 3. コンポーネント破棄時に確実にチャンネルを解放する
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }, []);
 
   return (
     <div className="w-72 border-r border-gray-200 p-6 flex flex-col gap-8 h-screen bg-white shrink-0">
@@ -75,13 +74,12 @@ export function Sidebar() {
 
       <nav className="flex flex-col gap-2">
         <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
-        {/* ここを /search に変更し、アイコンを Search に変更！ */}
         <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
         <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5"/>} label="教科書譲渡" active={isActive("/txtpost")} />
         <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
+        <SidebarItem href="/reviews" icon={<User className="w-5 h-5" />} label="レビュー" active={isActive("/reviews")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
-        
       </nav>
     </div>
   );
