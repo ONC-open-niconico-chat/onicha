@@ -195,7 +195,7 @@ export function PostList({ posts, onRefresh }: PostListProps) {
               <img
                 src={post.image_url}
                 alt="投稿画像"
-                className="mt-2 mb-1 w-full max-h-80 object-cover rounded-2xl border border-gray-100"
+                className="mt-2 mb-1 max-w-full max-h-80 w-auto object-contain rounded-2xl border border-gray-100"
               />
             )}
             <button
