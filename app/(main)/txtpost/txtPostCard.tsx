@@ -2,15 +2,33 @@ import  Link  from "next/link";
 import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/loginUser";
+import { Trash2 } from "lucide-react";
 
 
 interface PostCardProps {
   txtpost: Post;
-  
+  onDeleted?: () => void;
 }
 
-export function PostCard({ txtpost }: PostCardProps) {
+export function PostCard({ txtpost, onDeleted }: PostCardProps) {
   const { userProfile, loading } = useAuth();
+
+  // 自分の投稿かどうか
+  const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
+
+  // 自分の教科書譲渡ポストを削除する
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm("この投稿を削除しますか？")) return;
+    await supabase.from("notification").delete().eq("txt_post_id", txtpost.id);
+    const { error } = await supabase.from("txt_post").delete().eq("id", txtpost.id);
+    if (error) {
+      console.error("投稿の削除に失敗しました:", error);
+      alert("削除に失敗しました。");
+      return;
+    }
+    onDeleted?.();
+  };
 
   return (
     <article className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
@@ -34,6 +52,15 @@ export function PostCard({ txtpost }: PostCardProps) {
             {/*<span className="text-gray-600">{txtpost.user.username}</span>*/}
             <span className="text-gray-600">·</span>
             <span className="text-gray-600">{txtpost.created_at}</span>
+            {isMine && (
+              <button
+                onClick={handleDelete}
+                className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                title="投稿を削除"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
 
           <p className="mb-3">{txtpost.description}</p>
