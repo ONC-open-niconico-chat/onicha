@@ -29,6 +29,7 @@ export interface Post {
   }
   description: string;
   give_type: "offering" | "seeking";
+  status: string;
   created_at: string;
 }
 
@@ -113,6 +114,80 @@ export default function TxtPostPage() {
   }
     
   useEffect(() => {
+<<<<<<< HEAD
+    //データ取得用の関数
+    const fetchPosts = async () => {
+        setLoading(true);
+
+        const {data,error} = await supabase
+        .from('txt_post') 
+        .select(`
+            id,
+            user:"user" (  
+            id,
+            username,
+            icon_src
+            ),
+            book:"textbook" (     
+            id,
+            title
+            ),
+            condition:"txtbook_condition" (
+            id,
+            name
+            ),
+            description,
+            give_type,
+            status,
+            created_at
+
+
+
+        `)
+        .order('created_at',{ascending:false})
+
+        if (error) {
+            console.error("データ取得エラー:",error);
+        } else if(data) {
+        const formattedPosts: Post[] = data.map((item: any) => {
+
+            const postDate = new Date(item.created_at);
+
+            // 「今からどれくらい前か」を日本語で計算
+            const relativeTime = formatDistanceToNow(postDate, {
+                addSuffix: true, // 「〜前」という言葉を付ける
+                locale: ja,      // 日本語に設定
+            });
+        
+            // 日付オブジェクトを作成（自動的にブラウザのローカル時間、日本時間に）
+            const date = new Date(item.created_at);
+            
+            // 読みやすい形式に変換（例：2026/05/12 15:42）
+            const formattedDate = date.toLocaleString('ja-JP', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+            });
+
+            return {
+                ...item,
+                user: Array.isArray(item.user) ? item.user[0] : item.user,
+                book: Array.isArray(item.book) ? item.book[0] : item.book,
+                condition: Array.isArray(item.condition) ? item.condition[0] : item.condition,
+                // ここで変換後の日付を入れる！
+                created_at: relativeTime
+            };
+        });
+        setPosts(formattedPosts);
+        console.log("データ",formattedPosts);
+        setLoading(false);
+            };
+        
+    }
+=======
+>>>>>>> main
     fetchPosts();
   }, []);
 

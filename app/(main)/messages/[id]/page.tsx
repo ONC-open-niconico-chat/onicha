@@ -378,7 +378,6 @@ export default function ChatPage() {
             <span className="font-bold text-lg">{partner?.username || "ユーザー"}</span>
             <span className="text-xs text-gray-500">@{partner?.username || "user"}</span>
           </div>
-          <button className="text-gray-500 font-bold p-2 hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center">ⓘ</button>
         </div>
 
         {/* チャットタイムライン部分 */}
