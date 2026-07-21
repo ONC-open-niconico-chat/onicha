@@ -115,14 +115,32 @@ export default function HomePage() {
     setIsMenuOpen(false);
   };
 
-  const handleAddPost = async (content: string) => {
+  const handleAddPost = async (content: string, file: File | null) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
     const exactNow = new Date().toISOString();
 
-    const { error } = await supabase.from('post').insert([{ user_id: user.id, content, number_of_likes: 0, created_at: exactNow }]);
-    if (!error) { 
-      setIsPostOpen(false); 
+    // 画像が選ばれていれば images バケットにアップロードして公開URLを取得
+    let imageUrl: string | null = null;
+    if (file) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage.from('images').getPublicUrl(filePath);
+        imageUrl = publicUrl;
+      } catch (uploadErr) {
+        console.error('画像のアップロードに失敗しました:', uploadErr);
+        alert('画像のアップロードに失敗しました。');
+        return;
+      }
+    }
+
+    const { error } = await supabase.from('post').insert([{ user_id: user.id, content, image_url: imageUrl, number_of_likes: 0, created_at: exactNow }]);
+    if (!error) {
+      setIsPostOpen(false);
       setTimeout(() => {
         mutateAll();
       }, 100);
