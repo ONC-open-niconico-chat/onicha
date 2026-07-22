@@ -171,7 +171,7 @@ export default function TxtPostPage() {
 
       <div className="divide-y divide-gray-200">
         {filteredPosts.map((post) => (
-          <PostCard key={post.id} txtpost={post}  />
+          <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
         ))}
       </div>
 

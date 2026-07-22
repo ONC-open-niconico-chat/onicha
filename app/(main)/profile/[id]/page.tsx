@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -455,6 +455,23 @@ export default function App({ params }: Props) {
     }
   };
 
+  // 自分の投稿を削除する
+  const handleDeletePost = async (postId: number) => {
+    if (!myId || !confirm("この投稿を削除しますか？")) return;
+    await supabase.from('like').delete().eq('post_id', postId);
+    const { error } = await supabase
+      .from('post')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', myId);
+    if (error) {
+      console.error('投稿の削除に失敗しました:', error);
+      showError('投稿の削除に失敗しました。');
+      return;
+    }
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
+
   // フォロー連打防止つき
   const handleFollowToggle = async () => {
     if (!myId || !profile || isMe || isFollowPending) return;
@@ -791,6 +808,19 @@ export default function App({ params }: Props) {
                         <span className="font-bold hover:underline">{displayProfile.username}</span>
                         <span className="text-gray-500 text-sm">·</span>
                         <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
+                        {isMe && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePost(post.id);
+                            }}
+                            className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                            title="投稿を削除"
+                          >
+                            <Trash2 className='w-5 h-5' />
+                          </button>
+                        )}
                       </div>
                       <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
 
