@@ -55,10 +55,10 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
             {isMine && (
               <button
                 onClick={handleDelete}
-                className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                className="ml-auto text-gray-500 hover:text-red-500 transition-colors"
                 title="投稿を削除"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-5 h-5" />
               </button>
             )}
           </div>

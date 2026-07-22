@@ -186,7 +186,7 @@ export function PostList({ posts, onRefresh }: PostListProps) {
               </div>
               {currentUserId === post.user_id && (
                 <button onClick={() => handleDelete(post.id)} className="text-gray-300 hover:text-red-500">
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               )}
             </div>

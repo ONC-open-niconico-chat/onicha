@@ -804,7 +804,7 @@ export default function App({ params }: Props) {
                             className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
                             title="投稿を削除"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 className='w-5 h-5' />
                           </button>
                         )}
                       </div>
