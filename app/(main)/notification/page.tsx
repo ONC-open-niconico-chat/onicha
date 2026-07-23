@@ -139,7 +139,19 @@ const handleAcceptAndNavigate = async (
     console.error("通知の既読更新に失敗しました:", error);
   }
 
-  // ② リクエスト送信者へ「承諾されました」の通知を作成
+  // ② 該当の教科書譲渡ポストを「マッチング済み」に更新
+  if (txtPostId != null) {
+    const { error: postError } = await supabase
+      .from("txt_post")
+      .update({ status: "マッチング済み" })
+      .eq("id", Number(txtPostId));
+
+    if (postError) {
+      console.error("ポストのステータス更新に失敗しました:", postError);
+    }
+  }
+
+  // ③ リクエスト送信者へ「承諾されました」の通知を作成
   if (currentUserId) {
     await createNotification({
       receiverId: senderId, // リクエストを送ってきた人
@@ -147,6 +159,46 @@ const handleAcceptAndNavigate = async (
       type: "request_accepted",
       txtPostId: txtPostId != null ? Number(txtPostId) : null,
     });
+  }
+
+  // ④ 同じポストへの他の未処理リクエストを自動で締め切り、各送信者へ通知する
+  if (currentUserId && txtPostId != null) {
+    // 自分宛の、同じポストに対する未処理（request_status が未設定）のリクエスト通知を取得
+    const { data: otherRequests, error: othersError } = await supabase
+      .from("notification")
+      .select("id, sender_id")
+      .eq("receiver_id", currentUserId)
+      .eq("txt_post_id", Number(txtPostId))
+      .in("notification_type", ["request_for_offering", "request_for_request"])
+      .is("request_status", null)
+      .neq("id", notificationId);
+
+    if (othersError) {
+      console.error("他リクエストの取得に失敗しました:", othersError);
+    } else if (otherRequests && otherRequests.length > 0) {
+      // 締め切る通知をまとめて既読 + 見送り扱いに更新
+      const { error: closeError } = await supabase
+        .from("notification")
+        .update({ is_read: true, request_status: "rejected" })
+        .in(
+          "id",
+          otherRequests.map((r) => r.id)
+        );
+
+      if (closeError) {
+        console.error("他リクエストの締め切りに失敗しました:", closeError);
+      }
+
+      // 各送信者へ「見送り（他の方に決定）」の通知を作成
+      for (const req of otherRequests) {
+        await createNotification({
+          receiverId: req.sender_id,
+          senderId: currentUserId,
+          type: "request_rejected",
+          txtPostId: Number(txtPostId),
+        });
+      }
+    }
   }
 
   await fetchNotifications();
