@@ -15,6 +15,8 @@ interface NotificationItem {
   notification_type: string;
   created_at: string;
   is_read: boolean;
+  // 承諾/拒否の結果。リクエストを受け取った通知に対して保存する。
+  request_status: "accepted" | "rejected" | null;
 
   // ① リクエスト送信者のプロフィール
   sender_profile: {
@@ -35,6 +37,8 @@ export default function NotificationPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // 承諾・拒否ボタンを押した結果（通知IDごと）。押したらボタンをラベル表示に切り替える。
+  const [actionStatus, setActionStatus] = useState<Record<string, "accepted" | "rejected">>({});
   const router = useRouter();
 
 
@@ -59,6 +63,7 @@ export default function NotificationPage() {
                 notification_type,
                 created_at,
                 is_read,
+                request_status,
                 sender_profile:user!notification_sender_id_fkey (username),
                 txt_post(
                 id,
@@ -115,15 +120,18 @@ const handleAcceptAndNavigate = async (
   txtPostId?: string | number | null
 ) => {
   // ① {相手の名前}で確認ダイアログを出す
-  const isConfirmed = window.confirm(`${senderName} さんとのチャットを開始しますか？`);
+  const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
 
   if (!isConfirmed) return;
+
+  // ボタンを「承諾しました」ラベルに切り替える
+  setActionStatus((prev) => ({ ...prev, [notificationId]: "accepted" }));
 
   try {
     // 🟢 Supabaseの notification テーブルの is_read を true（既読）に更新！
     const { error } = await supabase
       .from("notification")
-      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .update({ is_read: true, request_status: "accepted" }) // 既読 + 承諾を保存
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error; // もしエラーが起きたら catch ブロックへ飛ばす
@@ -142,9 +150,7 @@ const handleAcceptAndNavigate = async (
   }
 
   await fetchNotifications();
-
-  // ③ チャット画面へ遷移！
-  router.push(`/messages/${senderId}?first=true`);
+  // 遷移はせず、「承諾しました」ラベル＋「メッセージへ」ボタンを表示する
 };
 
 const handleReject = async (
@@ -152,15 +158,18 @@ const handleReject = async (
   senderId: string,
   txtPostId?: string | number | null
 ) => {
-  const isConfirmed = window.confirm("このリクエストを拒否しますか？");
+  const isConfirmed = window.confirm("このリクエストを見送りますか？");
 
   if (!isConfirmed) return;
+
+  // ボタンを「見送りました」ラベルに切り替える
+  setActionStatus((prev) => ({ ...prev, [notificationId]: "rejected" }));
 
   try {
     // 🔴 Supabaseの notification テーブルの is_read を true（既読）に更新！
     const { error } = await supabase
       .from("notification")
-      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .update({ is_read: true, request_status: "rejected" }) // 既読 + 見送りを保存
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error;
@@ -181,8 +190,12 @@ const handleReject = async (
   await fetchNotifications();
 };
 
-// 承諾通知から、相手とのメッセージ画面へ移動する
-const handleGoToMessage = async (notificationId: string, partnerId: string) => {
+// 相手とのメッセージ画面へ移動する（first: チャットを新規開始する場合 true）
+const handleGoToMessage = async (
+  notificationId: string,
+  partnerId: string,
+  first = false
+) => {
   try {
     // この通知を既読にする
     const { error } = await supabase
@@ -196,7 +209,7 @@ const handleGoToMessage = async (notificationId: string, partnerId: string) => {
   }
 
   // 相手とのメッセージ画面へ遷移
-  router.push(`/messages/${partnerId}`);
+  router.push(`/messages/${partnerId}${first ? "?first=true" : ""}`);
 };
 
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
@@ -217,6 +230,9 @@ const handleGoToMessage = async (notificationId: string, partnerId: string) => {
             const isResultNotification =
               notif.notification_type === "request_accepted" ||
               notif.notification_type === "request_rejected";
+
+            // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
+            const requestStatus = actionStatus[notif.id] ?? notif.request_status;
 
             return (
               <div
@@ -263,6 +279,24 @@ const handleGoToMessage = async (notificationId: string, partnerId: string) => {
                 {/* 右側：承諾・拒否ボタンエリア（リクエストを受け取った側だけ表示） */}
                 {!isResultNotification && (
                     <div className="flex items-center gap-2 shrink-0">
+                        {requestStatus === "accepted" ? (
+                          <>
+                            <span className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 font-bold text-sm rounded-xl">
+                            承諾しました
+                            </span>
+                            {/* 相手とのメッセージ画面へ */}
+                            <button
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                            onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id, true); }}
+                            >
+                            メッセージへ
+                            </button>
+                          </>
+                        ) : requestStatus === "rejected" ? (
+                            <span className="px-4 py-2 bg-gray-50 text-gray-500 border border-gray-200 font-bold text-sm rounded-xl">
+                            見送りました
+                            </span>
+                        ) : (
                         <>
                             {/* 🟢 承諾ボタン */}
                             <button
@@ -277,9 +311,10 @@ const handleGoToMessage = async (notificationId: string, partnerId: string) => {
                             className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-bold text-sm rounded-xl shadow-sm transition-all"
                             onClick={(e) => { e.stopPropagation(); handleReject(notif.id, notif.sender_id, notif.txt_post?.id); }}
                             >
-                            拒否
+                            見送る
                             </button>
                         </>
+                        )}
                     </div>
                 )}
 
