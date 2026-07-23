@@ -91,6 +91,11 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
 
 
             <div className="flex justify-start pt-2 border-t border-dashed border-gray-200">
+              {txtpost.status === "マッチング済み" ? (
+                <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
+                  マッチング済み ✓
+                </span>
+              ) : (
               <button
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
@@ -127,6 +132,7 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
               >
                 {txtpost.give_type === "offering" ? "譲ってください 🙌" : "譲ります 📚"}
               </button>
+              )}
             </div>
           </div>
         </div>
