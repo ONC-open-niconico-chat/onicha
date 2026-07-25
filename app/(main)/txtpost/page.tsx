@@ -32,6 +32,7 @@ export interface Post {
   description: string;
   give_type: "offering" | "seeking";
   created_at: string;
+  status: string;
 }
 
 
@@ -55,21 +56,22 @@ function TxtPostContent() {
         .select(`
             id,
             user:"user" (  
-            id,
-            username,
-            icon_src
+              id,
+              username,
+              icon_src
             ),
             book:"textbook" (     
-            id,
-            title
+              id,
+              title
             ),
             condition:"txtbook_condition" (
-            id,
-            name
+              id,
+              name
             ),
             description,
             give_type,
-            created_at
+            created_at,
+            status
         `)
       .order('created_at',{ascending:false})
 
@@ -199,7 +201,7 @@ function TxtPostContent() {
           </div>
         ) : (
           filteredPosts.map((post) => (
-            <PostCard key={post.id} txtpost={post} />
+            <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
           ))
         )}
       </div>

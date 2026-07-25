@@ -152,9 +152,17 @@ export function PostList({ posts, onRefresh }: PostListProps) {
     <div className="divide-y divide-gray-100 pb-20">
       {localPosts.map((post) => (
         <div key={post.id} className="p-4 flex gap-3">
-          <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold">
-            {post.user?.username?.substring(0, 1) || "U"}
-          </div>
+          {post.user?.icon_src ? (
+            <img
+              src={post.user.icon_src}
+              alt={post.user?.username || "ユーザー"}
+              className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100"
+            />
+          ) : (
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold">
+              {post.user?.username?.substring(0, 1) || "U"}
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -186,12 +194,19 @@ export function PostList({ posts, onRefresh }: PostListProps) {
               </div>
               {currentUserId === post.user_id && (
                 <button onClick={() => handleDelete(post.id)} className="text-gray-300 hover:text-red-500">
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                 </button>
               )}
             </div>
             <p className="text-gray-800 text-sm my-1 leading-relaxed whitespace-pre-wrap">{post.content}</p>
-            <button 
+            {post.image_url && (
+              <img
+                src={post.image_url}
+                alt="投稿画像"
+                className="mt-2 mb-1 max-w-full max-h-80 w-auto object-contain rounded-2xl border border-gray-100"
+              />
+            )}
+            <button
               onClick={() => toggleLike(post.id, post.number_of_likes || 0)}
               className={`flex items-center gap-1 text-xs transition-colors ${myLikes.has(post.id) ? "text-red-500 font-bold" : "text-gray-400"}`}
             >

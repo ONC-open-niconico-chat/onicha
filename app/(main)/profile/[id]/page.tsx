@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X } from 'lucide-react';
+import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -14,6 +14,10 @@ interface UserProfile {
   username: string;
   grade: number;
   department_id: number;
+  department?:
+    | { name: string; faculty?: { name: string } | { name: string }[] | null }
+    | { name: string; faculty?: { name: string } | { name: string }[] | null }[]
+    | null;
   icon_src: string;
   cover_src: string;
   bio: string;
@@ -140,18 +144,20 @@ export default function App({ params }: Props) {
       // プロフィール情報の取得
       const { data: profileData, error: profileError } = await supabase
         .from('user')
-        .select('id, username, grade, department_id, icon_src, cover_src, bio')
+        .select('id, username, grade, department_id, icon_src, cover_src, bio, department:department_id(name,faculty:faculty_id(name))')
         .eq('id', userId)
         .single();
+        console.log("Fetched profile data:", profileData); // デバッグ用ログ --- IGNORE ---
 
       if (profileError) console.error("❌ ユーザー検索エラー:", profileError.message);
       if (profileData) {
         setProfile({
           ...profileData,
           bio: profileData.bio || '',
-          cover_src: profileData.cover_src || ''
+          cover_src: profileData.cover_src || '',
         });
       }
+      //console.log("Profile state after fetch:", profile); // デバッグ用ログ --- IGNORE ---
 
       // フォロー・フォロワー数の取得
       const { count: following, error: followingError } = await supabase
@@ -449,6 +455,23 @@ export default function App({ params }: Props) {
     }
   };
 
+  // 自分の投稿を削除する
+  const handleDeletePost = async (postId: number) => {
+    if (!myId || !confirm("この投稿を削除しますか？")) return;
+    await supabase.from('like').delete().eq('post_id', postId);
+    const { error } = await supabase
+      .from('post')
+      .delete()
+      .eq('id', postId)
+      .eq('user_id', myId);
+    if (error) {
+      console.error('投稿の削除に失敗しました:', error);
+      showError('投稿の削除に失敗しました。');
+      return;
+    }
+    setPosts(prev => prev.filter(p => p.id !== postId));
+  };
+
   // フォロー連打防止つき
   const handleFollowToggle = async () => {
     if (!myId || !profile || isMe || isFollowPending) return;
@@ -541,10 +564,15 @@ export default function App({ params }: Props) {
     return <div className="flex items-center justify-center min-h-screen text-gray-500 font-medium">読み込み中...</div>;
   }
 
+  // 学科名を取り出す（Supabaseのネスト取得はオブジェクト/配列どちらの可能性もあるため両対応）
+  const dept = Array.isArray(profile?.department) ? profile?.department[0] : profile?.department;
+  const facul = Array.isArray(dept?.faculty) ? dept?.faculty[0] : dept?.faculty;
   const displayProfile = {
     username: profile?.username || 'データ未取得',
     grade: profile?.grade || 0,
     department_id: profile?.department_id || '-',
+    departmentName: dept?.name || '未設定',
+    facultyName: facul?.name || '未設定',
     icon_src: profile?.icon_src || 'https://unsplash.com',
     cover_src: profile?.cover_src || 'https://unsplash.com',
     bio: profile?.bio || 'プロフィールは未設定です。'
@@ -656,7 +684,10 @@ export default function App({ params }: Props) {
                 {displayProfile.grade}年生
               </span>
               <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                所属ID: {displayProfile.department_id}
+                {displayProfile.facultyName}
+              </span>
+              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                {displayProfile.departmentName}
               </span>
             </div>
           </div>
@@ -777,6 +808,19 @@ export default function App({ params }: Props) {
                         <span className="font-bold hover:underline">{displayProfile.username}</span>
                         <span className="text-gray-500 text-sm">·</span>
                         <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
+                        {isMe && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeletePost(post.id);
+                            }}
+                            className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                            title="投稿を削除"
+                          >
+                            <Trash2 className='w-5 h-5' />
+                          </button>
+                        )}
                       </div>
                       <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
 
@@ -787,12 +831,12 @@ export default function App({ params }: Props) {
                             e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
                             setActiveImageUrl(post.image_url || null); //  クリックされた画像を拡大表示
                           }}
-                          className="mt-2 mb-3 w-full aspect-[16/9] max-h-72 rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
+                          className="mt-2 mb-3 inline-block max-w-full rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
                         >
                           <img
                             src={post.image_url}
                             alt="Post media"
-                            className="w-full h-full object-cover group-hover:brightness-95 transition duration-200"
+                            className="max-w-full max-h-96 w-auto object-contain group-hover:brightness-95 transition duration-200"
                           />
                         </div>
                       )}

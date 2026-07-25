@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
+import { createNotification } from "@/lib/notifications";
 
 
 
@@ -13,7 +14,10 @@ interface NotificationItem {
   receiver_id: string;
   notification_type: string;
   created_at: string;
-  
+  is_read: boolean;
+  // 承諾/拒否の結果。リクエストを受け取った通知に対して保存する。
+  request_status: "accepted" | "rejected" | null;
+
   // ① リクエスト送信者のプロフィール
   sender_profile: {
     username: string;
@@ -32,9 +36,12 @@ interface NotificationItem {
 export default function NotificationPage() {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  // 承諾・拒否ボタンを押した結果（通知IDごと）。押したらボタンをラベル表示に切り替える。
+  const [actionStatus, setActionStatus] = useState<Record<string, "accepted" | "rejected">>({});
   const router = useRouter();
 
-  
+
     const fetchNotifications = async () => {
       try {
         setLoading(true);
@@ -44,6 +51,7 @@ export default function NotificationPage() {
         if (!session) return;
 
         const currentUserId = session.user.id;
+        setCurrentUserId(currentUserId);
 
         // 2. 自分が「受け取り手（receiver_id）」になっている通知を、新しい順（desc）で取得
         const { data, error } = await supabase
@@ -54,7 +62,8 @@ export default function NotificationPage() {
                 receiver_id,
                 notification_type,
                 created_at,
-            
+                is_read,
+                request_status,
                 sender_profile:user!notification_sender_id_fkey (username),
                 txt_post(
                 id,
@@ -64,14 +73,13 @@ export default function NotificationPage() {
                 )
             `)
           .eq("receiver_id", currentUserId)
-          .eq("is_read", false) // 未読の通知のみ取得
           .order("created_at", { ascending: false });
 
           
 
         if (error) throw error;
 
-        setNotifications(data as any || []);
+        setNotifications((data as any) || []);
       } catch (error) {
         console.error("通知の取得に失敗しました:", error);
       } finally {
@@ -84,55 +92,177 @@ export default function NotificationPage() {
       fetchNotifications();
     }, []);
 
+  // 通知をクリックしたときに既読にする
+  const handleMarkAsRead = async (notificationId: string, isRead: boolean) => {
+    if (isRead) return; // すでに既読なら何もしない
 
-  // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
-const handleAcceptAndNavigate = async (notificationId: string, senderId: string, senderName: string) => {
-  // ① {相手の名前}で確認ダイアログを出す
-  const isConfirmed = window.confirm(`${senderName} さんとのチャットを開始しますか？`);
-  
-  if (isConfirmed) {
-    await fetchNotifications();
+    // 画面上ですぐ既読表示に切り替える
+    setNotifications((prev) =>
+      prev.map((n) => (n.id === notificationId ? { ...n, is_read: true } : n))
+    );
 
-    try {
-    // 🟢 追記：Supabaseの notification テーブルの is_read を true（既読）に更新！
     const { error } = await supabase
       .from("notification")
-      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    if (error) {
+      console.error("通知の既読更新に失敗しました:", error);
+    }
+  };
+
+
+  // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
+const handleAcceptAndNavigate = async (
+  notificationId: string,
+  senderId: string,
+  senderName: string,
+  txtPostId?: string | number | null
+) => {
+  // ① {相手の名前}で確認ダイアログを出す
+  const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
+
+  if (!isConfirmed) return;
+
+  // ボタンを「承諾しました」ラベルに切り替える
+  setActionStatus((prev) => ({ ...prev, [notificationId]: "accepted" }));
+
+  try {
+    // 🟢 Supabaseの notification テーブルの is_read を true（既読）に更新！
+    const { error } = await supabase
+      .from("notification")
+      .update({ is_read: true, request_status: "accepted" }) // 既読 + 承諾を保存
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error; // もしエラーが起きたら catch ブロックへ飛ばす
-
-    // ② 既読更新が成功したら、チャット画面へ遷移！
-    router.push(`/messages/${senderId}?first=true`);
-    
   } catch (error) {
     console.error("通知の既読更新に失敗しました:", error);
-    router.push(`/messages/${senderId}?first=true`);
   }
-    router.push(`/messages/${senderId}?first=true`);
 
+  // ② 該当の教科書譲渡ポストを「マッチング済み」に更新
+  if (txtPostId != null) {
+    const { error: postError } = await supabase
+      .from("txt_post")
+      .update({ status: "マッチング済み" })
+      .eq("id", Number(txtPostId));
+
+    if (postError) {
+      console.error("ポストのステータス更新に失敗しました:", postError);
+    }
   }
+
+  // ③ リクエスト送信者へ「承諾されました」の通知を作成
+  if (currentUserId) {
+    await createNotification({
+      receiverId: senderId, // リクエストを送ってきた人
+      senderId: currentUserId, // 承諾した自分
+      type: "request_accepted",
+      txtPostId: txtPostId != null ? Number(txtPostId) : null,
+    });
+  }
+
+  // ④ 同じポストへの他の未処理リクエストを自動で締め切り、各送信者へ通知する
+  if (currentUserId && txtPostId != null) {
+    // 自分宛の、同じポストに対する未処理（request_status が未設定）のリクエスト通知を取得
+    const { data: otherRequests, error: othersError } = await supabase
+      .from("notification")
+      .select("id, sender_id")
+      .eq("receiver_id", currentUserId)
+      .eq("txt_post_id", Number(txtPostId))
+      .in("notification_type", ["request_for_offering", "request_for_request"])
+      .is("request_status", null)
+      .neq("id", notificationId);
+
+    if (othersError) {
+      console.error("他リクエストの取得に失敗しました:", othersError);
+    } else if (otherRequests && otherRequests.length > 0) {
+      // 締め切る通知をまとめて既読 + 見送り扱いに更新
+      const { error: closeError } = await supabase
+        .from("notification")
+        .update({ is_read: true, request_status: "rejected" })
+        .in(
+          "id",
+          otherRequests.map((r) => r.id)
+        );
+
+      if (closeError) {
+        console.error("他リクエストの締め切りに失敗しました:", closeError);
+      }
+
+      // 各送信者へ「見送り（他の方に決定）」の通知を作成
+      for (const req of otherRequests) {
+        await createNotification({
+          receiverId: req.sender_id,
+          senderId: currentUserId,
+          type: "request_rejected",
+          txtPostId: Number(txtPostId),
+        });
+      }
+    }
+  }
+
+  await fetchNotifications();
+  // 遷移はせず、「承諾しました」ラベル＋「メッセージへ」ボタンを表示する
 };
 
-const handleReject = async (notificationId: string) => {
-  const isConfirmed = window.confirm("このリクエストを拒否しますか？");
+const handleReject = async (
+  notificationId: string,
+  senderId: string,
+  txtPostId?: string | number | null
+) => {
+  const isConfirmed = window.confirm("このリクエストを見送りますか？");
 
-  if (isConfirmed) {
-    try {
-      // 🔴 追記：Supabaseの notification テーブルの is_read を true（既読）に更新！
-      const { error } = await supabase
+  if (!isConfirmed) return;
+
+  // ボタンを「見送りました」ラベルに切り替える
+  setActionStatus((prev) => ({ ...prev, [notificationId]: "rejected" }));
+
+  try {
+    // 🔴 Supabaseの notification テーブルの is_read を true（既読）に更新！
+    const { error } = await supabase
       .from("notification")
-      .update({ is_read: true }) // 💡 既読フラグをONにする
+      .update({ is_read: true, request_status: "rejected" }) // 既読 + 見送りを保存
       .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
 
     if (error) throw error;
-
-    await fetchNotifications();
   } catch (error) {
     console.error("通知の既読更新に失敗しました:", error);
   }
+
+  // リクエスト送信者へ「拒否されました」の通知を作成
+  if (currentUserId) {
+    await createNotification({
+      receiverId: senderId, // リクエストを送ってきた人
+      senderId: currentUserId, // 拒否した自分
+      type: "request_rejected",
+      txtPostId: txtPostId != null ? Number(txtPostId) : null,
+    });
+  }
+
+  await fetchNotifications();
 };
-}
+
+// 相手とのメッセージ画面へ移動する（first: チャットを新規開始する場合 true）
+const handleGoToMessage = async (
+  notificationId: string,
+  partnerId: string,
+  first = false
+) => {
+  try {
+    // この通知を既読にする
+    const { error } = await supabase
+      .from("notification")
+      .update({ is_read: true })
+      .eq("id", notificationId);
+
+    if (error) throw error;
+  } catch (error) {
+    console.error("通知の既読更新に失敗しました:", error);
+  }
+
+  // 相手とのメッセージ画面へ遷移
+  router.push(`/messages/${partnerId}${first ? "?first=true" : ""}`);
+};
 
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
@@ -148,57 +278,109 @@ const handleReject = async (notificationId: string) => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
 
+            // 承諾・拒否の結果通知（リクエスト送信者が受け取る通知）かどうか
+            const isResultNotification =
+              notif.notification_type === "request_accepted" ||
+              notif.notification_type === "request_rejected";
+
+            // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
+            const requestStatus = actionStatus[notif.id] ?? notif.request_status;
+
             return (
-              <div key={notif.id} className="p-4 border rounded-xl shadow-sm bg-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div
+                key={notif.id}
+                onClick={() => handleMarkAsRead(notif.id, notif.is_read)}
+                className={`p-4 border rounded-xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  notif.is_read ? "bg-white" : "bg-indigo-50 border-indigo-200 cursor-pointer"
+                }`}
+              >
                 <div className="flex items-start gap-3">
                   {/* アイコン風の丸（アバター用） */}
                   <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold shrink-0">
                     {senderName[0]}
                   </div>
-                  
+
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 leading-relaxed">
-                      <span className="font-bold text-indigo-600">{senderName}</span> さんから、
-                      教科書 <span className="font-bold">「{textbookTitle}」</span> に対して
-                      {notif.notification_type === "request_for_offering" 
-                        ? "「譲ってください」のリクエストが届きました！" 
-                        : "「譲ります」のリクエストが届きました！"}
+                      {notif.notification_type === "request_rejected" ? (
+                        <>
+                          <span className="font-bold text-indigo-600">{senderName}</span> さんは
+                          教科書 <span className="font-bold">「{textbookTitle}」</span> の
+                          譲渡が<span className="font-bold text-gray-500">難しいようです。</span>
+                          他のポストを見てみましょう！
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-bold text-indigo-600">{senderName}</span> さんが、
+                          教科書 <span className="font-bold">「{textbookTitle}」</span> の
+                          {notif.notification_type === "request_accepted" ? (
+                            <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 譲渡方法を話し合いましょう！</>
+                          ) : notif.notification_type === "request_for_offering" ? (
+                            <>リクエスト「譲ってください」を送りました！</>
+                          ) : (
+                            <>リクエスト「譲ります」を送りました！</>
+                          )}
+                        </>
+                      )}
                     </p>
                     <p className="text-xs text-gray-400 mt-1.5">
                       {new Date(notif.created_at).toLocaleString("ja-JP")}
                     </p>
                   </div>
 
-                {/* 右側：承諾・拒否ボタンエリア */}
+                {/* 右側：承諾・拒否ボタンエリア（リクエストを受け取った側だけ表示） */}
+                {!isResultNotification && (
                     <div className="flex items-center gap-2 shrink-0">
-                        {/*
-                        {currentStatus === "accepted" ? (
-                        <span className="text-sm font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-lg border border-green-200">承諾済み ✓</span>
-                        ) : currentStatus === "rejected" ? (
-                        <span className="text-sm font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-200">拒否済み</span>
-                        ) : */}
+                        {requestStatus === "accepted" ? (
+                          <>
+                            <span className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 font-bold text-sm rounded-xl">
+                            承諾しました
+                            </span>
+                            {/* 相手とのメッセージ画面へ */}
+                            <button
+                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                            onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id, true); }}
+                            >
+                            メッセージへ
+                            </button>
+                          </>
+                        ) : requestStatus === "rejected" ? (
+                            <span className="px-4 py-2 bg-gray-50 text-gray-500 border border-gray-200 font-bold text-sm rounded-xl">
+                            見送りました
+                            </span>
+                        ) : (
                         <>
                             {/* 🟢 承諾ボタン */}
                             <button
-                            //onClick={() => handleAction(notif.id, "accepted")}
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={() => handleAcceptAndNavigate(notif.id,notif.sender_id, senderName)}
+                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id); }}
                             >
                             承諾
                             </button>
 
                             {/* 🔴 拒否ボタン */}
                             <button
-                            //onClick={() => handleAction(notif.id, "rejected")}
                             className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={() => handleReject(notif.id)}
+                            onClick={(e) => { e.stopPropagation(); handleReject(notif.id, notif.sender_id, notif.txt_post?.id); }}
                             >
-                              
-                            拒否
+                            見送る
                             </button>
                         </>
-                        
+                        )}
                     </div>
+                )}
+
+                {/* 承諾通知：相手とのメッセージ画面へ移動するボタン */}
+                {notif.notification_type === "request_accepted" && (
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                        onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id); }}
+                        >
+                        メッセージへ
+                        </button>
+                    </div>
+                )}
                 </div>
               </div>
             );
