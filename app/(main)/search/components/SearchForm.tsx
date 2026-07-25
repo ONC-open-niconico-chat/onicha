@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 
 interface SearchFormProps {
@@ -11,9 +11,15 @@ interface SearchFormProps {
     courseName: string;
   }) => void;
   loading: boolean;
+  initialValues?: {
+    textbookName?: string;
+    professorName?: string;
+    schedule?: string;
+    courseName?: string;
+  };
 }
 
-export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
+export const SearchForm = ({ onSearch, loading, initialValues }: SearchFormProps) => {
   const [params, setParams] = useState({
     textbookName: "",
     professorName: "",

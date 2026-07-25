@@ -1,13 +1,22 @@
 "use client";
 
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { SearchForm } from "./components/SearchForm";
 import { SearchList } from "./components/SearchList";
 import { Textbook } from "../../../types/textbook";
 import { supabase } from "@/lib/supabase";
 import { SearchResultItem } from "@/types/textbook";
 
-export default function SearchPage() {
+function SearchPageContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const initialCourseName = searchParams.get("courseName") || "";
+  const initialTextbookName = searchParams.get("textbookName") || "";
+  const initialProfessorName = searchParams.get("professorName") || "";
+  const initialSchedule = searchParams.get("schedule") || "";
+
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,6 +64,7 @@ export default function SearchPage() {
 
         return {
           id: rel.id,
+          textbook_id: textbook?.id,
           course_name: lecture?.title ?? "授業名なし",
           professor_name: lecture?.professor ?? "教授名なし",
           schedule: lecture?.day ?? "不明",
@@ -83,6 +93,17 @@ export default function SearchPage() {
     }
 }, []);
 
+useEffect(() => {
+    if (initialCourseName || initialTextbookName || initialProfessorName || initialSchedule) {
+      executeSearch({
+        courseName: initialCourseName,
+        textbookName: initialTextbookName,
+        professorName: initialProfessorName,
+        schedule: initialSchedule,
+      });
+    }
+  }, [initialCourseName, initialTextbookName, initialProfessorName, initialSchedule, executeSearch]);
+
   const handleSearch = useCallback(
     (params: {
       textbookName: string;
@@ -90,6 +111,17 @@ export default function SearchPage() {
       schedule: string;
       courseName: string;
     }) => {
+
+      const query = new URLSearchParams();
+      if (params.courseName) query.set("courseName", params.courseName);
+      if (params.textbookName) query.set("textbookName", params.textbookName);
+      if (params.professorName) query.set("professorName", params.professorName);
+      if (params.schedule) query.set("schedule", params.schedule);
+
+      // URLのアドレスバーのみ書き換える（ページリロードはしない）
+      const queryString = query.toString();
+      router.replace(queryString ? `/search?${queryString}` : "/search");
+
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
         executeSearch(params);
@@ -104,7 +136,16 @@ export default function SearchPage() {
         教科書検索
       </div>
       <div className="p-4">
-        <SearchForm onSearch={handleSearch} loading={loading} />
+        <SearchForm
+          onSearch={handleSearch}
+          loading={loading}
+          initialValues={{
+            courseName: initialCourseName,
+            textbookName: initialTextbookName,
+            professorName: initialProfessorName,
+            schedule: initialSchedule,
+          }}
+        />
       </div>
       {error && (
         <div className="mx-4 mb-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-200">
@@ -125,5 +166,13 @@ export default function SearchPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="text-center py-10 text-gray-400">読み込み中...</div>}>
+      <SearchPageContent />
+    </Suspense>
   );
 }
