@@ -8,7 +8,8 @@ import { supabase } from '@/lib/supabase';
 export default function Login() {
   const router = useRouter();
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading,setLoading] = useState(false);
+  const allowedDomain = 'cs.u-ryukyu.ac.jp';
 
   const handleLogin = async (formData: FormData) => {
     setLoading(true);
@@ -17,8 +18,10 @@ export default function Login() {
     const email = formData.get('email') as string;
     const password = formData.get('password') as string;
 
+    const fullEmail = `${email}@${allowedDomain}`;
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: fullEmail,
       password
     });
 
@@ -50,20 +53,33 @@ export default function Login() {
           <form action={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                メールアドレス
+                メールアドレス(eから始まる学籍番号を入力してください)
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              <div className="flex items-center w-full max-w-sm border border-gray-300 rounded-xl overflow-hidden focus-within:border-purple-500 bg-white transition-colors">
+                
+                {/* 入力エリア（アイコンとインプットをここに同居させる） */}
+                <div className="relative flex-1">
+                  {/* メールアイコン */}
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  
+                  {/* インプット*/}
+                  <input
+                    id="email"
+                    name="email"
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-3 text-sm outline-none bg-transparent"
+                    placeholder="eXXXXXX"
+                    required
+                    autoComplete="one-time-code"
+                  />
                 </div>
-                <input
-                  id="email"
-                  name='email'
-                  type="email"
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                  placeholder="example@email.com"
-                  required
-                />
+
+                {/* ドメイン表示部分 */}
+                <div className="bg-gray-50 text-gray-500 text-sm px-4 py-3 border-l border-gray-200 select-none font-medium whitespace-nowrap">
+                  @cs.u-ryukyu.ac.jp
+                </div>
               </div>
             </div>
 
@@ -82,6 +98,7 @@ export default function Login() {
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="••••••••"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
