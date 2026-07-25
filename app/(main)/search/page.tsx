@@ -5,9 +5,10 @@ import { SearchForm } from "./components/SearchForm";
 import { SearchList } from "./components/SearchList";
 import { Textbook } from "../../../types/textbook";
 import { supabase } from "@/lib/supabase";
+import { SearchResultItem } from "@/types/textbook";
 
 export default function SearchPage() {
-  const [results, setResults] = useState<Textbook[]>([]);
+  const [results, setResults] = useState<SearchResultItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
@@ -48,7 +49,7 @@ export default function SearchPage() {
         throw new Error("データ取得失敗");
       }
 
-      const combined = (txtCourseRes.data ?? []).map((rel: any) => {
+      const combined: SearchResultItem[] = (txtCourseRes.data ?? []).map((rel: any) => {
         const lecture = (lectureRes.data ?? []).find((l: any) => l.id === rel.txt_post_id);
         const textbook = (textbookRes.data ?? []).find((t: any) => t.isbn === rel.textbook_isbn);
 
@@ -67,12 +68,13 @@ export default function SearchPage() {
         return (
           item.course_name.toLowerCase().includes(params.courseName.toLowerCase()) &&
           item.professor_name.toLowerCase().includes(params.professorName.toLowerCase()) &&
-          item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase())
+          item.textbook_title.toLowerCase().includes(params.textbookName.toLowerCase()) &&
+          item.schedule.toLowerCase().includes(params.schedule.toLowerCase())
         );
       });
 
       setResults(filtered);
-      setLoading(false); // ★ここを追加：ローディングを終了！
+      setLoading(false); // ローディングを終了！
 
     } catch (err: any) {
       console.error("結合エラー:", err);

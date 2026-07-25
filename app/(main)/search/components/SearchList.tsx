@@ -1,7 +1,7 @@
 import { SearchResult } from "./SearchResult";
-import { Textbook } from "@/types/textbook";
+import { SearchResultItem } from "@/types/textbook";
 
-export const SearchList = ({ results }: { results: Textbook[] }) => {
+export const SearchList = ({ results }: { results: SearchResultItem[] }) => {
   if (results.length === 0) {
     return (
       <div className="text-center py-10">

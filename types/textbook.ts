@@ -6,3 +6,13 @@ export type Textbook = {
   isbn: string;
   pub_year: string;
 };
+
+// 画面表示（結合データ）用の型
+export type SearchResultItem = {
+  id: string;
+  course_name: string;
+  professor_name: string;
+  schedule: string;
+  textbook_title: string;
+  edition: string;
+};
