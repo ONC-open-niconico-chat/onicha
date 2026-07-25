@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import CreatePostForm from "./createNewPost";
-import { Plus } from "lucide-react";
+import { Plus, Search, X } from "lucide-react";
 
 
 
@@ -40,6 +40,8 @@ export default function TxtPostPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
+  // 教科書名・説明文でのキーワード検索
+  const [searchQuery, setSearchQuery] = useState("");
 
   
   //データ取得用の関数
@@ -117,10 +119,19 @@ export default function TxtPostPage() {
     fetchPosts();
   }, []);
 
-  const filteredPosts =
-    filter === "all"
-      ? posts
-      : posts.filter((post) => post.give_type === filter);
+  const filteredPosts = posts.filter((post) => {
+    // 種類フィルタ（すべて / 譲ります / 譲ってください）
+    const matchesType = filter === "all" || post.give_type === filter;
+
+    // キーワード検索（教科書名・説明文を対象、大文字小文字を無視）
+    const q = searchQuery.trim().toLowerCase();
+    const matchesQuery =
+      !q ||
+      (post.book?.title?.toLowerCase().includes(q) ?? false) ||
+      (post.description?.toLowerCase().includes(q) ?? false);
+
+    return matchesType && matchesQuery;
+  });
 
   if (loading) return <div>読み込み中...</div>
 
@@ -170,10 +181,39 @@ export default function TxtPostPage() {
         </div>
       </div>
 
+      {/* ─── 教科書名・説明文でのキーワード検索（タブと一覧の間） ─── */}
+      <div className="px-4 py-3 border-b border-gray-100">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="教科書名・キーワードで検索"
+            className="w-full pl-9 pr-9 py-2 bg-gray-100 rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              title="クリア"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="divide-y divide-gray-200">
-        {filteredPosts.map((post) => (
-          <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
-        ))}
+        {filteredPosts.length === 0 ? (
+          <p className="text-center text-gray-400 py-10">
+            {searchQuery ? "該当する投稿が見つかりませんでした" : "投稿がありません"}
+          </p>
+        ) : (
+          filteredPosts.map((post) => (
+            <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
+          ))
+        )}
       </div>
 
 
