@@ -316,6 +316,19 @@ export default function App({ params }: Props) {
     router.push('/login');
   };
 
+  // アカウント削除（自分のデータと認証ユーザーを削除する）
+  const handleDeleteAccount = async () => {
+    if (!confirm("本当にアカウントを削除しますか？\nこの操作は取り消せません。投稿・メッセージ・フォローなどすべてのデータが削除されます。")) return;
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) {
+      console.error('アカウント削除に失敗しました:', error);
+      showError('アカウントの削除に失敗しました。');
+      return;
+    }
+    await supabase.auth.signOut();
+    router.push('/signup');
+  };
+
   const handleSaveProfile = async (
     newUsername: string,
     newGrade: number,
@@ -641,6 +654,14 @@ export default function App({ params }: Props) {
               >
                 <LogOut size={16} />
                 ログアウト
+              </button>
+
+              <button
+                onClick={handleDeleteAccount}
+                className="h-9 px-4 rounded-full border border-red-300 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
+              >
+                <Trash2 size={16} />
+                アカウント削除
               </button>
 
               <button
