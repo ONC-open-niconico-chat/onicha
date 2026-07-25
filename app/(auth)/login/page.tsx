@@ -2,15 +2,36 @@
 
 import { useState } from 'react';
 import { Mail, Lock } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const router = useRouter();
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loading,setLoading] = useState(false);
+  const allowedDomain = 'cs.u-ryukyu.ac.jp';
 
-  const handleLogin = (e:any) => {
-    e.preventDefault();
-    console.log('ログイン:', { email, password });
-    
+  const handleLogin = async (formData: FormData) => {
+    setLoading(true);
+    setErrorMsg(null);
+
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+
+    const fullEmail = `${email}@${allowedDomain}`;
+
+    const { error } = await supabase.auth.signInWithPassword({
+      email: fullEmail,
+      password
+    });
+
+    if (error) {
+      setErrorMsg("ログインに失敗しました。")
+      setLoading(false);
+    } else {
+      // ⭕ 画面を丸ごとリロードして移動させ、Cookie（ログイン情報）の書き込みを確実に完了させます
+      window.location.href = '/';
+    }
   };
 
   return (
@@ -22,24 +43,43 @@ export default function Login() {
             <p className="text-gray-600">アカウントにログインしてください</p>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          {/* エラーメッセージ表示 */}
+          {errorMsg && (
+            <div className="mb-4 p-3 bg-red-50 text-red-500 text-sm rounded-lg border border-red-100">
+              {errorMsg}
+            </div>
+          )}
+
+          <form action={handleLogin} className="space-y-5">
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                メールアドレス
+                メールアドレス(eから始まる学籍番号を入力してください)
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Mail className="h-5 w-5 text-gray-400" />
+              <div className="flex items-center w-full max-w-sm border border-gray-300 rounded-xl overflow-hidden focus-within:border-purple-500 bg-white transition-colors">
+                
+                {/* 入力エリア（アイコンとインプットをここに同居させる） */}
+                <div className="relative flex-1">
+                  {/* メールアイコン */}
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <Mail className="h-5 w-5 text-gray-400" />
+                  </div>
+                  
+                  {/* インプット*/}
+                  <input
+                    id="email"
+                    name="email"
+                    type="text"
+                    className="block w-full pl-10 pr-3 py-3 text-sm outline-none bg-transparent"
+                    placeholder="eXXXXXX"
+                    required
+                    autoComplete="one-time-code"
+                  />
                 </div>
-                <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                  placeholder="example@email.com"
-                  required
-                />
+
+                {/* ドメイン表示部分 */}
+                <div className="bg-gray-50 text-gray-500 text-sm px-4 py-3 border-l border-gray-200 select-none font-medium whitespace-nowrap">
+                  @cs.u-ryukyu.ac.jp
+                </div>
               </div>
             </div>
 
@@ -54,11 +94,11 @@ export default function Login() {
                 <input
                   id="password"
                   type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  name='password'
                   className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                   placeholder="••••••••"
                   required
+                  autoComplete="off"
                 />
               </div>
             </div>
@@ -77,7 +117,7 @@ export default function Login() {
               type="submit"
               className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
             >
-              ログイン
+              {loading ? 'ログイン中...' : 'ログイン'}
             </button>
           </form>
 

@@ -1,31 +1,102 @@
 'use client'
 
-import { useState } from 'react';
-
-
+import { useEffect, useState } from 'react';
+import { supabase } from '@/lib/supabase';
 import { Mail, Lock, User, GraduationCap, BookOpen, School } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 
 export default function Signup() {
-  const [name, setName] = useState('');
-  const [username, setUsername] = useState('');
-  const [grade, setGrade] = useState('');
-  const [faculty, setFaculty] = useState('');
-  const [department, setDepartment] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
 
-  const handleSignup = (e:any) => {
-    e.preventDefault();
+  const router = useRouter();
+
+  const [faculties, setFaculties] = useState<{id: number,name:string}[]>([]);
+  const [allDepartments, setAllDepartments] = useState<{id: number, name: string, faculty_id: number}[]>([]);
+  const [filteredDepartments,setFilteredDepartments] = useState<{id:number,name: string}[]>([]);
+  const [selectedFaculty,setSelectedFaculty] = useState<string>('');
+  const allowedDomain = 'cs.u-ryukyu.ac.jp';
+  
+  
+
+  //全学部と全学科を取得
+  useEffect(() => {
+    const fetchData = async () => {
+      const { data:facultyData,error:facultyerror} = await supabase.from('faculty').select('*')
+      const { data:deptData} = await supabase.from('department').select('*')
+      
+      if (facultyerror) console.error('学部取得エラー',facultyerror);
+      console.log('取得した学部データ:', facultyData); 
+
+      if (facultyData) setFaculties(facultyData);
+      if (deptData) setAllDepartments(deptData);
+      console.log('取得した学部データ2:', faculties); 
+    };
+    fetchData();
+  },[]);
+
+  
+
+  //学部が選択されたら、それに対応する学科だけに絞り込む
+  useEffect(() => {
+    if(selectedFaculty){
+      const filtered = allDepartments.filter(
+        (d) =>d.faculty_id === parseInt(selectedFaculty)
+      );
+      setFilteredDepartments(filtered);
+    } else {
+      setFilteredDepartments([]);
+    }
+  },[selectedFaculty,allDepartments]);
+
+
+  
+
+  const handleSignup = async (formData:FormData) => {
+    const email = formData.get('email') as string;
+    const password = formData.get('password') as string;
+    const confirmPassword = formData.get('confirmPassword') as string;
+    const grade = formData.get('grade') as string;
+    const deptId = formData.get('department_id') as string;
+    const username = formData.get('username') as string;
+
+    const fullEmail = `${email}@${allowedDomain}`;
+
+    
+    
+    // 2. メールの末尾をチェック
+    if (!fullEmail.endsWith(`@${allowedDomain}`)) {
+      alert(`琉球大学のメールアドレス（@${allowedDomain}）のみ登録可能です。`);
+      return; // ここで処理を中断！
+    }
+    
 
     if (password !== confirmPassword) {
       alert('パスワードが一致しません');
       return;
     }
 
-    console.log('新規登録:', { name, username, grade, faculty, department, email, password });
-    // ここで実際の登録処理を行います
+    const { error } = await supabase.auth.signUp({
+      email: fullEmail,
+      password,
+      options : {
+        data: {
+          username:username,
+          grade: grade,
+          department_id : parseInt(deptId),
+        },
+      },
+    });
+
+    if (error) {
+      alert("エラーが発生しました：");
+    } else {
+      alert("確認メールを送信しました。メールのリンクからログインしてください");
+      router.push('/login');
+    }
+
+    
   };
+
+  
 
   return (
     <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50 overflow-auto py-8">
@@ -36,7 +107,7 @@ export default function Signup() {
             <p className="text-gray-600">アカウントを作成してください</p>
           </div>
 
-          <form onSubmit={handleSignup}>
+          <form action={handleSignup}>
             <div className="grid grid-cols-2 gap-x-6 gap-y-4">
 
               <div>
@@ -48,12 +119,10 @@ export default function Signup() {
                     <User className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    id="username"
+                    name="username"
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    placeholder="yamada_taro"
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -68,9 +137,7 @@ export default function Signup() {
                     <GraduationCap className="h-5 w-5 text-gray-400" />
                   </div>
                   <select
-                    id="grade"
-                    value={grade}
-                    onChange={(e) => setGrade(e.target.value)}
+                    name="grade"
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition appearance-none bg-white"
                     required
                   >
@@ -79,33 +146,40 @@ export default function Signup() {
                     <option value="2">2年生</option>
                     <option value="3">3年生</option>
                     <option value="4">4年生</option>
-                    <option value="master1">修士1年</option>
+                    {/*<option value="master1">修士1年</option>
                     <option value="master2">修士2年</option>
-                    <option value="doctor">博士課程</option>
+                    <option value="doctor">博士課程</option>*/}
                   </select>
                 </div>
               </div>
 
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                  メールアドレス
+                  メールアドレス(eから始まる学籍番号を入力してください)
                 </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
+                <div className="flex items-center w-full border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500 bg-white transition-colors">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Mail className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                      name="email"
+                      type="text"
+                      className={"block w-full pl-10 pr-3 py-2.5 border border-gray-300 focus:border-purple-500"}
+                      placeholder="eXXXXXX"
+                      autoComplete="one-time-code"
+                      required
+                    />
+
+                    
                   </div>
-                  <input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    placeholder="example@email.com"
-                    required
-                  />
+                  <div className="text-gray-500 text-sm px-4 py-3 border-l border-gray-200 select-none font-medium">
+                    @cs.u-ryukyu.ac.jp
+                  </div>
                 </div>
               </div>
 
+              {/* 学部セレクト */}
               <div>
                 <label htmlFor="faculty" className="block text-sm font-medium text-gray-700 mb-2">
                   学部
@@ -114,18 +188,25 @@ export default function Signup() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <School className="h-5 w-5 text-gray-400" />
                   </div>
-                  <input
-                    id="faculty"
-                    type="text"
-                    value={faculty}
-                    onChange={(e) => setFaculty(e.target.value)}
+                  <select
+                    name="faculty"
+                    value={selectedFaculty}
+                    onChange={(e) => setSelectedFaculty(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    placeholder="例: 工学部"
+                    
                     required
-                  />
+                  >
+                    <option value="">学部を選択してください</option>
+                    {faculties.map((f) => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                      
+                    ))}
+                  </select>
                 </div>
               </div>
 
+
+              {/* 学科セレクト（学部が選ばれるまで無効化） */}
               <div>
                 <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
                   学科
@@ -134,15 +215,17 @@ export default function Signup() {
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <BookOpen className="h-5 w-5 text-gray-400" />
                   </div>
-                  <input
-                    id="department"
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
+                  <select
+                    name='department_id'
+                    disabled={!selectedFaculty}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    placeholder="例: 情報工学科"
                     required
-                  />
+                  >
+                    <option value="">学科を選択してください</option>
+                    {filteredDepartments.map((d)=> (
+                      <option key ={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -155,13 +238,12 @@ export default function Signup() {
                     <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    id="password"
+                    name="password"
                     type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     placeholder="8文字以上"
                     minLength={8}
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -176,13 +258,12 @@ export default function Signup() {
                     <Lock className="h-5 w-5 text-gray-400" />
                   </div>
                   <input
-                    id="confirmPassword"
+                    name="confirmPassword"
                     type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     placeholder="パスワードを再入力"
                     minLength={8}
+                    autoComplete="off"
                     required
                   />
                 </div>
@@ -208,6 +289,7 @@ export default function Signup() {
               <button
                 type="submit"
                 className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
+                
               >
                 アカウントを作成
               </button>

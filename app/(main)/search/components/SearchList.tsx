@@ -1,5 +1,5 @@
 import { SearchResult } from "./SearchResult";
-import { Textbook } from "../../types/textbook";
+import { Textbook } from "@/types/textbook";
 
 export const SearchList = ({ results }: { results: Textbook[] }) => {
   if (results.length === 0) {
