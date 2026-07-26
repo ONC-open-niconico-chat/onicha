@@ -5,4 +5,5 @@ export type TextbookSearchResult = {
   schedule: string;
   professor_name: string;
   id: string;
+  textbook_id: string;
 };

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PostCard } from "@/app/(main)/txtpost/txtPostCard";
 import { supabase } from "@/lib/supabase";
@@ -77,6 +77,7 @@ export default function TxtPostPage() {
       if (textbookId) {
           query = query.eq('textbook_id', Number(textbookId));
       }
+      console.log("クエリ",textbookId);
 
       const { data, error } = await query;
       
