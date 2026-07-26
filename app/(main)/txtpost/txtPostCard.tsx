@@ -95,7 +95,7 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
                 <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
                   マッチング済み ✓
                 </span>
-              ) : (
+              ) : isMine ? null : (
               <button
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
