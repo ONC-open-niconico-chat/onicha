@@ -1,8 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { BookText, User, Calendar, GraduationCap } from "lucide-react";
-import { Textbook } from "@/types/textbook";
+import { TextbookSearchResult } from "@/types/textbook";
 
-export const SearchResult = ({ item }: { item: Textbook }) => {
+export const SearchResult = ({ item }: { item: TextbookSearchResult }) => {
   return (
     <Card className="bg-white border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition">
       <CardContent className="p-5">
