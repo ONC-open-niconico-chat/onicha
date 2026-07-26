@@ -32,6 +32,7 @@ export interface Post {
   give_type: "offering" | "seeking";
   created_at: string;
   status: string;
+  image_urls: string[] | null;
 }
 
 
@@ -70,7 +71,8 @@ export default function TxtPostPage() {
             description,
             give_type,
             created_at,
-            status
+            status,
+            image_urls
         `)
       .order('created_at',{ascending:false})
 
