@@ -1,0 +1,149 @@
+@charset "utf-8";
+
+
+.container{
+    padding: 24px;
+}
+
+.pageTitle{
+    margin: 0 0 16px 0;
+}
+
+.form{
+    display: grid;
+    gap: 16px;
+    max-width: 90%;
+}
+
+.searchWrapper{
+    position: relative;
+}
+
+.label{
+    display: block;
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+          
+.searchInput{
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+           
+.dropdown{
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    background-color: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    max-height: 200px;
+    overflow: auto;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+             
+.dropdownItem{
+    padding: 8px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background-color 0.1s;
+}
+
+.dropdownItem:hover {
+  background-color: #f0f0f0;
+}
+
+.textarea{
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+            
+.select{
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    font-size: 16px;
+}
+
+.submitButton {
+    padding: 10px 16px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.submitButton:hover:not(:disabled) {
+    background-color: #0051a8;
+}
+
+.submitButton:active:not(:disabled) {
+    transform: scale(0.95);
+}
+
+.submitButton:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.message{
+    margin: 8px 0 0 0;
+    font-size: 14px;
+}
+
+/* 星とテキストを横並びにする */
+.starContainer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+/* 星ボタン全体の共通スタイル（枠線や背景を消す） */
+.starFilled, .starEmpty {
+  background: none;
+  border: none;
+  font-size: 32px; /* 星の大きさ */
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.1s, color 0.1s;
+}
+
+/* マウスを乗せたときに少し大きくする */
+.starFilled:hover, .starEmpty:hover {
+  transform: scale(1.15);
+}
+
+/* 選択されている星（金色） */
+.starFilled {
+  color: #ffca28;
+}
+
+/* 選択されていない星（薄いグレー） */
+.starEmpty {
+  color: #e0e0e0;
+}
+
+/* 右側に表示される「5 / 5」などのテキスト */
+.ratingText {
+  font-size: 16px;
+  font-weight: bold;
+  color: #666;
+  margin-left: 8px;
+}

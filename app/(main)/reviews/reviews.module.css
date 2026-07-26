@@ -1,0 +1,130 @@
+@charset "UTF-8";
+
+
+.container{
+    padding: 24px;
+}
+
+.headerArea{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.postLink{
+    display: inline-block;
+    margin-bottom: 0;
+}
+
+.postButton{
+    padding: 10px 16px;
+    background-color: #0070f3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 112, 243, 0.2);
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+/*
+ホバー時に濃い青にする
+*/
+.postButton:hover{
+    background-color:#0051a8;
+    box-shadow: 0 6px 16px rgba(0, 112, 243, 0.3);
+}
+
+/*
+クリックした時に沈むエフェクト
+*/
+.postButton:active{
+    transform: scale(0.95);
+}
+
+.pageTitle{
+    margin: 0;
+    font-size: 28px;
+    color: #212529;
+}
+
+.searchInput{
+    width: 100%;
+    max-width: 500px;
+    padding: 12px 16px;
+    margin-bottom: 24px;
+    border: 1px solid #dee2e6;
+    border-radius: 12px;
+    box-sizing: border-box;
+    font-size: 16px;
+    background-color: #fff;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    transition: all 0.2s;
+}
+
+.reviewGrid{
+    display: grid;
+    gap: 20px;
+}
+
+.reviewCard{
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 16px;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02), 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    transition: transform 0.2s;
+}
+
+.reviewText{
+    white-space: pre-wrap;
+    margin: 8px 0 0 0;
+}
+
+.courseTitle {
+    font-size: 18px;
+    font-weight: bold;
+    color: #212529;
+    margin: 0 0 4px 0;
+}
+
+.professorName {
+    font-size: 14px;
+    color: #6c757d;
+    margin: 0 0 12px 0;
+}
+
+.ratingBox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+
+.starFilled {
+    color: #ffca28;
+    font-size: 18px;
+}
+
+.starEmpty {
+    color: #e0e0e0;
+    font-size: 18px;
+}
+
+.ratingNumber {
+    font-size: 14px;
+    font-weight: bold;
+    color: #495057;
+    margin-left: 4px;
+}
+
+.reviewText {
+    white-space: pre-wrap;
+    margin: 12px 0 0 0;
+    padding-top: 12px;
+    border-top: 1px solid #f1f3f5;
+    color: #495057;
+    line-height: 1.6;
+}
