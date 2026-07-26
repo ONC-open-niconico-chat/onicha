@@ -84,7 +84,7 @@ export default function EditProfile({
 
   return (
     <div className="size-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
-      <div className="max-w-2xl mx-auto border-x border-gray-100 min-h-screen">
+      <div className="w-full bg-white text-gray-900 min-h-screen border-l border-gray-100 pb-20">
         
         {/* ヘッダー */}
         <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
