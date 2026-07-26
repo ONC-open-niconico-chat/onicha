@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookText, User, Calendar, GraduationCap } from "lucide-react";
+import { BookText, User, Calendar, GraduationCap, ArrowRight } from "lucide-react";
 import { TextbookSearchResult } from "@/types/textbook";
 
 export const SearchResult = ({ item }: { item: TextbookSearchResult }) => {
@@ -27,6 +28,17 @@ export const SearchResult = ({ item }: { item: TextbookSearchResult }) => {
             <User className="w-4 h-4 text-blue-500" />
             <span>{item.professor_name} 教授</span>
           </div>
+        </div>
+
+
+        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
+          <Link
+            href={`/txtpost?textbook_id=${item.id}`}
+            className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700"
+          >
+            この教科書の譲渡ポストを見る
+            <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </CardContent>
     </Card>
