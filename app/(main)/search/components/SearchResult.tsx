@@ -33,7 +33,7 @@ export const SearchResult = ({ item }: { item: TextbookSearchResult }) => {
 
         <div className="mt-4 pt-3 border-t border-gray-100 flex justify-end">
           <Link
-            href={`/txtpost?textbook_id=${item.id}`}
+            href={`/txtpost?textbook_id=${item.textbook_id}`}
             className="inline-flex items-center gap-1 text-sm font-bold text-blue-600 hover:text-blue-700"
           >
             この教科書の譲渡ポストを見る

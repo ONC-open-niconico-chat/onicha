@@ -5,6 +5,7 @@ import { SearchForm } from "./components/SearchForm";
 import { SearchList } from "./components/SearchList";
 import { TextbookSearchResult } from "../../../types/textbook";
 import { supabase } from "@/lib/supabase";
+import { text } from "stream/consumers";
 
 export default function SearchPage() {
   const [results, setResults] = useState<TextbookSearchResult[]>([]);
@@ -58,7 +59,8 @@ export default function SearchPage() {
           professor_name: lecture?.professor ?? "教授名なし",
           schedule: lecture?.day ?? "不明",
           textbook_title: textbook?.title ?? "教科書なし",
-          edition: textbook?.isbn ?? ""
+          edition: textbook?.isbn ?? "",
+          textbook_id: textbook?.id ?? ""
         };
       });
 
