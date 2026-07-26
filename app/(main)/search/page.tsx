@@ -3,11 +3,11 @@
 import React, { useState, useCallback, useRef } from "react";
 import { SearchForm } from "./components/SearchForm";
 import { SearchList } from "./components/SearchList";
-import { Textbook } from "../../../types/textbook";
+import { TextbookSearchResult } from "../../../types/textbook";
 import { supabase } from "@/lib/supabase";
 
 export default function SearchPage() {
-  const [results, setResults] = useState<Textbook[]>([]);
+  const [results, setResults] = useState<TextbookSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);

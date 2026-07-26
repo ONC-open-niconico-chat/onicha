@@ -1,8 +1,8 @@
-export type Textbook = {
+export type TextbookSearchResult = {
+  textbook_title: string;
+  edition: string;
+  course_name: string;
+  schedule: string;
+  professor_name: string;
   id: string;
-  title: string;
-  author: string;
-  publisher: string;
-  isbn: string;
-  pub_year: string;
 };
