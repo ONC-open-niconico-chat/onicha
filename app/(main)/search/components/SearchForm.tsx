@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search } from "lucide-react";
 
 interface SearchFormProps {
@@ -11,15 +11,38 @@ interface SearchFormProps {
     courseName: string;
   }) => void;
   loading: boolean;
+  initialValues?: {
+    textbookName?: string;
+    professorName?: string;
+    schedule?: string;
+    courseName?: string;
+  };
 }
 
-export const SearchForm = ({ onSearch, loading }: SearchFormProps) => {
+export const SearchForm = ({ onSearch, loading, initialValues }: SearchFormProps) => {
   const [params, setParams] = useState({
-    textbookName: "",
-    professorName: "",
-    schedule: "",
-    courseName: "",
+    textbookName: initialValues?.textbookName || "",
+    professorName: initialValues?.professorName || "",
+    schedule: initialValues?.schedule || "",
+    courseName: initialValues?.courseName || "",
   });
+
+  // ★ URLなどの初期値が変更されたときにフォームの入力値を更新する
+  useEffect(() => {
+    if (initialValues) {
+      setParams({
+        textbookName: initialValues.textbookName || "",
+        professorName: initialValues.professorName || "",
+        schedule: initialValues.schedule || "",
+        courseName: initialValues.courseName || "",
+      });
+    }
+  }, [
+    initialValues?.textbookName,
+    initialValues?.professorName,
+    initialValues?.schedule,
+    initialValues?.courseName,
+  ]);
 
   // 1文字入力のたびに検索（デバウンスは親側で管理）
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
