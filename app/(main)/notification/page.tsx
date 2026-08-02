@@ -22,6 +22,7 @@ interface NotificationItem {
   // ① リクエスト送信者のプロフィール
   sender_profile: {
     username: string;
+    icon_src?: string | null;
   } | null;
 
   // ② 紐づく教科書譲渡ポスト
@@ -65,7 +66,7 @@ export default function NotificationPage() {
                 created_at,
                 is_read,
                 request_status,
-                sender_profile:user!notification_sender_id_fkey (username),
+                sender_profile:user!notification_sender_id_fkey (username, icon_src),
                 txt_post(
                 id,
                 book:textbook_id (
@@ -359,6 +360,7 @@ const handleDeleteAll = async () => {
         <div className="space-y-4">
           {notifications.map((notif:any) => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
+            const senderIcon = notif.sender_profile?.icon_src || "/onicha_icon/onicha_icon.JPG";
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
 
             // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
@@ -373,10 +375,12 @@ const handleDeleteAll = async () => {
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* アイコン風の丸（アバター用） */}
-                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold shrink-0">
-                    {senderName[0]}
-                  </div>
+                  {/* 送信者アイコン（無ければ public のオニチャアイコンを表示） */}
+                  <img
+                    src={senderIcon}
+                    alt={senderName}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
 
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 leading-relaxed">
