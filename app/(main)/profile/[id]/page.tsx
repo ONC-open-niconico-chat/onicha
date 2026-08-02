@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -642,7 +642,7 @@ export default function App({ params }: Props) {
           )}
 
           {/* アクションボタン（返信数・いいね） */}
-          <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2">
+          <div className="flex items-center gap-8 text-gray-500 text-sm -ml-2">
             <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
               <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
               <span className="text-xs">{post.comments}</span>
@@ -665,10 +665,6 @@ export default function App({ params }: Props) {
                 fill={post.is_liked_by_me ? "currentColor" : "none"}
               />
               <span className="text-xs">{post.likes_count}</span>
-            </button>
-
-            <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
-              <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
             </button>
           </div>
         </div>

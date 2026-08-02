@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@mui/material";
-import { Heart, MessageCircle, Share, ArrowLeft, Trash2 } from "lucide-react";
+import { Heart, MessageCircle, ArrowLeft, Trash2 } from "lucide-react";
 
 interface PostUser {
   username: string;
@@ -280,7 +280,7 @@ export default function PostDetailPage({ params }: Props) {
           )}
 
           {/* ボタンエリア */}
-          <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2 mt-2">
+          <div className="flex items-center gap-8 text-gray-500 text-sm -ml-2 mt-2">
             <button
               type="button"
               onClick={(e) => {
@@ -310,13 +310,6 @@ export default function PostDetailPage({ params }: Props) {
                 fill={post.is_liked_by_me ? "currentColor" : "none"}
               />
               <span className="text-xs">{post.number_of_likes}</span>
-            </button>
-
-            <button
-              type="button"
-              className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition"
-            >
-              <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
             </button>
           </div>
         </div>

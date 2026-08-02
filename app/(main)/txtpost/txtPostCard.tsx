@@ -17,8 +17,30 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
   // 拡大表示中の画像インデックス（null なら閉じている）
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
 
+  // 自分がこのポストにリクエスト済みか
+  const [hasRequested, setHasRequested] = useState(false);
+
   // 自分の投稿かどうか
   const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
+
+  // 既にリクエストを送っているかを notification テーブルから判定（カラム追加は不要）
+  useEffect(() => {
+    const myId = userProfile?.id;
+    if (!myId || isMine) return;
+    let active = true;
+    (async () => {
+      const { count } = await supabase
+        .from("notification")
+        .select("id", { count: "exact", head: true })
+        .eq("sender_id", myId)
+        .eq("txt_post_id", txtpost.id)
+        .in("notification_type", ["request_for_offering", "request_for_request"]);
+      if (active && (count ?? 0) > 0) setHasRequested(true);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.id, isMine, txtpost.id]);
 
   // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
   const normalizeImageUrls = (value: unknown): string[] => {
@@ -150,7 +172,11 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
                 <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
                   マッチング済み ✓
                 </span>
-              ) : isMine ? null : (
+              ) : isMine ? null : hasRequested ? (
+                <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
+                  リクエスト済み ✓
+                </span>
+              ) : (
               <button
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
@@ -174,11 +200,12 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
                     console.error("❌ Supabaseインサートエラー詳細:", error);
                     alert(`エラーが発生しました: ${error.message}`);
                   } else {
+                    setHasRequested(true); // ボタンを「リクエスト済み」に切り替える
                     alert("リクエストを送信しました！相手からの返信をお待ちください。");
                   }
-                  } 
+                  }
                 }}
-                
+
                 className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 ${
                   txtpost.give_type === "offering"
                     ? "bg-green-600 hover:bg-green-700 text-white" // 「譲ります」に対しては「譲ってください（グリーン）」
