@@ -9,7 +9,6 @@ import {
   AlertCircle,
   Heart,
   MessageCircle,
-  Repeat2,
   Share,
   Trash2,
   X,
@@ -45,7 +44,6 @@ interface PostRow {
   user: PostUser | PostUser[] | null;
   is_liked_by_me?: boolean;
   reply_count?: number;
-  repost_count?: number;
 }
 
 // 投稿日時フォーマット（UTC/JST補正済み）
@@ -99,11 +97,6 @@ export default function HomePage() {
   const [replies, setReplies] = useState<PostRow[]>([]);
   const [replyInput, setReplyInput] = useState("");
   const [isSendingReply, setIsSendingReply] = useState(false);
-
-  // 引用リポスト用の状態
-  const [quoteTarget, setQuoteTarget] = useState<PostRow | null>(null);
-  const [quoteInput, setQuoteInput] = useState("");
-  const [isSendingQuote, setIsSendingQuote] = useState(false);
 
   const filterLabels = { grade: "同学年", dept: "同学科", faculty: "同学部" };
 
@@ -162,14 +155,13 @@ export default function HomePage() {
     return rawPosts.map((p) => {
       const children = (allChildren || []).filter((c) => c.parent_id === p.id);
 
-      const reposts = children.filter((c) => c.content?.startsWith("[QUOTE]"));
+      // 旧・引用リポスト（[QUOTE]）は返信数に含めない
       const repliesList = children.filter((c) => !c.content?.startsWith("[QUOTE]"));
 
       return {
         ...p,
         is_liked_by_me: myLikes.some((l) => l.post_id === p.id),
         reply_count: repliesList.length,
-        repost_count: reposts.length,
       };
     });
   };
@@ -192,12 +184,8 @@ export default function HomePage() {
 
       if (error) throw error;
 
-      // 通常投稿 または [QUOTE] で始まる引用リポストをタイムラインにそのまま表示
-      const mainTimelinePosts = (data || []).filter((p) => {
-        if (!p.parent_id) return true;
-        if (p.content?.startsWith("[QUOTE]")) return true;
-        return false;
-      });
+      // トップレベルの通常投稿のみ表示（返信・旧引用リポストは除外）
+      const mainTimelinePosts = (data || []).filter((p) => !p.parent_id);
 
       const enriched = await attachExtraStates(mainTimelinePosts, uid);
       setPosts(sortPostsByMixLogic(enriched));
@@ -385,36 +373,6 @@ export default function HomePage() {
     }
   };
 
-  // 引用リポストの送信処理
-  const handleSendQuote = async () => {
-    if (!myId || !quoteTarget || !quoteInput.trim()) return;
-    setIsSendingQuote(true);
-
-    try {
-      const exactNow = new Date().toISOString();
-
-      const { error } = await supabase.from("post").insert([
-        {
-          user_id: myId,
-          content: `[QUOTE] ${quoteInput}`,
-          parent_id: quoteTarget.id,
-          number_of_likes: 0,
-          created_at: exactNow,
-        },
-      ]);
-
-      if (error) throw error;
-
-      setQuoteInput("");
-      setQuoteTarget(null);
-      mutateAll();
-    } catch (err) {
-      showError("リポストに失敗しました。");
-    } finally {
-      setIsSendingQuote(false);
-    }
-  };
-
   // いいね機能
   const handleLikeToggle = async (
     postId: number,
@@ -487,15 +445,6 @@ export default function HomePage() {
     const u = Array.isArray(post.user) ? post.user[0] : post.user;
     const isMine = post.user_id === myId;
 
-    const parentUser = post.parent_post
-      ? Array.isArray(post.parent_post.user)
-        ? post.parent_post.user[0]
-        : post.parent_post.user
-      : null;
-
-    const isQuotePost = post.content?.startsWith("[QUOTE] ");
-    const displayContent = isQuotePost ? post.content.replace("[QUOTE] ", "") : post.content;
-
     return (
       <div
         key={post.id}
@@ -532,19 +481,7 @@ export default function HomePage() {
             )}
           </div>
 
-          <p className="text-[15px] leading-normal mb-2 whitespace-pre-wrap">{displayContent}</p>
-
-          {/* 引用リポスト（[QUOTE]）の時だけ引用カード（グレー枠）を表示 */}
-          {isQuotePost && post.parent_post && (
-            <div className="my-2 p-3 rounded-2xl bg-gray-50/80 border border-gray-200/80 text-sm">
-              <span className="font-bold text-gray-900">@{parentUser?.username || "ユーザー"}: </span>
-              <p className="text-gray-700 mt-0.5 whitespace-pre-wrap">
-                {post.parent_post.content?.startsWith("[QUOTE] ")
-                  ? post.parent_post.content.replace("[QUOTE] ", "")
-                  : post.parent_post.content}
-              </p>
-            </div>
-          )}
+          <p className="text-[15px] leading-normal mb-2 whitespace-pre-wrap">{post.content}</p>
 
           {post.image_url && (
             <div
@@ -576,19 +513,6 @@ export default function HomePage() {
             >
               <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
               <span className="text-xs">{post.reply_count || 0}</span>
-            </button>
-
-            {/* 引用リポストボタン */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setQuoteTarget(post);
-              }}
-              className="flex items-center gap-1.5 hover:text-green-500 group p-2 rounded-full transition"
-            >
-              <Repeat2 size={18} className="group-hover:bg-green-50 rounded-full transition" />
-              <span className="text-xs">{post.repost_count || 0}</span>
             </button>
 
             {/* いいねボタン */}
@@ -749,63 +673,6 @@ export default function HomePage() {
         >
           <Plus />
         </button>
-      )}
-
-      {/* 引用リポスト入力モーダル */}
-      {quoteTarget && (
-        <div
-          onClick={() => setQuoteTarget(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full p-4 shadow-xl border border-gray-100 relative"
-          >
-            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900 text-sm">引用リポスト</h3>
-              <button
-                type="button"
-                onClick={() => setQuoteTarget(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-3">
-              <textarea
-                rows={3}
-                value={quoteInput}
-                onChange={(e) => setQuoteInput(e.target.value)}
-                placeholder="コメントを追加..."
-                className="w-full text-sm p-2 outline-none resize-none placeholder-gray-400"
-              />
-            </div>
-
-            {/* 引用対象の埋め込みカードプレビュー */}
-            <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs text-gray-700 my-2">
-              <span className="font-bold">
-                @{(Array.isArray(quoteTarget.user) ? quoteTarget.user[0] : quoteTarget.user)?.username}:{" "}
-              </span>
-              <p className="mt-0.5">
-                {quoteTarget.content?.startsWith("[QUOTE] ")
-                  ? quoteTarget.content.replace("[QUOTE] ", "")
-                  : quoteTarget.content}
-              </p>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                disabled={!quoteInput.trim() || isSendingQuote}
-                onClick={handleSendQuote}
-                className="bg-green-600 text-white font-bold text-xs px-5 py-2 rounded-full hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {isSendingQuote ? "送信中..." : "再投稿"}
-              </button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* 画像拡大表示 */}

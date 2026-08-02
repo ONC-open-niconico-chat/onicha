@@ -5,11 +5,9 @@ import { Avatar } from "@mui/material";
 import {
   Heart,
   MessageCircle,
-  Repeat2,
   Share,
   Trash2,
   ArrowLeft,
-  X,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -38,7 +36,6 @@ interface PostRow {
   user: PostUser | PostUser[] | null;
   is_liked_by_me?: boolean;
   reply_count?: number;
-  repost_count?: number;
 }
 
 interface FollowingTimelineProps {
@@ -82,12 +79,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
   const [isSendingReply, setIsSendingReply] = useState(false);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
 
-  // 🔁 引用リポスト用
-  const [quoteTarget, setQuoteTarget] = useState<PostRow | null>(null);
-  const [quoteInput, setQuoteInput] = useState("");
-  const [isSendingQuote, setIsSendingQuote] = useState(false);
-
-  // 状態の拡張（いいね・返信数・リポスト数）
+  // 状態の拡張（いいね・返信数）
   const attachExtraStates = useCallback(async (rawPosts: any[], uid: string | null) => {
     if (rawPosts.length === 0) return [];
     const postIds = rawPosts.map((p) => p.id);
@@ -109,14 +101,13 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
 
     return rawPosts.map((p) => {
       const children = (allChildren || []).filter((c) => c.parent_id === p.id);
-      const reposts = children.filter((c) => c.content?.startsWith("[QUOTE]"));
+      // 旧・引用リポスト（[QUOTE]）は返信数に含めない
       const repliesList = children.filter((c) => !c.content?.startsWith("[QUOTE]"));
 
       return {
         ...p,
         is_liked_by_me: myLikes.some((l) => l.post_id === p.id),
         reply_count: repliesList.length,
-        repost_count: reposts.length,
       };
     });
   }, []);
@@ -168,11 +159,10 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
 
       if (postsError) throw postsError;
 
-      // フォロー中の投稿 ＆ 返信以外（メイン・引用リポスト）に絞り込み
+      // フォロー中ユーザーのトップレベル投稿のみ（返信・旧引用リポストは除外）
       const filteredPosts = (followingPosts || []).filter((p: any) => {
         const isFollowingUser = followingIds.includes(p.user_id);
-        const isMainOrQuote = !p.parent_id || p.content?.startsWith("[QUOTE]");
-        return isFollowingUser && isMainOrQuote;
+        return isFollowingUser && !p.parent_id;
       });
 
       const enriched = await attachExtraStates(filteredPosts, currentUser.id);
@@ -238,36 +228,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
       console.error("返信エラー:", err);
     } finally {
       setIsSendingReply(false);
-    }
-  };
-
-  // 🔁 引用リポスト送信処理
-  const handleSendQuote = async () => {
-    if (!myId || !quoteTarget || !quoteInput.trim()) return;
-    setIsSendingQuote(true);
-
-    try {
-      const exactNow = new Date().toISOString();
-
-      const { error } = await supabase.from("post").insert([
-        {
-          user_id: myId,
-          content: `[QUOTE] ${quoteInput}`,
-          parent_id: quoteTarget.id,
-          number_of_likes: 0,
-          created_at: exactNow,
-        },
-      ]);
-
-      if (error) throw error;
-
-      setQuoteInput("");
-      setQuoteTarget(null);
-      fetchFollowingPosts();
-    } catch (err) {
-      console.error("リポストエラー:", err);
-    } finally {
-      setIsSendingQuote(false);
     }
   };
 
@@ -339,15 +299,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     const u = Array.isArray(post.user) ? post.user[0] : post.user;
     const isMine = post.user_id === myId;
 
-    const parentUser = post.parent_post
-      ? Array.isArray(post.parent_post.user)
-        ? post.parent_post.user[0]
-        : post.parent_post.user
-      : null;
-
-    const isQuotePost = post.content?.startsWith("[QUOTE] ");
-    const displayContent = isQuotePost ? post.content.replace("[QUOTE] ", "") : post.content;
-
     return (
       <div
         key={post.id}
@@ -384,19 +335,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
             )}
           </div>
 
-          <p className="text-[15px] leading-normal mb-2 whitespace-pre-wrap">{displayContent}</p>
-
-          {/* 引用カード */}
-          {isQuotePost && post.parent_post && (
-            <div className="my-2 p-3 rounded-2xl bg-gray-50/80 border border-gray-200/80 text-sm">
-              <span className="font-bold text-gray-900">@{parentUser?.username || "ユーザー"}: </span>
-              <p className="text-gray-700 mt-0.5 whitespace-pre-wrap">
-                {post.parent_post.content?.startsWith("[QUOTE] ")
-                  ? post.parent_post.content.replace("[QUOTE] ", "")
-                  : post.parent_post.content}
-              </p>
-            </div>
-          )}
+          <p className="text-[15px] leading-normal mb-2 whitespace-pre-wrap">{post.content}</p>
 
           {post.image_url && (
             <div className="mt-2 mb-3 inline-block max-w-full rounded-2xl overflow-hidden border border-gray-100 bg-gray-50">
@@ -421,19 +360,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
             >
               <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
               <span className="text-xs">{post.reply_count || 0}</span>
-            </button>
-
-            {/* 🔁 リポストボタン（onClickを追加） */}
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setQuoteTarget(post);
-              }}
-              className="flex items-center gap-1.5 hover:text-green-500 group p-2 rounded-full transition"
-            >
-              <Repeat2 size={18} className="group-hover:bg-green-50 rounded-full transition" />
-              <span className="text-xs">{post.repost_count || 0}</span>
             </button>
 
             <button
@@ -533,62 +459,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
   return (
     <div className="divide-y divide-gray-200">
       {posts.map((post) => renderSingleCard(post, setPosts, posts))}
-
-      {/* 🔁 引用リポスト入力モーダル */}
-      {quoteTarget && (
-        <div
-          onClick={() => setQuoteTarget(null)}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4 text-left"
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl max-w-lg w-full p-4 shadow-xl border border-gray-100 relative"
-          >
-            <div className="flex justify-between items-center pb-3 border-b border-gray-100">
-              <h3 className="font-bold text-gray-900 text-sm">引用リポスト</h3>
-              <button
-                type="button"
-                onClick={() => setQuoteTarget(null)}
-                className="text-gray-400 hover:text-gray-600 p-1 rounded-full"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="mt-3">
-              <textarea
-                rows={3}
-                value={quoteInput}
-                onChange={(e) => setQuoteInput(e.target.value)}
-                placeholder="コメントを追加..."
-                className="w-full text-sm p-2 outline-none resize-none placeholder-gray-400"
-              />
-            </div>
-
-            <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 text-xs text-gray-700 my-2">
-              <span className="font-bold">
-                @{(Array.isArray(quoteTarget.user) ? quoteTarget.user[0] : quoteTarget.user)?.username}:{" "}
-              </span>
-              <p className="mt-0.5">
-                {quoteTarget.content?.startsWith("[QUOTE] ")
-                  ? quoteTarget.content.replace("[QUOTE] ", "")
-                  : quoteTarget.content}
-              </p>
-            </div>
-
-            <div className="flex justify-end pt-2">
-              <button
-                type="button"
-                disabled={!quoteInput.trim() || isSendingQuote}
-                onClick={handleSendQuote}
-                className="bg-green-600 text-white font-bold text-xs px-5 py-2 rounded-full hover:bg-green-700 transition disabled:opacity-50"
-              >
-                {isSendingQuote ? "送信中..." : "再投稿"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
