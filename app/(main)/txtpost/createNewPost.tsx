@@ -2,9 +2,9 @@
 "use client";
 
 import { useState } from "react";
-import { supabase } from "@/lib/supabase"; 
+import { supabase } from "@/lib/supabase";
 import { useEffect } from "react";
-import { X } from "lucide-react";
+import { X, ImagePlus } from "lucide-react";
 
 interface CreatePostFormProps {
   onPostCreated: () => void; // 投稿成功後に親コンポーネントを更新するためのコールバック
@@ -22,6 +22,43 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
   const [selectedBook, setSelectedBook] = useState<SearchTextbook | null>(null);
   const [suggestions, setSuggestions] = useState<SearchTextbook[]>([]); // 教科書のサジェストリスト
   const [giveType, setGiveType] = useState<"offering" | "seeking">("offering");
+  const MAX_IMAGES = 4; // 画像の最大枚数
+  const [imageFiles, setImageFiles] = useState<File[]>([]); // 添付する画像（最大4枚）
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]); // プレビュー用URL
+
+  // 画像が選択されたときの処理（既存の選択に追加、最大4枚まで）
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files ?? []);
+    if (selected.length === 0) return;
+
+    const remaining = MAX_IMAGES - imageFiles.length;
+    if (remaining <= 0) {
+      alert(`画像は最大${MAX_IMAGES}枚までです。`);
+      return;
+    }
+    if (selected.length > remaining) {
+      alert(`画像は最大${MAX_IMAGES}枚までです。${remaining}枚だけ追加します。`);
+    }
+
+    const toAdd = selected.slice(0, remaining);
+    setImageFiles((prev) => [...prev, ...toAdd]);
+    setImagePreviews((prev) => [...prev, ...toAdd.map((f) => URL.createObjectURL(f))]);
+
+    // 同じファイルを選び直せるように input をリセット
+    e.target.value = "";
+  };
+
+  // 選択した画像を1枚取り消す
+  const handleRemoveImage = (index: number) => {
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // 画像の選択をすべてクリア
+  const handleClearImages = () => {
+    setImageFiles([]);
+    setImagePreviews([]);
+  };
 
 
 
@@ -83,6 +120,22 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
         targetBookId = newBook.id;
       }
 
+      // 2.5 画像が選ばれていれば images バケットにアップロードして公開URLを取得（最大4枚）
+      const imageUrls: string[] = [];
+      for (const file of imageFiles) {
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${user.id}/${fileName}`;
+        const { error: uploadError } = await supabase.storage
+          .from("txt_post_images")
+          .upload(filePath, file);
+        if (uploadError) throw uploadError;
+        const { data: { publicUrl } } = supabase.storage
+          .from("txt_post_images")
+          .getPublicUrl(filePath);
+        imageUrls.push(publicUrl);
+      }
+
       // 3. txt_post テーブルにインサート
       const { error } = await supabase
         .from("txt_post")
@@ -94,6 +147,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
             description: description,
             status: "募集中",
             condition_id: Number(conditionId) || null,
+            image_urls: imageUrls,
             created_at: new Date().toISOString()
           }
         ]);
@@ -102,6 +156,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
 
       // 4. フォームをリセットしてタイムラインを再更新
       setBookTitle("");
+      handleClearImages();
       onPostCreated(); // 親コンポーネント（タイムライン）を再読み込みさせる関数
       onclose(); // フォームを閉じる
     } catch (error: any) {
@@ -215,6 +270,46 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                 rows={3}
                 className="w-full px-3 py-2 border rounded-xl text-s focus:outline-blue-500 resize-none"
                 />
+            </div>
+
+            {/* 画像添付（最大4枚） */}
+            <div className="mb-4">
+                <label className="block text-s font-bold text-gray-600 mb-1">
+                    画像（任意・最大{MAX_IMAGES}枚）
+                </label>
+                <div className="flex flex-wrap gap-2">
+                    {imagePreviews.map((preview, index) => (
+                        <div key={index} className="relative">
+                            <img
+                                src={preview}
+                                alt={`プレビュー${index + 1}`}
+                                className="h-24 w-24 object-cover rounded-xl border border-gray-200"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => handleRemoveImage(index)}
+                                className="absolute top-1 right-1 bg-black/60 hover:bg-black/80 text-white rounded-full p-0.5"
+                                title="画像を削除"
+                            >
+                                <X className="h-4 w-4" />
+                            </button>
+                        </div>
+                    ))}
+
+                    {imageFiles.length < MAX_IMAGES && (
+                        <label className="flex flex-col items-center justify-center gap-1 h-24 w-24 cursor-pointer border border-dashed border-gray-300 rounded-xl text-xs text-gray-600 hover:bg-gray-50 transition-colors">
+                            <ImagePlus className="h-6 w-6" />
+                            画像を追加
+                            <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleImageChange}
+                                className="hidden"
+                            />
+                        </label>
+                    )}
+                </div>
             </div>
 
             {/* 送信ボタン */}

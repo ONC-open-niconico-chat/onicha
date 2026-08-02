@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { PostCard } from "@/app/(main)/txtpost/txtPostCard";
 import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import CreatePostForm from "./createNewPost";
-import { Plus } from "lucide-react";
-
+import { Plus, X } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 
 export interface Post {
@@ -31,47 +32,57 @@ export interface Post {
   give_type: "offering" | "seeking";
   created_at: string;
   status: string;
+  image_urls: string[] | null;
 }
 
 
 export default function TxtPostPage() {
+  const searchParams = useSearchParams();
+  const textbookId = searchParams.get("textbook_id");
     
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
 
+  const router = useRouter();
   
   //データ取得用の関数
   const fetchPosts = async () => {
       setLoading(true);
 
-      const {data,error} = await supabase
-      .from('txt_post') 
-      .select(`
-          id,
-          user:"user" (  
-          id,
-          username,
-          icon_src
-          ),
-          book:"textbook" (     
-          id,
-          title
-          ),
-          condition:"txtbook_condition" (
-          id,
-          name
-          ),
-          description,
-          give_type,
-          created_at,
-          status
-
-
-      `)
+      let query = supabase
+        .from('txt_post') 
+        .select(`
+            id,
+            user:"user" (  
+              id,
+              username,
+              icon_src
+            ),
+            book:"textbook" (     
+              id,
+              title
+            ),
+            condition:"txtbook_condition" (
+              id,
+              name
+            ),
+            description,
+            give_type,
+            created_at,
+            status,
+            image_urls
+        `)
       .order('created_at',{ascending:false})
 
+      if (textbookId) {
+          query = query.eq('textbook_id', Number(textbookId));
+      }
+      console.log("クエリ",textbookId);
+
+      const { data, error } = await query;
+      
       if (error) {
           console.error("データ取得エラー:",error);
       } else if(data) {
@@ -115,14 +126,14 @@ export default function TxtPostPage() {
     
   useEffect(() => {
     fetchPosts();
-  }, []);
+  }, [textbookId]);
 
   const filteredPosts =
     filter === "all"
       ? posts
       : posts.filter((post) => post.give_type === filter);
 
-  if (loading) return <div>読み込み中...</div>
+  if (loading) return <div className="text-center py-10 text-gray-500">読み込み中...</div>
 
   
   
@@ -136,6 +147,31 @@ export default function TxtPostPage() {
         <div className="border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
         教科書ポスト
         </div>
+
+        {textbookId && (
+          <div className="bg-blue-50 px-4 py-2 flex items-center justify-between text-xs text-blue-700 font-medium border-t border-blue-100">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-blue-800">特定教科書の投稿を表示中</span>
+              {/* ★ フィルタ解除（textbook_id を外して全件表示に戻す） */}
+              <button
+                onClick={() => router.push("/txtpost")}
+                title="フィルタを解除"
+                className="text-blue-600 hover:bg-blue-100 rounded-full p-0.5 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <button
+              // ★ router.back() を使うと、検索文字が入った状態の検索ページへそのまま戻れます！
+              onClick={() => router.back()}
+              className="text-xs bg-white text-blue-600 px-3 py-1 rounded border border-blue-200 font-medium hover:bg-blue-50"
+            >
+              検索結果に戻る
+            </button>
+
+          </div>
+        )}
+
         <div className="flex border-t border-gray-200">
           <button
             onClick={() => setFilter("all")}
@@ -171,9 +207,15 @@ export default function TxtPostPage() {
       </div>
 
       <div className="divide-y divide-gray-200">
-        {filteredPosts.map((post) => (
-          <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
-        ))}
+        {filteredPosts.length === 0 ? (
+          <div className="text-center py-12 text-gray-400">
+            {textbookId ? "この教科書に関する投稿はまだありません" : "該当する投稿がありません"}
+          </div>
+        ) : (
+          filteredPosts.map((post) => (
+            <PostCard key={post.id} txtpost={post} onDeleted={fetchPosts} />
+          ))
+        )}
       </div>
 
 

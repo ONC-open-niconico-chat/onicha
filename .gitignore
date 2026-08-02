@@ -6,3 +6,4 @@ build
 
 .branches
 .temp
+tsconfig.tsbuildinfo

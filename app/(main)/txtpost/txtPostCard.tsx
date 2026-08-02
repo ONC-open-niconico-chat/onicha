@@ -2,7 +2,8 @@ import  Link  from "next/link";
 import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/loginUser";
-import { Trash2 } from "lucide-react";
+import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState } from "react";
 
 
 interface PostCardProps {
@@ -11,10 +12,64 @@ interface PostCardProps {
 }
 
 export function PostCard({ txtpost, onDeleted }: PostCardProps) {
-  const { userProfile, loading } = useAuth();
+  const { userProfile} = useAuth();
+
+  // 拡大表示中の画像インデックス（null なら閉じている）
+  const [zoomIndex, setZoomIndex] = useState<number | null>(null);
 
   // 自分の投稿かどうか
   const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
+
+  // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
+  const normalizeImageUrls = (value: unknown): string[] => {
+    if (Array.isArray(value)) return value as string[];
+    if (typeof value === "string") {
+      const str = value.trim();
+      if (!str) return [];
+      try {
+        const parsed = JSON.parse(str);
+        if (Array.isArray(parsed)) return parsed as string[];
+      } catch {
+        // Postgres の配列リテラル "{url1,url2}" を分解
+        if (str.startsWith("{") && str.endsWith("}")) {
+          return str
+            .slice(1, -1)
+            .split(",")
+            .map((s) => s.replace(/^"|"$/g, "").trim())
+            .filter(Boolean);
+        }
+      }
+      return [str];
+    }
+    return [];
+  };
+
+  const imageUrls = normalizeImageUrls(txtpost.image_urls);
+
+  const showPrev = () =>
+    setZoomIndex((i) => (i === null ? i : (i - 1 + imageUrls.length) % imageUrls.length));
+  const showNext = () =>
+    setZoomIndex((i) => (i === null ? i : (i + 1) % imageUrls.length));
+
+  // 拡大表示中は背面のスクロールを止め、キーボード操作を受け付ける
+  useEffect(() => {
+    if (zoomIndex === null) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setZoomIndex(null);
+      if (e.key === "ArrowLeft") showPrev();
+      if (e.key === "ArrowRight") showNext();
+    };
+
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [zoomIndex, imageUrls.length]);
 
   // 自分の教科書譲渡ポストを削除する
   const handleDelete = async (e: React.MouseEvent) => {
@@ -95,7 +150,7 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
                 <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
                   マッチング済み ✓
                 </span>
-              ) : (
+              ) : isMine ? null : (
               <button
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
@@ -135,8 +190,92 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
               )}
             </div>
           </div>
+
+          {/* ─── 添付画像のサムネイル（クリックで拡大表示） ─── */}
+          {imageUrls.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-1">
+              {imageUrls.map((url, index) => (
+                <button
+                  key={index}
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setZoomIndex(index);
+                  }}
+                  className="w-50 h-50 rounded-xl overflow-hidden border border-gray-200 hover:opacity-80 transition-opacity active:scale-95"
+                  title="画像を拡大表示"
+                >
+                  <img
+                    src={url}
+                    alt={`${txtpost.book.title} ${index + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ─── 画像の拡大表示（ライトボックス） ─── */}
+      {zoomIndex !== null && imageUrls[zoomIndex] && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4 cursor-default"
+          onClick={(e) => {
+            e.stopPropagation();
+            setZoomIndex(null);
+          }}
+        >
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setZoomIndex(null);
+            }}
+            className="absolute top-4 right-4 text-white/80 hover:text-white transition-colors"
+            title="閉じる"
+          >
+            <X className="w-8 h-8" />
+          </button>
+
+          {imageUrls.length > 1 && (
+            <>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showPrev();
+                }}
+                className="absolute left-2 sm:left-6 text-white/80 hover:text-white transition-colors"
+                title="前の画像"
+              >
+                <ChevronLeft className="w-10 h-10" />
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  showNext();
+                }}
+                className="absolute right-2 sm:right-6 text-white/80 hover:text-white transition-colors"
+                title="次の画像"
+              >
+                <ChevronRight className="w-10 h-10" />
+              </button>
+              <span className="absolute bottom-6 text-white/80 text-sm">
+                {zoomIndex + 1} / {imageUrls.length}
+              </span>
+            </>
+          )}
+
+          <img
+            src={imageUrls[zoomIndex]}
+            alt={`${txtpost.book.title} ${zoomIndex + 1}`}
+            onClick={(e) => e.stopPropagation()}
+            className="max-w-full max-h-[85vh] object-contain rounded-lg"
+          />
+        </div>
+      )}
     </article>
   );
 }

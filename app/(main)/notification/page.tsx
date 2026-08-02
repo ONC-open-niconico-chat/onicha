@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
 import { createNotification } from "@/lib/notifications";
+import { CheckCheck, Trash2 } from "lucide-react";
 
 
 
@@ -264,11 +265,93 @@ const handleGoToMessage = async (
   router.push(`/messages/${partnerId}${first ? "?first=true" : ""}`);
 };
 
+// リクエスト通知（承諾/見送りの対応が必要なもの）かどうか
+const isRequestNotification = (notif: NotificationItem) =>
+  notif.notification_type === "request_for_offering" ||
+  notif.notification_type === "request_for_request";
+
+// まだ承諾も見送りもしていないリクエスト通知
+const pendingRequests = notifications.filter(
+  (n) => isRequestNotification(n) && !(actionStatus[n.id] ?? n.request_status)
+);
+
+const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+// すべての通知を既読にする
+const handleMarkAllAsRead = async () => {
+  if (unreadCount === 0) return;
+
+  const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
+
+  // 画面上ですぐ既読表示に切り替える
+  setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
+  const { error } = await supabase
+    .from("notification")
+    .update({ is_read: true })
+    .in("id", unreadIds);
+
+  if (error) {
+    console.error("通知の一括既読に失敗しました:", error);
+    alert("既読にできませんでした。時間をおいて試してください。");
+    await fetchNotifications();
+  }
+};
+
+// すべての通知を削除する（未対応のリクエストが残っている場合は削除させない）
+const handleDeleteAll = async () => {
+  if (notifications.length === 0) return;
+
+  if (pendingRequests.length > 0) {
+    alert(
+      `未対応の項目があります（${pendingRequests.length}件）。`
+    );
+    return;
+  }
+
+  if (!window.confirm(`通知をすべて削除しますか？（${notifications.length}件）`)) return;
+
+  const ids = notifications.map((n) => n.id);
+
+  const { error } = await supabase.from("notification").delete().in("id", ids);
+
+  if (error) {
+    console.error("通知の一括削除に失敗しました:", error);
+    alert("削除に失敗しました。時間をおいて試してください。");
+    return;
+  }
+
+  setNotifications([]);
+};
+
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
   return (
     <div className="w-full ml-4 p-4">
-      <h1 className="text-2xl font-bold mb-6">あなたへの通知</h1>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold">あなたへの通知</h1>
+
+        {/* ─── 右上：一括操作ボタン ─── */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleMarkAllAsRead}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="すべての通知を既読にする"
+          >
+            <CheckCheck className="w-4 h-4" />
+            全て既読
+          </button>
+
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="すべての通知を削除する"
+          >
+            <Trash2 className="w-4 h-4" />
+            全て削除
+          </button>
+        </div>
+      </div>
 
       {notifications.length === 0 ? (
         <p className="text-gray-500">新しい通知はありません。</p>
