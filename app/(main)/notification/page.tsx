@@ -361,11 +361,6 @@ const handleDeleteAll = async () => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
 
-            // 承諾・拒否の結果通知（リクエスト送信者が受け取る通知）かどうか
-            const isResultNotification =
-              notif.notification_type === "request_accepted" ||
-              notif.notification_type === "request_rejected";
-
             // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
             const requestStatus = actionStatus[notif.id] ?? notif.request_status;
 
@@ -385,7 +380,19 @@ const handleDeleteAll = async () => {
 
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 leading-relaxed">
-                      {notif.notification_type === "request_rejected" ? (
+                      {notif.notification_type === "follow" ? (
+                        <>
+                          <span className="font-bold text-indigo-600">{senderName}</span> さんにフォローされました
+                        </>
+                      ) : notif.notification_type === "message" ? (
+                        <>
+                          <span className="font-bold text-indigo-600">{senderName}</span> さんからメッセージが来ました
+                        </>
+                      ) : notif.notification_type === "welcome" ? (
+                        <>
+                          新規登録ありがとうございます！オニチャへようこそ🎉
+                        </>
+                      ) : notif.notification_type === "request_rejected" ? (
                         <>
                           <span className="font-bold text-indigo-600">{senderName}</span> さんは
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
@@ -411,8 +418,8 @@ const handleDeleteAll = async () => {
                     </p>
                   </div>
 
-                {/* 右側：承諾・拒否ボタンエリア（リクエストを受け取った側だけ表示） */}
-                {!isResultNotification && (
+                {/* 右側：承諾・拒否ボタンエリア（教科書譲渡リクエストのときだけ表示） */}
+                {isRequestNotification(notif) && (
                     <div className="flex items-center gap-2 shrink-0">
                         {requestStatus === "accepted" ? (
                           <>
