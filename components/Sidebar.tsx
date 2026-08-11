@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-// 検索アイコン(Search)を追加で読み込むようにしたよ！
-import { Home, Bell, MessageCircle, User, Search, GraduationCap, Handshake } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Search,  Handshake,ShieldCheck  } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 export function Sidebar() {
@@ -14,6 +13,9 @@ export function Sidebar() {
 
   // 未読通知の件数（バッジ表示用）
   const [unreadCount, setUnreadCount] = useState(0);
+
+  // 管理者かどうか（staff_members に登録されているか）
+  const [isStaff, setIsStaff] = useState(false);
 
   useEffect(() => {
     let myId: string | null = null;
@@ -35,6 +37,14 @@ export function Sidebar() {
       if (!session?.user) return;
       myId = session.user.id;
       await fetchUnread();
+
+      // 管理者判定：staff_members に自分の user_id があるか
+      const { data: staff } = await supabase
+        .from("staff_members")
+        .select("user_id")
+        .eq("user_id", myId)
+        .maybeSingle();
+      setIsStaff(!!staff);
 
       // 通知の追加・既読化をリアルタイムに反映
       const channel = supabase
@@ -81,7 +91,10 @@ export function Sidebar() {
         <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
         <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
         <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
-        
+        {isStaff && (
+          <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
+        )}
+
       </nav>
     </div>
   );
