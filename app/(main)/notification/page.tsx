@@ -119,7 +119,8 @@ const handleAcceptAndNavigate = async (
   notificationId: string,
   senderId: string,
   senderName: string,
-  txtPostId?: string | number | null
+  txtPostId?: string | number | null,
+  notificationType?: string
 ) => {
   // ① {相手の名前}で確認ダイアログを出す
   const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
@@ -150,6 +151,29 @@ const handleAcceptAndNavigate = async (
 
     if (postError) {
       console.error("ポストのステータス更新に失敗しました:", postError);
+    }
+  }
+
+  // ②-2 txt_transaction に取引レコードを作成
+  // - request_for_offering（出品へのリクエスト）: giver = 通知の sender / receiver = 通知の receiver（＝自分）
+  // - request_for_request（募集へのリクエスト）  : giver = 通知の receiver（＝自分）/ receiver = 通知の sender
+  if (currentUserId && txtPostId != null) {
+    const giverId =
+      notificationType === "request_for_offering" ? senderId : currentUserId;
+    const receiverId =
+      notificationType === "request_for_offering" ? currentUserId : senderId;
+
+    const { error: txError } = await supabase.from("txt_transaction").insert([
+      {
+        txt_post_id: Number(txtPostId),
+        giver_id: giverId,
+        receiver_id: receiverId,
+        status: "matched",
+      },
+    ]);
+
+    if (txError) {
+      console.error("取引レコードの作成に失敗しました:", txError);
     }
   }
 
@@ -447,7 +471,7 @@ const handleDeleteAll = async () => {
                             {/* 🟢 承諾ボタン */}
                             <button
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id, notif.notification_type); }}
                             >
                             承諾
                             </button>
