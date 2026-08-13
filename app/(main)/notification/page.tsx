@@ -446,7 +446,7 @@ const handleDeleteAll = async () => {
                           {senderNameEl} さんが、
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
                           {notif.notification_type === "request_accepted" ? (
-                            <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 譲渡方法を話し合いましょう！</>
+                            <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 運営からの案内をお待ちください。</>
                           ) : notif.notification_type === "request_for_offering" ? (
                             <>リクエスト「譲ってください」を送りました！</>
                           ) : (

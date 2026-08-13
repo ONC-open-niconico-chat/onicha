@@ -382,7 +382,7 @@ export default function ChatPage() {
               {partner?.is_official && <VerifiedBadge className="w-5 h-5" />}
             </span>
           </div>
-          <button className="text-gray-500 font-bold p-2 hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center">ⓘ</button>
+          
         </div>
 
         {/* チャットタイムライン部分 */}

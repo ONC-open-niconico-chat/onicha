@@ -108,7 +108,7 @@ export default function Login() {
                 <input type="checkbox" className="rounded border-gray-300 text-purple-600 focus:ring-purple-500" />
                 <span className="ml-2 text-sm text-gray-600">ログイン状態を保持</span>
               </label>
-              <a href="#" className="text-sm text-purple-600 hover:text-purple-700">
+              <a href="/forgot-password" className="text-sm text-purple-600 hover:text-purple-700">
                 パスワードを忘れた場合
               </a>
             </div>
