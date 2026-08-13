@@ -21,6 +21,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
   const [loading, setLoading] = useState(false);
   const [selectedBook, setSelectedBook] = useState<SearchTextbook | null>(null);
   const [suggestions, setSuggestions] = useState<SearchTextbook[]>([]); // 教科書のサジェストリスト
+  const [bookError, setBookError] = useState(""); // 教科書未選択などのエラー表示
   const [giveType, setGiveType] = useState<"offering" | "seeking">("offering");
   const MAX_IMAGES = 4; // 画像の最大枚数
   const [imageFiles, setImageFiles] = useState<File[]>([]); // 添付する画像（最大4枚）
@@ -103,22 +104,13 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       }
 
 
-      let targetBookId: number;
-
-      if (selectedBook && selectedBook.title === bookTitle) {
-        //パターンA:候補から選ばれた本、または既存の本と完全一致する場合
-        targetBookId = selectedBook.id;
-      } else {
-        //パターンB:新しい本を投稿する場合は、まずtextbookテーブルに追加してからそのIDを取得
-        const { data: newBook, error: bookError } = await supabase
-          .from("textbook")
-          .insert({ title: bookTitle })
-          .select("id")
-          .single();
-
-        if (bookError) throw bookError;
-        targetBookId = newBook.id;
+      // 教科書は DB に登録済みのものからしか選べない。
+      // 候補リストから選択され、かつ入力欄と一致している場合のみ許可する。
+      if (!selectedBook || selectedBook.title !== bookTitle) {
+        setBookError("教科書は一覧から選択してください。");
+        return;
       }
+      const targetBookId: number = selectedBook.id;
 
       // 2.5 画像が選ばれていれば images バケットにアップロードして公開URLを取得（最大4枚）
       const imageUrls: string[] = [];
@@ -210,14 +202,15 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                 value={bookTitle}
                 onChange={(e) => {
                     setBookTitle(e.target.value);
+                    setBookError(""); // 入力し直したらエラーを消す
                     if (selectedBook && selectedBook.title !== e.target.value) {
                       setSelectedBook(null); // 入力が変わったら選択をリセット
                     }
                 }
-                 
-                  
+
+
                 }
-                placeholder="例: 線形代数学入門"
+                placeholder="例: 線形代数学入門（一覧から選択）"
                 className="w-full px-3 py-2 border rounded-xl text-s focus:outline-blue-500 mb-2"
                 required
                 />
@@ -231,6 +224,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                         onClick={() => {
                           setBookTitle(book.title);
                           setSelectedBook(book);
+                          setBookError("");
                           setSuggestions([]); // リストを閉じる
                         }}
                         className="w-full  text-left px-4 py-2 text-sm hover:bg-gray-50 font-medium text-gray-700 transition-colors"
@@ -240,7 +234,16 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                     </li>
                   ))}
                 </ul>
-              )} 
+              )}
+              {/* 選択状態 / エラー表示 */}
+              {selectedBook && selectedBook.title === bookTitle ? (
+                <p className="text-xs text-green-600 font-medium">「{selectedBook.title}」を選択中</p>
+              ) : (
+                <p className="text-xs text-gray-400">教科書検索に登録済みの教科書から選択してください。</p>
+              )}
+              {bookError && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{bookError}</p>
+              )}
             </div>
 
 
