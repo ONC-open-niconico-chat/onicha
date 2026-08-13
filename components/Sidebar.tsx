@@ -7,6 +7,20 @@ import { Button } from "@/components/ui/button";
 import { Home, Bell, MessageCircle, User, Search,  Handshake,ShieldCheck  } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+// 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
+const RANKS = [
+  { name: "god", label: "God", min: 50000, src: "/rank_icons/7_god.jpg" },
+  { name: "master", label: "Master", min: 10000, src: "/rank_icons/6_master.jpg" },
+  { name: "diamond", label: "Diamond", min: 5000, src: "/rank_icons/5_diamond.jpg" },
+  { name: "platinum", label: "Platinum", min: 3000, src: "/rank_icons/4_platinum.jpg" },
+  { name: "gold", label: "Gold", min: 2000, src: "/rank_icons/3_gold.jpg" },
+  { name: "silver", label: "Silver", min: 1500, src: "/rank_icons/2_silver.jpg" },
+  { name: "bronze", label: "Bronze", min: 0, src: "/rank_icons/1_bronze.jpg" },
+];
+
+const getRank = (totalEarned: number) =>
+  RANKS.find((r) => totalEarned >= r.min) ?? RANKS[RANKS.length - 1];
+
 export function Sidebar() {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
@@ -16,6 +30,10 @@ export function Sidebar() {
 
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
+
+  // 現在のポイント / 累計獲得ポイント
+  const [points, setPoints] = useState<number | null>(null);
+  const [totalEarned, setTotalEarned] = useState<number | null>(null);
 
   useEffect(() => {
     let myId: string | null = null;
@@ -30,6 +48,19 @@ export function Sidebar() {
       setUnreadCount(count ?? 0);
     };
 
+    const fetchPoints = async () => {
+      if (!myId) return;
+      const { data } = await supabase
+        .from("user")
+        .select("points, total_earned_points")
+        .eq("id", myId)
+        .single();
+      if (data) {
+        setPoints(data.points ?? 0);
+        setTotalEarned(data.total_earned_points ?? 0);
+      }
+    };
+
     const init = async () => {
       const {
         data: { session },
@@ -37,6 +68,7 @@ export function Sidebar() {
       if (!session?.user) return;
       myId = session.user.id;
       await fetchUnread();
+      await fetchPoints();
 
       // 管理者判定：staff_members に自分の user_id があるか
       const { data: staff } = await supabase
@@ -62,13 +94,29 @@ export function Sidebar() {
         )
         .subscribe();
 
-      return channel;
+      // 自分の user 行の更新（ポイント変動）をリアルタイムに反映
+      const userChannel = supabase
+        .channel("sidebar-user-points")
+        .on(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "user" },
+          (payload) => {
+            const row = payload.new as { id?: string; points?: number; total_earned_points?: number };
+            if (row?.id === myId) {
+              setPoints(row.points ?? 0);
+              setTotalEarned(row.total_earned_points ?? 0);
+            }
+          }
+        )
+        .subscribe();
+
+      return [channel, userChannel];
     };
 
-    const channelPromise = init();
+    const channelsPromise = init();
     return () => {
-      channelPromise.then((channel) => {
-        if (channel) supabase.removeChannel(channel);
+      channelsPromise.then((channels) => {
+        channels?.forEach((ch) => supabase.removeChannel(ch));
       });
     };
   }, []);
@@ -96,6 +144,30 @@ export function Sidebar() {
         )}
 
       </nav>
+
+      {/* 現在のポイント & ランクバッジ */}
+      {points !== null && totalEarned !== null && (
+        <div className="mt-auto border-t border-gray-200 pt-4">
+          <div className="flex items-center gap-3">
+            <img
+              src={getRank(totalEarned).src}
+              alt={getRank(totalEarned).label}
+              className="w-12 h-12 rounded-lg object-cover shrink-0"
+            />
+            <div className="min-w-0">
+              <div className="font-bold text-gray-900">{getRank(totalEarned).label}</div>
+              <div className="text-xs text-gray-500">累計 {totalEarned.toLocaleString()} pt</div>
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline justify-between">
+            <span className="text-sm text-gray-600">現在のポイント</span>
+            <span className="text-lg font-bold text-blue-600">
+              {points.toLocaleString()}
+              <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
