@@ -429,6 +429,11 @@ const handleDeleteAll = async () => {
                         <>
                           新規登録ありがとうございます！オニチャへようこそ🎉
                         </>
+                      ) : notif.notification_type === "txt_post_reply" ? (
+                        <>
+                          {senderNameEl} さんがあなたの教科書
+                          <span className="font-bold">「{textbookTitle}」</span> の投稿にコメントしました
+                        </>
                       ) : notif.notification_type === "request_rejected" ? (
                         <>
                           {senderNameEl} さんは
@@ -505,6 +510,18 @@ const handleDeleteAll = async () => {
                         onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id); }}
                         >
                         メッセージへ
+                        </button>
+                    </div>
+                )}
+
+                {/* コメント通知：該当の教科書譲渡ポストへ移動するボタン */}
+                {notif.notification_type === "txt_post_reply" && notif.txt_post?.id && (
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                        onClick={(e) => { e.stopPropagation(); router.push(`/txtpost/${notif.txt_post!.id}`); }}
+                        >
+                        投稿を見る
                         </button>
                     </div>
                 )}

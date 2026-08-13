@@ -1,18 +1,24 @@
 import  Link  from "next/link";
+import { useRouter } from "next/navigation";
 import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/loginUser";
-import { Trash2, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Trash2, X, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 
 
 interface PostCardProps {
   txtpost: Post;
   onDeleted?: () => void;
+  // 詳細ページなど、コメントボタンを出したくない場合に false を渡す
+  showCommentButton?: boolean;
+  // カード全体をクリックで詳細ページへ遷移させるか（詳細ページ自身では false）
+  linkToDetail?: boolean;
 }
 
-export function PostCard({ txtpost, onDeleted }: PostCardProps) {
+export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToDetail = true }: PostCardProps) {
   const { userProfile} = useAuth();
+  const router = useRouter();
 
   // 拡大表示中の画像インデックス（null なら閉じている）
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
@@ -108,9 +114,12 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
   };
 
   return (
-    <article className="p-4 hover:bg-gray-50 transition-colors cursor-pointer">
+    <article
+      onClick={linkToDetail ? () => router.push(`/txtpost/${txtpost.id}`) : undefined}
+      className={`p-4 hover:bg-gray-50 transition-colors ${linkToDetail ? "cursor-pointer" : ""}`}
+    >
       <div className="flex gap-3">
-        <Link href={`/profile/${txtpost.user.id}`}>
+        <Link href={`/profile/${txtpost.user.id}`} onClick={(e) => e.stopPropagation()}>
           <img
             src={txtpost?.user?.icon_src || "https://kvppbmrsywcabytfrhit.supabase.co/storage/v1/object/public/avatar/IMG_1108.JPG"}
             alt={txtpost.user.username}
@@ -122,6 +131,7 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
           <div className="flex items-center gap-2 mb-1">
             <Link
               href={`/profile/${txtpost.user.id}`}
+              onClick={(e) => e.stopPropagation()}
               className="font-bold hover:underline"
             >
               {txtpost.user.username}
@@ -239,6 +249,20 @@ export function PostCard({ txtpost, onDeleted }: PostCardProps) {
                   />
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* コメント（返信）ページへのリンク */}
+          {showCommentButton && (
+            <div className="mt-1">
+              <Link
+                href={`/txtpost/${txtpost.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1.5 text-gray-500 hover:text-blue-600 text-sm p-2 -ml-2 rounded-full transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>{txtpost.reply_count ?? 0}</span>
+              </Link>
             </div>
           )}
         </div>

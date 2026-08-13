@@ -33,6 +33,7 @@ export interface Post {
   created_at: string;
   status: string;
   image_urls: string[] | null;
+  reply_count?: number;
 }
 
 
@@ -72,7 +73,8 @@ export default function TxtPostPage() {
             give_type,
             created_at,
             status,
-            image_urls
+            image_urls,
+            txt_post_reply ( count )
         `)
       .order('created_at',{ascending:false})
 
@@ -113,6 +115,8 @@ export default function TxtPostPage() {
               user: Array.isArray(item.user) ? item.user[0] : item.user,
               book: Array.isArray(item.book) ? item.book[0] : item.book,
               condition: Array.isArray(item.condition) ? item.condition[0] : item.condition,
+              // コメント数（txt_post_reply(count) は [{ count: N }] 形式で返る）
+              reply_count: Array.isArray(item.txt_post_reply) ? (item.txt_post_reply[0]?.count ?? 0) : 0,
               // ここで変換後の日付を入れる！
               created_at: relativeTime
           };
