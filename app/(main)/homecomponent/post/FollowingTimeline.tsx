@@ -5,9 +5,7 @@ import { Avatar } from "@mui/material";
 import {
   Heart,
   MessageCircle,
-  Share,
   Trash2,
-  ArrowLeft,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -72,11 +70,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
   const [myId, setMyId] = useState<string | null>(null);
   const [myIconSrc, setMyIconSrc] = useState<string | null>(null);
 
-  // 詳細表示 & 返信用
-  const [selectedPost, setSelectedPost] = useState<PostRow | null>(null);
-  const [replies, setReplies] = useState<PostRow[]>([]);
-  const [replyInput, setReplyInput] = useState("");
-  const [isSendingReply, setIsSendingReply] = useState(false);
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
 
   // 状態の拡張（いいね・返信数）
@@ -179,57 +172,9 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     }
   }, [sortLogic, attachExtraStates]);
 
-  const fetchReplies = async (postId: number) => {
-    try {
-      const { data, error } = await supabase
-        .from("post")
-        .select(`
-          *,
-          user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id))
-        `)
-        .eq("parent_id", postId)
-        .not("content", "like", "[QUOTE]%")
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      const enriched = await attachExtraStates(data || [], myId);
-      setReplies(enriched);
-    } catch (e) {
-      console.error(e);
-    }
-  };
-
   useEffect(() => {
     fetchFollowingPosts();
   }, [fetchFollowingPosts]);
-
-  // 返信送信
-  const handleSendReply = async () => {
-    if (!myId || !selectedPost || !replyInput.trim()) return;
-    setIsSendingReply(true);
-
-    try {
-      const exactNow = new Date().toISOString();
-      const { error } = await supabase.from("post").insert([
-        {
-          user_id: myId,
-          content: replyInput,
-          parent_id: selectedPost.id,
-          number_of_likes: 0,
-          created_at: exactNow,
-        },
-      ]);
-
-      if (error) throw error;
-      setReplyInput("");
-      fetchReplies(selectedPost.id);
-      fetchFollowingPosts();
-    } catch (err) {
-      console.error("返信エラー:", err);
-    } finally {
-      setIsSendingReply(false);
-    }
-  };
 
   // いいね機能
   const handleLikeToggle = async (
@@ -286,7 +231,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     const { error } = await supabase.from("post").delete().eq("id", postId).eq("user_id", myId);
     if (error) return;
     listSetter((prev) => prev.filter((p) => p.id !== postId));
-    if (selectedPost?.id === postId) setSelectedPost(null);
   };
 
   // カード描画関数
@@ -302,10 +246,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     return (
       <div
         key={post.id}
-        onClick={() => {
-          setSelectedPost(post);
-          fetchReplies(post.id);
-        }}
+        onClick={() => router.push(`/post/${post.id}`)}
         className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3 border-b border-gray-100"
       >
         <Avatar src={u?.icon_src} sx={{ width: 40, height: 40 }} />
@@ -348,13 +289,12 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
           )}
 
           {/* ボタンエリア */}
-          <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2 mt-2">
+          <div className="flex items-center gap-8 text-gray-500 text-sm -ml-2 mt-2">
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                setSelectedPost(post);
-                fetchReplies(post.id);
+                router.push(`/post/${post.id}`);
               }}
               className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition"
             >
@@ -380,13 +320,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
               />
               <span className="text-xs">{post.number_of_likes}</span>
             </button>
-
-            <button
-              type="button"
-              className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition"
-            >
-              <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
-            </button>
           </div>
         </div>
       </div>
@@ -395,57 +328,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
 
   if (loading) {
     return <div className="py-20 text-center text-sm text-gray-400 font-medium">読み込み中...</div>;
-  }
-
-  // ポスト詳細表示モード
-  if (selectedPost) {
-    return (
-      <div>
-        <div className="sticky top-0 bg-white/80 backdrop-blur-md z-20 border-b border-gray-200 px-4 py-3 flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => setSelectedPost(null)}
-            className="p-2 hover:bg-gray-100 rounded-full transition"
-          >
-            <ArrowLeft size={20} />
-          </button>
-          <h2 className="text-lg font-bold">ポスト</h2>
-        </div>
-
-        {renderSingleCard(selectedPost, setPosts, posts)}
-
-        <div className="p-4 border-b border-gray-200 flex gap-3 items-start bg-gray-50/30">
-          <Avatar src={myIconSrc || undefined} sx={{ width: 40, height: 40 }} />
-          <div className="flex-1">
-            <textarea
-              rows={2}
-              value={replyInput}
-              onChange={(e) => setReplyInput(e.target.value)}
-              placeholder="返信をポスト..."
-              className="w-full bg-transparent text-sm p-1 outline-none resize-none placeholder-gray-400"
-            />
-            <div className="flex justify-end mt-2">
-              <button
-                type="button"
-                disabled={!replyInput.trim() || isSendingReply}
-                onClick={handleSendReply}
-                className="bg-blue-600 text-white font-bold text-xs px-5 py-2 rounded-full hover:bg-blue-700 transition disabled:opacity-50"
-              >
-                {isSendingReply ? "送信中..." : "返信"}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="divide-y divide-gray-100">
-          {replies.length === 0 ? (
-            <div className="py-12 text-center text-sm text-gray-400">まだ返信はありません</div>
-          ) : (
-            replies.map((reply) => renderSingleCard(reply, setReplies, replies))
-          )}
-        </div>
-      </div>
-    );
   }
 
   if (posts.length === 0) {
