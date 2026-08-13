@@ -35,7 +35,7 @@ export default async function proxy(request: NextRequest) {
 
   // 3. セッションの有効チェック
   const { data: { user } } = await supabase.auth.getUser()
-  const publicPaths = ['/login', '/signup']
+  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password']
   const isPublic = publicPaths.some((path) =>
   request.nextUrl.pathname.startsWith(path)
   )
