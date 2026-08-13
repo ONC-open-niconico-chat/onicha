@@ -8,6 +8,7 @@ export type NotificationType =
   | "request_rejected" // リクエストが拒否された（リクエスト元へ通知）
   | "message" // メッセージ受信
   | "follow" // フォローされた
+  | "txt_post_reply" // 自分の教科書譲渡ポストにコメントが付いた
   | "welcome"; // 新規登録の歓迎通知
 
 export interface CreateNotificationParams {
