@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Repeat2, Share, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
 
@@ -32,6 +32,7 @@ interface Post {
   comments: number;
   retweets: number;
   image_url?: string;
+  parent_id?: number | null;
 }
 
 interface FFUser {
@@ -54,7 +55,10 @@ const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp
 
 // 投稿日時を「〇分前」「〇日前」「〇週間前」に変換する関数
 function formatPostTime(createdAtString: string): string {
-  const postDate = new Date(createdAtString);
+  if (!createdAtString) return '';
+  // DBの時刻はUTC。末尾に Z が無い場合は付与してUTCとして解釈させる
+  const utcString = createdAtString.endsWith('Z') ? createdAtString : `${createdAtString}Z`;
+  const postDate = new Date(utcString);
   const diffMs = Date.now() - postDate.getTime();
 
   const diffMins = Math.floor(diffMs / (1000 * 60));
@@ -90,6 +94,7 @@ export default function App({ params }: Props) {
   const [activeTab, setActiveTab] = useState('posts');
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [replyPosts, setReplyPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
 
@@ -185,17 +190,19 @@ export default function App({ params }: Props) {
         setIsFollowing(!!followData);
       }
 
-      // ページの主(userId)の投稿をすべて取得
+      // ページの主(userId)の投稿をすべて取得（parent_id で「ポスト」「返信」を判別）
       const { data: postsData, error: postsError } = await supabase
         .from('post')
-        .select('id, content, image_url, created_at, number_of_likes')
+        .select('id, content, image_url, created_at, number_of_likes, parent_id')
         .eq('user_id', userId)
         .order('created_at', { ascending: false });
 
       if (postsError) throw postsError;
 
       if (postsData && postsData.length > 0) {
-        const postIds = postsData.map(p => p.id);
+        // 旧・引用リポスト（[QUOTE]）は除外
+        const visiblePosts = postsData.filter(p => !p.content?.startsWith('[QUOTE]'));
+        const postIds = visiblePosts.map(p => p.id);
 
         // 自分がいいねしている投稿のIDを取得
         const { data: myLikes } = await supabase
@@ -204,25 +211,34 @@ export default function App({ params }: Props) {
           .eq('user_id', user.id)
           .in('post_id', postIds);
 
+        // 各投稿への返信数（[QUOTE] を除く）を取得
+        const { data: childrenData } = await supabase
+          .from('post')
+          .select('id, parent_id, content')
+          .in('parent_id', postIds);
+
+        const replyCountOf = (id: number) =>
+          (childrenData || []).filter(c => c.parent_id === id && !c.content?.startsWith('[QUOTE]')).length;
+
         // 画面表示用のデータ構造に変換（正確な時間ヘルパーを使用）
-        const formattedPosts = postsData.map(post => {
-          const isLikedByMe = myLikes?.some(l => l.post_id === post.id) || false;
+        const formattedPosts = visiblePosts.map(post => ({
+          id: post.id,
+          text: post.content || '',
+          time: formatPostTime(post.created_at), // 〇分前・〇日前に自動変換
+          likes_count: post.number_of_likes || 0,
+          is_liked_by_me: myLikes?.some(l => l.post_id === post.id) || false,
+          comments: replyCountOf(post.id),
+          retweets: 0,
+          image_url: post.image_url,
+          parent_id: post.parent_id ?? null,
+        }));
 
-          return {
-            id: post.id,
-            text: post.content || '',
-            time: formatPostTime(post.created_at), // 〇分前・〇日前に自動変換
-            likes_count: post.number_of_likes || 0,
-            is_liked_by_me: isLikedByMe,
-            comments: 0,
-            retweets: 0,
-            image_url: post.image_url
-          };
-        });
-
-        setPosts(formattedPosts);
+        // ポストタブ：親を持たない投稿 / 返信タブ：親を持つ投稿
+        setPosts(formattedPosts.filter(p => p.parent_id == null));
+        setReplyPosts(formattedPosts.filter(p => p.parent_id != null));
       } else {
         setPosts([]);
+        setReplyPosts([]);
       }
 
     } catch (error) {
@@ -578,6 +594,84 @@ export default function App({ params }: Props) {
     bio: profile?.bio || 'プロフィールは未設定です。'
   };
 
+  // ポスト／返信タブ共通のカード描画（onClick で遷移先を切り替える）
+  const renderProfileCard = (post: Post, onClick: () => void) => {
+    const isLikePending = pendingLikeIds.has(post.id);
+    return (
+      <div
+        key={post.id}
+        onClick={onClick}
+        className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3"
+      >
+        <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
+            <span className="font-bold hover:underline">{displayProfile.username}</span>
+            <span className="text-gray-500 text-sm">·</span>
+            <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
+            {isMe && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeletePost(post.id);
+                }}
+                className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
+                title="投稿を削除"
+              >
+                <Trash2 className='w-5 h-5' />
+              </button>
+            )}
+          </div>
+          <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
+
+          {post.image_url && (
+            <div
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveImageUrl(post.image_url || null);
+              }}
+              className="mt-2 mb-3 inline-block max-w-full rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
+            >
+              <img
+                src={post.image_url}
+                alt="Post media"
+                className="max-w-full max-h-96 w-auto object-contain group-hover:brightness-95 transition duration-200"
+              />
+            </div>
+          )}
+
+          {/* アクションボタン（返信数・いいね） */}
+          <div className="flex items-center gap-8 text-gray-500 text-sm -ml-2">
+            <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
+              <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
+              <span className="text-xs">{post.comments}</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={isLikePending}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleLikeToggle(post.id, post.is_liked_by_me);
+              }}
+              className={`flex items-center gap-1.5 group p-2 rounded-full transition disabled:opacity-60 disabled:cursor-not-allowed ${
+                post.is_liked_by_me ? 'text-red-500' : 'hover:text-red-500 text-gray-500'
+              }`}
+            >
+              <Heart
+                size={18}
+                className="group-hover:bg-red-50 rounded-full transition"
+                fill={post.is_liked_by_me ? "currentColor" : "none"}
+              />
+              <span className="text-xs">{post.likes_count}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (isEditing && profile) {
     return (
       <EditProfile
@@ -722,9 +816,8 @@ export default function App({ params }: Props) {
         <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
           <Tabs.List className="flex border-b border-gray-200 w-full">
             {[
-              { id: 'posts', label: 'ツイート' },
+              { id: 'posts', label: 'ポスト' },
               { id: 'replies', label: '返信' },
-              { id: 'media', label: 'メディア' },
             ].map((tab) => (
               <Tabs.Trigger
                 key={tab.id}
@@ -790,104 +883,35 @@ export default function App({ params }: Props) {
                       className="bg-blue-500 text-white font-bold px-4 py-1.5 rounded-full text-sm hover:bg-blue-600 transition disabled:opacity-50 flex items-center gap-1.5"
                     >
                       <Send size={14} />
-                      {isSubmitting ? '送信中...' : 'ツイート'}
+                      {isSubmitting ? '送信中...' : 'ポスト'}
                     </button>
                   </div>
                 </div>
               </form>
             )}
-            {/* 投稿一覧（タイムライン） */}
+            {/* 投稿一覧（クリックでスレッド表示へ遷移） */}
             <div className="divide-y divide-gray-200">
-              {posts.map((post) => {
-                const isLikePending = pendingLikeIds.has(post.id);
-                return (
-                  <div key={post.id} className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3">
-                    <Avatar src={displayProfile.icon_src} sx={{ width: 40, height: 40 }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
-                        <span className="font-bold hover:underline">{displayProfile.username}</span>
-                        <span className="text-gray-500 text-sm">·</span>
-                        <span className="text-gray-500 text-sm hover:underline">{post.time}</span>
-                        {isMe && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeletePost(post.id);
-                            }}
-                            className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
-                            title="投稿を削除"
-                          >
-                            <Trash2 className='w-5 h-5' />
-                          </button>
-                        )}
-                      </div>
-                      <p className="text-[15px] leading-normal mb-3 whitespace-pre-wrap">{post.text}</p>
-
-                      {/*  Supabaseから取得した画像URLがある場合に16:9で綺麗に表示 */}
-                      {post.image_url && (
-                        <div
-                          onClick={(e) => {
-                            e.stopPropagation(); // 投稿自体のクリックイベント（詳細画面遷移など）を防止
-                            setActiveImageUrl(post.image_url || null); //  クリックされた画像を拡大表示
-                          }}
-                          className="mt-2 mb-3 inline-block max-w-full rounded-2xl overflow-hidden border border-gray-100 bg-gray-50 cursor-zoom-in group relative"
-                        >
-                          <img
-                            src={post.image_url}
-                            alt="Post media"
-                            className="max-w-full max-h-96 w-auto object-contain group-hover:brightness-95 transition duration-200"
-                          />
-                        </div>
-                      )}
-
-                      {/* アクションボタン（いいね等） */}
-                      <div className="flex justify-between max-w-md text-gray-500 text-sm -ml-2">
-                        <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
-                          <MessageCircle size={18} className="group-hover:bg-blue-50 rounded-full transition" />
-                          <span className="text-xs">{post.comments}</span>
-                        </button>
-                        <button type="button" className="flex items-center gap-1.5 hover:text-green-500 group p-2 rounded-full transition">
-                          <Repeat2 size={18} className="group-hover:bg-green-50 rounded-full transition" />
-                          <span className="text-xs">{post.retweets}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={isLikePending}
-                          onClick={(e) => {
-                            e.stopPropagation(); // 親要素のクリックイベントを防止
-                            handleLikeToggle(post.id, post.is_liked_by_me);
-                          }}
-                          className={`flex items-center gap-1.5 group p-2 rounded-full transition disabled:opacity-60 disabled:cursor-not-allowed ${
-                            post.is_liked_by_me ? 'text-red-500' : 'hover:text-red-500 text-gray-500'
-                          }`}
-                        >
-                          <Heart
-                            size={18}
-                            className="group-hover:bg-red-50 rounded-full transition"
-                            fill={post.is_liked_by_me ? "currentColor" : "none"}
-                          />
-                          <span className="text-xs">{post.likes_count}</span>
-                        </button>
-
-                        <button type="button" className="flex items-center gap-1.5 hover:text-blue-500 group p-2 rounded-full transition">
-                          <Share size={18} className="group-hover:bg-blue-50 rounded-full transition" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {posts.length === 0 ? (
+                <div className="py-20 text-center text-sm text-gray-500">まだポストがありません</div>
+              ) : (
+                posts.map((post) => renderProfileCard(post, () => router.push(`/post/${post.id}`)))
+              )}
             </div>
           </Tabs.Content>
 
           <Tabs.Content value="replies">
-            <div className="py-20 text-center text-sm text-gray-500">返信がここに表示されます</div>
-          </Tabs.Content>
-
-          <Tabs.Content value="media">
-            <div className="py-20 text-center text-sm text-gray-500">メディアがここに表示されます</div>
+            {/* 返信（親ポストを持つ投稿）。クリックで親ポストのスレッドへ遷移 */}
+            <div className="divide-y divide-gray-200">
+              {replyPosts.length === 0 ? (
+                <div className="py-20 text-center text-sm text-gray-500">まだ返信がありません</div>
+              ) : (
+                replyPosts.map((post) =>
+                  renderProfileCard(post, () => {
+                    if (post.parent_id != null) router.push(`/post/${post.parent_id}`);
+                  })
+                )
+              )}
+            </div>
           </Tabs.Content>
         </Tabs.Root>
       </div>

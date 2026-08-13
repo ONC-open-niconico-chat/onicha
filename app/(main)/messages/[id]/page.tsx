@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 // 💡 あなたのプロジェクトのSupabaseクライアントのパスに書き換えてください
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -26,6 +27,7 @@ interface UserProfile {
   id: string;
   username: string;
   icon_src?: string;
+  is_official?: boolean;
 }
 
 export default function ChatPage() {
@@ -78,7 +80,7 @@ export default function ChatPage() {
         // 💡 【追加】ログインユーザーのusernameとicon_srcをuserテーブルから取得
         const { data: myData } = await supabase
           .from("user")
-          .select("id, username, icon_src")
+          .select("id, username, icon_src, is_official")
           .eq("id", session.user.id)
           .single();
         
@@ -102,7 +104,7 @@ export default function ChatPage() {
         // ① 相手のユーザー情報を user テーブルから取得
         const { data: userData, error: userError } = await supabase
           .from("user")
-          .select("id, username, icon_src")
+          .select("id, username, icon_src, is_official")
           .eq("id", receiverId)
           .single();
 
@@ -149,7 +151,7 @@ export default function ChatPage() {
     fetchChatData();
   }, [myId, receiverId]);
 
-  // 3. 🔥 Supabase Realtime の設定
+  // 3. Supabase Realtime の設定
   useEffect(() => {
     if (!myId || !receiverId) return;
 
@@ -375,10 +377,12 @@ export default function ChatPage() {
           </div>
 
           <div className="flex flex-col flex-1">
-            <span className="font-bold text-lg">{partner?.username || "ユーザー"}</span>
-            <span className="text-xs text-gray-500">@{partner?.username || "user"}</span>
+            <span className="font-bold text-lg flex items-center gap-1">
+              {partner?.username || "ユーザー"}
+              {partner?.is_official && <VerifiedBadge className="w-5 h-5" />}
+            </span>
           </div>
-          <button className="text-gray-500 font-bold p-2 hover:bg-gray-100 rounded-full w-10 h-10 flex items-center justify-center">ⓘ</button>
+          
         </div>
 
         {/* チャットタイムライン部分 */}
@@ -397,8 +401,11 @@ export default function ChatPage() {
                 <span className="text-gray-500 text-3xl">👤</span>
               )}
             </div>
-            <span className="font-bold text-xl">{partner?.username || "ユーザー"}</span>
-            <span className="text-gray-500 text-sm">@{partner?.username || "user"}</span>
+            <span className="font-bold text-xl flex items-center gap-1">
+              {partner?.username || "ユーザー"}
+              {partner?.is_official && <VerifiedBadge className="w-5 h-5" />}
+            </span>
+            
           </div>
 
           <div className="text-center text-xs text-gray-400 my-4 font-bold">トークの開始</div>

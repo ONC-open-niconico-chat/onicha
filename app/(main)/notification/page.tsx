@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
 import { createNotification } from "@/lib/notifications";
+import { CheckCheck, Trash2 } from "lucide-react";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 
 
@@ -21,6 +23,8 @@ interface NotificationItem {
   // ① リクエスト送信者のプロフィール
   sender_profile: {
     username: string;
+    icon_src?: string | null;
+    is_official?: boolean;
   } | null;
 
   // ② 紐づく教科書譲渡ポスト
@@ -64,7 +68,7 @@ export default function NotificationPage() {
                 created_at,
                 is_read,
                 request_status,
-                sender_profile:user!notification_sender_id_fkey (username),
+                sender_profile:user!notification_sender_id_fkey (username, icon_src, is_official),
                 txt_post(
                 id,
                 book:textbook_id (
@@ -117,7 +121,8 @@ const handleAcceptAndNavigate = async (
   notificationId: string,
   senderId: string,
   senderName: string,
-  txtPostId?: string | number | null
+  txtPostId?: string | number | null,
+  notificationType?: string
 ) => {
   // ① {相手の名前}で確認ダイアログを出す
   const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
@@ -148,6 +153,29 @@ const handleAcceptAndNavigate = async (
 
     if (postError) {
       console.error("ポストのステータス更新に失敗しました:", postError);
+    }
+  }
+
+  // ②-2 txt_transaction に取引レコードを作成
+  // - request_for_offering（出品へのリクエスト）: giver = 通知の sender / receiver = 通知の receiver（＝自分）
+  // - request_for_request（募集へのリクエスト）  : giver = 通知の receiver（＝自分）/ receiver = 通知の sender
+  if (currentUserId && txtPostId != null) {
+    const giverId =
+      notificationType === "request_for_offering" ? senderId : currentUserId;
+    const receiverId =
+      notificationType === "request_for_offering" ? currentUserId : senderId;
+
+    const { error: txError } = await supabase.from("txt_transaction").insert([
+      {
+        txt_post_id: Number(txtPostId),
+        giver_id: giverId,
+        receiver_id: receiverId,
+        status: "matched",
+      },
+    ]);
+
+    if (txError) {
+      console.error("取引レコードの作成に失敗しました:", txError);
     }
   }
 
@@ -264,11 +292,93 @@ const handleGoToMessage = async (
   router.push(`/messages/${partnerId}${first ? "?first=true" : ""}`);
 };
 
+// リクエスト通知（承諾/見送りの対応が必要なもの）かどうか
+const isRequestNotification = (notif: NotificationItem) =>
+  notif.notification_type === "request_for_offering" ||
+  notif.notification_type === "request_for_request";
+
+// まだ承諾も見送りもしていないリクエスト通知
+const pendingRequests = notifications.filter(
+  (n) => isRequestNotification(n) && !(actionStatus[n.id] ?? n.request_status)
+);
+
+const unreadCount = notifications.filter((n) => !n.is_read).length;
+
+// すべての通知を既読にする
+const handleMarkAllAsRead = async () => {
+  if (unreadCount === 0) return;
+
+  const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id);
+
+  // 画面上ですぐ既読表示に切り替える
+  setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+
+  const { error } = await supabase
+    .from("notification")
+    .update({ is_read: true })
+    .in("id", unreadIds);
+
+  if (error) {
+    console.error("通知の一括既読に失敗しました:", error);
+    alert("既読にできませんでした。時間をおいて試してください。");
+    await fetchNotifications();
+  }
+};
+
+// すべての通知を削除する（未対応のリクエストが残っている場合は削除させない）
+const handleDeleteAll = async () => {
+  if (notifications.length === 0) return;
+
+  if (pendingRequests.length > 0) {
+    alert(
+      `未対応の項目があります（${pendingRequests.length}件）。`
+    );
+    return;
+  }
+
+  if (!window.confirm(`通知をすべて削除しますか？（${notifications.length}件）`)) return;
+
+  const ids = notifications.map((n) => n.id);
+
+  const { error } = await supabase.from("notification").delete().in("id", ids);
+
+  if (error) {
+    console.error("通知の一括削除に失敗しました:", error);
+    alert("削除に失敗しました。時間をおいて試してください。");
+    return;
+  }
+
+  setNotifications([]);
+};
+
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
   return (
     <div className="w-full ml-4 p-4">
-      <h1 className="text-2xl font-bold mb-6">あなたへの通知</h1>
+      <div className="flex items-center justify-between gap-4 mb-6">
+        <h1 className="text-2xl font-bold">あなたへの通知</h1>
+
+        {/* ─── 右上：一括操作ボタン ─── */}
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleMarkAllAsRead}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="すべての通知を既読にする"
+          >
+            <CheckCheck className="w-4 h-4" />
+            全て既読
+          </button>
+
+          <button
+            onClick={handleDeleteAll}
+            className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-xl border border-gray-300 bg-white text-gray-700 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            title="すべての通知を削除する"
+          >
+            <Trash2 className="w-4 h-4" />
+            全て削除
+          </button>
+        </div>
+      </div>
 
       {notifications.length === 0 ? (
         <p className="text-gray-500">新しい通知はありません。</p>
@@ -276,12 +386,15 @@ const handleGoToMessage = async (
         <div className="space-y-4">
           {notifications.map((notif:any) => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
+            const senderIcon = notif.sender_profile?.icon_src || "/onicha_icon/onicha_icon.JPG";
+            // 送信者名（運営なら認証マーク付き）
+            const senderNameEl = (
+              <span className="font-bold text-indigo-600 inline-flex items-center gap-0.5">
+                {senderName}
+                {notif.sender_profile?.is_official && <VerifiedBadge />}
+              </span>
+            );
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
-
-            // 承諾・拒否の結果通知（リクエスト送信者が受け取る通知）かどうか
-            const isResultNotification =
-              notif.notification_type === "request_accepted" ||
-              notif.notification_type === "request_rejected";
 
             // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
             const requestStatus = actionStatus[notif.id] ?? notif.request_status;
@@ -295,26 +408,45 @@ const handleGoToMessage = async (
                 }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* アイコン風の丸（アバター用） */}
-                  <div className="w-10 h-10 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center font-bold shrink-0">
-                    {senderName[0]}
-                  </div>
+                  {/* 送信者アイコン（無ければ public のオニチャアイコンを表示） */}
+                  <img
+                    src={senderIcon}
+                    alt={senderName}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
 
                   <div className="flex-1">
                     <p className="text-sm text-gray-800 leading-relaxed">
-                      {notif.notification_type === "request_rejected" ? (
+                      {notif.notification_type === "follow" ? (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんは
+                          {senderNameEl} さんにフォローされました
+                        </>
+                      ) : notif.notification_type === "message" ? (
+                        <>
+                          {senderNameEl} さんからメッセージが来ました
+                        </>
+                      ) : notif.notification_type === "welcome" ? (
+                        <>
+                          新規登録ありがとうございます！オニチャへようこそ🎉
+                        </>
+                      ) : notif.notification_type === "txt_post_reply" ? (
+                        <>
+                          {senderNameEl} さんがあなたの教科書
+                          <span className="font-bold">「{textbookTitle}」</span> の投稿にコメントしました
+                        </>
+                      ) : notif.notification_type === "request_rejected" ? (
+                        <>
+                          {senderNameEl} さんは
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
                           譲渡が<span className="font-bold text-gray-500">難しいようです。</span>
                           他のポストを見てみましょう！
                         </>
                       ) : (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんが、
+                          {senderNameEl} さんが、
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
                           {notif.notification_type === "request_accepted" ? (
-                            <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 譲渡方法を話し合いましょう！</>
+                            <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 運営からの案内をお待ちください。</>
                           ) : notif.notification_type === "request_for_offering" ? (
                             <>リクエスト「譲ってください」を送りました！</>
                           ) : (
@@ -328,8 +460,8 @@ const handleGoToMessage = async (
                     </p>
                   </div>
 
-                {/* 右側：承諾・拒否ボタンエリア（リクエストを受け取った側だけ表示） */}
-                {!isResultNotification && (
+                {/* 右側：承諾・拒否ボタンエリア（教科書譲渡リクエストのときだけ表示） */}
+                {isRequestNotification(notif) && (
                     <div className="flex items-center gap-2 shrink-0">
                         {requestStatus === "accepted" ? (
                           <>
@@ -353,7 +485,7 @@ const handleGoToMessage = async (
                             {/* 🟢 承諾ボタン */}
                             <button
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id, notif.notification_type); }}
                             >
                             承諾
                             </button>
@@ -378,6 +510,18 @@ const handleGoToMessage = async (
                         onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id); }}
                         >
                         メッセージへ
+                        </button>
+                    </div>
+                )}
+
+                {/* コメント通知：該当の教科書譲渡ポストへ移動するボタン */}
+                {notif.notification_type === "txt_post_reply" && notif.txt_post?.id && (
+                    <div className="flex items-center gap-2 shrink-0">
+                        <button
+                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
+                        onClick={(e) => { e.stopPropagation(); router.push(`/txtpost/${notif.txt_post!.id}`); }}
+                        >
+                        投稿を見る
                         </button>
                     </div>
                 )}

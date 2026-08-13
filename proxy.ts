@@ -35,7 +35,7 @@ export default async function proxy(request: NextRequest) {
 
   // 3. セッションの有効チェック
   const { data: { user } } = await supabase.auth.getUser()
-  const publicPaths = ['/login', '/signup']
+  const publicPaths = ['/login', '/signup', '/forgot-password', '/reset-password']
   const isPublic = publicPaths.some((path) =>
   request.nextUrl.pathname.startsWith(path)
   )
@@ -45,6 +45,22 @@ export default async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // 5. 【管理者チェック】/admin 配下は staff_members に登録された管理者のみ許可
+  if (user && request.nextUrl.pathname.startsWith('/admin')) {
+    const { data: staff } = await supabase
+      .from('staff_members')
+      .select('user_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    // staff_members に user_id が無ければ管理者ではないのでトップへリダイレクト
+    if (!staff) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/'
+      return NextResponse.redirect(url)
+    }
   }
 
   return response
