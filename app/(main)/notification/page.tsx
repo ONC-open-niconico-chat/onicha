@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合�
 import { useRouter } from "next/navigation";
 import { createNotification } from "@/lib/notifications";
 import { CheckCheck, Trash2 } from "lucide-react";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 
 
@@ -23,6 +24,7 @@ interface NotificationItem {
   sender_profile: {
     username: string;
     icon_src?: string | null;
+    is_official?: boolean;
   } | null;
 
   // ② 紐づく教科書譲渡ポスト
@@ -66,7 +68,7 @@ export default function NotificationPage() {
                 created_at,
                 is_read,
                 request_status,
-                sender_profile:user!notification_sender_id_fkey (username, icon_src),
+                sender_profile:user!notification_sender_id_fkey (username, icon_src, is_official),
                 txt_post(
                 id,
                 book:textbook_id (
@@ -385,6 +387,13 @@ const handleDeleteAll = async () => {
           {notifications.map((notif:any) => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
             const senderIcon = notif.sender_profile?.icon_src || "/onicha_icon/onicha_icon.JPG";
+            // 送信者名（運営なら認証マーク付き）
+            const senderNameEl = (
+              <span className="font-bold text-indigo-600 inline-flex items-center gap-0.5">
+                {senderName}
+                {notif.sender_profile?.is_official && <VerifiedBadge />}
+              </span>
+            );
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
 
             // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
@@ -410,11 +419,11 @@ const handleDeleteAll = async () => {
                     <p className="text-sm text-gray-800 leading-relaxed">
                       {notif.notification_type === "follow" ? (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんにフォローされました
+                          {senderNameEl} さんにフォローされました
                         </>
                       ) : notif.notification_type === "message" ? (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんからメッセージが来ました
+                          {senderNameEl} さんからメッセージが来ました
                         </>
                       ) : notif.notification_type === "welcome" ? (
                         <>
@@ -422,14 +431,14 @@ const handleDeleteAll = async () => {
                         </>
                       ) : notif.notification_type === "request_rejected" ? (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんは
+                          {senderNameEl} さんは
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
                           譲渡が<span className="font-bold text-gray-500">難しいようです。</span>
                           他のポストを見てみましょう！
                         </>
                       ) : (
                         <>
-                          <span className="font-bold text-indigo-600">{senderName}</span> さんが、
+                          {senderNameEl} さんが、
                           教科書 <span className="font-bold">「{textbookTitle}」</span> の
                           {notif.notification_type === "request_accepted" ? (
                             <>あなたのリクエストを<span className="font-bold text-green-600">承諾しました！</span> 譲渡方法を話し合いましょう！</>

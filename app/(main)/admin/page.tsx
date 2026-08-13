@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // txt_transaction の 1 レコード
@@ -31,6 +32,7 @@ export default function AdminTransactionsPage() {
   const [loading, setLoading] = useState(true);
   // 完了処理中のレコード id（二重押し防止・ボタンのローディング表示用）
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const fetchTransactions = async () => {
@@ -138,6 +140,15 @@ export default function AdminTransactionsPage() {
           <span className="w-9 h-9 rounded-full bg-gray-200 shrink-0" />
         )}
         <span className="truncate">{u?.username ?? "不明"}</span>
+        {userId && (
+          <Button
+            onClick={() => router.push(`/admin/messages/${userId}`)}
+            className="ml-1 h-8 px-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm gap-1 shrink-0"
+          >
+            <MessageCircle className="w-4 h-4" />
+            メッセージ
+          </Button>
+        )}
       </div>
     );
   };
