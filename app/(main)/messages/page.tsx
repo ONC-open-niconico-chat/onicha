@@ -3,11 +3,13 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 interface ChatPartner {
   id: string;
   username: string;
   icon_src?: string;
+  is_official?: boolean;
   last_message?: string;
   last_message_at?: string;
   unread_count: number;
@@ -59,7 +61,7 @@ export default function MessageListPage() {
 
         // 4. 💡 相手のプロフィール情報と、自分宛ての未読通知をまとめて並列取得
         const [{ data: userData, error: userError }, { data: unreadNotifications, error: notifyError }] = await Promise.all([
-          supabase.from("user").select("id, username, icon_src").in("id", Array.from(partnerIds)),
+          supabase.from("user").select("id, username, icon_src, is_official").in("id", Array.from(partnerIds)),
           // 自分宛て（receiver_idが自分）かつ、未読（is_readがfalse）のメッセージ通知を一括取得
           supabase.from("notification").select("sender_id").eq("receiver_id", currentUserId).eq("notification_type", "message").eq("is_read", false)
         ]);
@@ -82,7 +84,8 @@ export default function MessageListPage() {
             id: user.id,
             username: user.username,
             icon_src: user.icon_src,
-            last_message: lastMsgInfo?.content,      
+            is_official: user.is_official,
+            last_message: lastMsgInfo?.content,
             last_message_at: lastMsgInfo?.created_at,
             unread_count: unreadMap.get(user.id) || 0,
             };
@@ -141,8 +144,9 @@ export default function MessageListPage() {
               
                   {/* 中央：ユーザー名とメッセージ内容 */}
                   <div className="flex-1 min-w-0">
-                    <span className="font-bold text-base text-black truncate block mb-1">
+                    <span className="font-bold text-base text-black truncate mb-1 flex items-center gap-1">
                       {partner.username}
+                      {partner.is_official && <VerifiedBadge />}
                     </span>
                     <div className="text-sm text-gray-500 truncate pr-2">
                       {partner.last_message || "メッセージを送信しました"}
