@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import CreatePostForm from "./createNewPost";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 
@@ -45,6 +45,10 @@ export default function TxtPostPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
+  // 教科書名での検索キーワード
+  const [search, setSearch] = useState("");
+  // マッチング済みも表示するか（false のときは募集中のみ）
+  const [showMatched, setShowMatched] = useState(false);
 
   const router = useRouter();
   
@@ -132,10 +136,16 @@ export default function TxtPostPage() {
     fetchPosts();
   }, [textbookId]);
 
-  const filteredPosts =
-    filter === "all"
-      ? posts
-      : posts.filter((post) => post.give_type === filter);
+  const keyword = search.trim().toLowerCase();
+  const filteredPosts = posts.filter((post) => {
+    // タブ（すべて / 譲ります / 譲ってください）
+    if (filter !== "all" && post.give_type !== filter) return false;
+    // マッチング済み非表示（チェックが入っていないときは募集中のみ）
+    if (!showMatched && post.status === "マッチング済み") return false;
+    // 教科書名での検索
+    if (keyword && !(post.book?.title ?? "").toLowerCase().includes(keyword)) return false;
+    return true;
+  });
 
   if (loading) return <div className="text-center py-10 text-gray-500">読み込み中...</div>
 
@@ -207,6 +217,38 @@ export default function TxtPostPage() {
           >
             譲ってください
           </button>
+        </div>
+
+        {/* 検索バー & マッチング済み表示チェック */}
+        <div className="flex items-center gap-3 px-4 py-2 border-t border-gray-200">
+          <div className="flex items-center gap-2 flex-1 border border-gray-300 rounded-full px-3 py-1.5 bg-white focus-within:border-blue-400 transition-colors">
+            <Search className="w-4 h-4 text-gray-400 shrink-0" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="教科書名で検索"
+              className="flex-1 outline-none text-sm bg-transparent"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                className="text-gray-400 hover:text-gray-600 shrink-0"
+                title="クリア"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          <label className="flex items-center gap-1.5 text-sm text-gray-600 whitespace-nowrap cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showMatched}
+              onChange={(e) => setShowMatched(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            マッチング済みも表示
+          </label>
         </div>
       </div>
 
