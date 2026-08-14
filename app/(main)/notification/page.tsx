@@ -35,6 +35,7 @@ interface NotificationItem {
       title: string;
     } | null;
   } | null;
+  txt_transaction_id: string | number | null; // 紐づく取引ID（リクエスト通知の場合）
 }
 
 export default function NotificationPage() {
@@ -68,6 +69,7 @@ export default function NotificationPage() {
                 created_at,
                 is_read,
                 request_status,
+                txt_transaction_id,
                 sender_profile:user!notification_sender_id_fkey (username, icon_src, is_official),
                 txt_post(
                 id,
@@ -122,12 +124,28 @@ const handleAcceptAndNavigate = async (
   senderId: string,
   senderName: string,
   txtPostId?: string | number | null,
-  notificationType?: string
+  notificationType?: string,
+  txt_transactionId?: string | number | null
 ) => {
   // ① {相手の名前}で確認ダイアログを出す
   const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
 
   if (!isConfirmed) return;
+
+  // 該当の取引が pending か確認。pending でなければ操作不可。
+  if (txt_transactionId != null) {
+    const { data: pendingTx } = await supabase
+      .from("txt_transaction")
+      .select("id")
+      .eq("id", Number(txt_transactionId))
+      .eq("status", "pending")
+      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`)
+      .limit(1);
+    if (!pendingTx || pendingTx.length === 0) {
+      alert("操作を実行できませんでした");
+      return;
+    }
+  }
 
   // ボタンを「承諾しました」ラベルに切り替える
   setActionStatus((prev) => ({ ...prev, [notificationId]: "accepted" }));
@@ -156,26 +174,36 @@ const handleAcceptAndNavigate = async (
     }
   }
 
-  // ②-2 txt_transaction に取引レコードを作成
+  // ②-2 txt_transaction を matched に更新
   // - request_for_offering（出品へのリクエスト）: giver = 通知の sender / receiver = 通知の receiver（＝自分）
   // - request_for_request（募集へのリクエスト）  : giver = 通知の receiver（＝自分）/ receiver = 通知の sender
-  if (currentUserId && txtPostId != null) {
-    const giverId =
-      notificationType === "request_for_offering" ? senderId : currentUserId;
-    const receiverId =
-      notificationType === "request_for_offering" ? currentUserId : senderId;
+  if (currentUserId && txtPostId != null && txt_transactionId != null) {
+    // 該当の pending 取引を id 指定で matched に更新。
+    // pending でなければ 0 件更新となり、新規作成もしない（取り下げ済みの復活を防ぐ）。
+    const { data: updatedTx, error: txUpdateError } = await supabase
+      .from("txt_transaction")
+      .update({ status: "matched" })
+      .eq("id", Number(txt_transactionId))
+      .eq("status", "pending")
+      .select("id");
 
-    const { error: txError } = await supabase.from("txt_transaction").insert([
-      {
-        txt_post_id: Number(txtPostId),
-        giver_id: giverId,
-        receiver_id: receiverId,
-        status: "matched",
-      },
-    ]);
+    if (txUpdateError) {
+      console.error("取引レコードの更新に失敗しました:", txUpdateError);
+    } else if (!updatedTx || updatedTx.length === 0) {
+      // 冒頭ガードを通過していれば基本的に来ないが、保険として中断
+      alert("操作を実行できませんでした");
+      await fetchNotifications();
+      return;
+    }
 
-    if (txError) {
-      console.error("取引レコードの作成に失敗しました:", txError);
+    // 同じポストの他の pending 取引はまとめて cancelled に
+    const { error: cancelError } = await supabase
+      .from("txt_transaction")
+      .update({ status: "cancelled" })
+      .eq("txt_post_id", Number(txtPostId))
+      .eq("status", "pending");
+    if (cancelError) {
+      console.error("他の取引のキャンセルに失敗しました:", cancelError);
     }
   }
 
@@ -236,11 +264,27 @@ const handleAcceptAndNavigate = async (
 const handleReject = async (
   notificationId: string,
   senderId: string,
-  txtPostId?: string | number | null
+  txtPostId?: string | number | null,
+  txt_transactionId?: string | number | null
 ) => {
   const isConfirmed = window.confirm("このリクエストを見送りますか？");
 
   if (!isConfirmed) return;
+
+  // 該当の取引が pending か確認。pending でなければ操作不可。
+  if (txt_transactionId != null) {
+    const { data: pendingTx } = await supabase
+      .from("txt_transaction")
+      .select("id")
+      .eq("id", Number(txt_transactionId))
+      .eq("status", "pending")
+      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`)
+      .limit(1);
+    if (!pendingTx || pendingTx.length === 0) {
+      alert("操作を実行できませんでした");
+      return;
+    }
+  }
 
   // ボタンを「見送りました」ラベルに切り替える
   setActionStatus((prev) => ({ ...prev, [notificationId]: "rejected" }));
@@ -255,6 +299,19 @@ const handleReject = async (
     if (error) throw error;
   } catch (error) {
     console.error("通知の既読更新に失敗しました:", error);
+  }
+
+  // 見送ったリクエストの pending 取引を cancelled に更新
+  if (txtPostId != null) {
+    const { error: cancelError } = await supabase
+      .from("txt_transaction")
+      .update({ status: "cancelled" })
+      .eq("txt_post_id", Number(txtPostId))
+      .eq("status", "pending")
+      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`);
+    if (cancelError) {
+      console.error("取引のキャンセルに失敗しました:", cancelError);
+    }
   }
 
   // リクエスト送信者へ「拒否されました」の通知を作成
@@ -434,6 +491,12 @@ const handleDeleteAll = async () => {
                           {senderNameEl} さんがあなたの教科書
                           <span className="font-bold">「{textbookTitle}」</span> の投稿にコメントしました
                         </>
+                      ) : notif.notification_type === "request_withdrawn" ? (
+                        <>
+                          {senderNameEl} さんが
+                          教科書 <span className="font-bold">「{textbookTitle}」</span> の
+                          <span className="font-bold text-gray-500">リクエストを取り下げました。</span>
+                        </>
                       ) : notif.notification_type === "request_rejected" ? (
                         <>
                           {senderNameEl} さんは
@@ -485,7 +548,7 @@ const handleDeleteAll = async () => {
                             {/* 🟢 承諾ボタン */}
                             <button
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id, notif.notification_type); }}
+                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id, notif.notification_type,notif.txt_transaction_id); }}
                             >
                             承諾
                             </button>
@@ -493,7 +556,7 @@ const handleDeleteAll = async () => {
                             {/* 🔴 拒否ボタン */}
                             <button
                             className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleReject(notif.id, notif.sender_id, notif.txt_post?.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleReject(notif.id, notif.sender_id, notif.txt_post?.id, notif.txt_transaction_id); }}
                             >
                             見送る
                             </button>

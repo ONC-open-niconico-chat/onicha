@@ -6,6 +6,7 @@ export type NotificationType =
   | "request_for_request" // 募集（譲ってください）へのリクエスト
   | "request_accepted" // リクエストが承諾された（リクエスト元へ通知）
   | "request_rejected" // リクエストが拒否された（リクエスト元へ通知）
+  | "request_withdrawn" // リクエストが取り下げられた（ポスト主へ通知）
   | "message" // メッセージ受信
   | "follow" // フォローされた
   | "txt_post_reply" // 自分の教科書譲渡ポストにコメントが付いた
