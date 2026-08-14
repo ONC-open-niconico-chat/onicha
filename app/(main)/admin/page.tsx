@@ -40,7 +40,8 @@ export default function AdminTransactionsPage() {
       const { data: txData, error } = await supabase
         .from("txt_transaction")
         .select("id, status, completed_at, txt_post_id, giver_id, receiver_id")
-        .order("id", { ascending: false });
+        .order("id", { ascending: false })
+        .in("status", ["matched", "completed"]); // マッチングした取引のみ表示
 
       if (error) {
         console.error("取引の取得に失敗しました:", error);

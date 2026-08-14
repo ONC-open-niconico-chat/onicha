@@ -25,28 +25,62 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
 
   // 自分がこのポストにリクエスト済みか
   const [hasRequested, setHasRequested] = useState(false);
+  // 保留中（ポスト主が未対応）のリクエスト通知ID。取り下げ可能なときだけ入る。
+  const [pendingRequestId, setPendingRequestId] = useState<number | string | null>(null);
+
+  // 自分の所持ポイント（500未満ならリクエスト不可）
+  const [myPoints, setMyPoints] = useState<number | null>(null);
 
   // 自分の投稿かどうか
   const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
 
-  // 既にリクエストを送っているかを notification テーブルから判定（カラム追加は不要）
+  // 既にリクエストを送っているか＆その状態を notification テーブルから判定
   useEffect(() => {
     const myId = userProfile?.id;
     if (!myId || isMine) return;
     let active = true;
     (async () => {
-      const { count } = await supabase
+      const { data } = await supabase
         .from("notification")
-        .select("id", { count: "exact", head: true })
+        .select("id, request_status")
         .eq("sender_id", myId)
         .eq("txt_post_id", txtpost.id)
-        .in("notification_type", ["request_for_offering", "request_for_request"]);
-      if (active && (count ?? 0) > 0) setHasRequested(true);
+        .in("notification_type", ["request_for_offering", "request_for_request"])
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (!active) return;
+      const req = data?.[0];
+      if (req) {
+        setHasRequested(true);
+        // 承諾/見送り前（request_status が null）のみ取り下げ可能
+        setPendingRequestId(req.request_status == null ? req.id : null);
+      }
     })();
     return () => {
       active = false;
     };
   }, [userProfile?.id, isMine, txtpost.id]);
+
+  // 自分の所持ポイントを取得（リクエストボタンの有効/無効判定用）
+  useEffect(() => {
+    const myId = userProfile?.id;
+    if (!myId || isMine) return;
+    let active = true;
+    (async () => {
+      const { data } = await supabase
+        .from("user")
+        .select("points")
+        .eq("id", myId)
+        .single();
+      if (active) setMyPoints(data?.points ?? 0);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [userProfile?.id, isMine]);
+
+  // ポイント不足（500未満）か。取得前(null)はボタンを止めない。
+  const insufficientPoints = myPoints !== null && myPoints < 500;
 
   // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
   const normalizeImageUrls = (value: unknown): string[] => {
@@ -111,6 +145,51 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
       return;
     }
     onDeleted?.();
+  };
+
+  // 送った譲渡リクエストを取り下げる（ポスト主が未対応のときのみ）
+  const handleWithdraw = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (pendingRequestId == null) return;
+    if (!confirm("この譲渡リクエストを取り下げますか？")) return;
+
+    // 承諾/見送り前（request_status が null）のみ、通知を「取り下げ」に変更
+    const { data, error } = await supabase
+      .from("notification")
+      .update({ notification_type: "request_withdrawn", is_read: false })
+      .eq("id", pendingRequestId)
+      .is("request_status", null)
+      .select("id");
+
+    if (error) {
+      console.error("リクエストの取り下げに失敗しました:", error);
+      alert("取り下げに失敗しました。");
+      return;
+    }
+    if (!data || data.length === 0) {
+      // 直前にポスト主が承諾/見送りした場合
+      alert("すでにポスト主が対応済みのため取り下げできません。");
+      setPendingRequestId(null);
+      return;
+    }
+
+    // 取り下げたリクエストの pending 取引を cancelled に更新
+    const myId = userProfile?.id;
+    if (myId) {
+      const { error: cancelError } = await supabase
+        .from("txt_transaction")
+        .update({ status: "cancelled" })
+        .eq("txt_post_id", txtpost.id)
+        .eq("status", "pending")
+        .or(`giver_id.eq.${myId},receiver_id.eq.${myId}`);
+      if (cancelError) {
+        console.error("取引のキャンセルに失敗しました:", cancelError);
+      }
+    }
+
+    // 取り下げ後は再度リクエストできる状態に戻す
+    setHasRequested(false);
+    setPendingRequestId(null);
   };
 
   return (
@@ -183,13 +262,39 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
                   マッチング済み ✓
                 </span>
               ) : isMine ? null : hasRequested ? (
-                <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
-                  リクエスト済み ✓
-                </span>
+                pendingRequestId != null ? (
+                  // 保留中：取り下げボタン
+                  <button
+                    onClick={handleWithdraw}
+                    className="px-4 py-2 rounded-xl font-bold text-sm bg-white text-red-600 border border-red-300 hover:bg-red-50 transition-colors active:scale-95"
+                  >
+                    リクエストを取り下げる
+                  </button>
+                ) : (
+                  <span className="px-4 py-2 rounded-xl font-bold text-sm bg-gray-100 text-gray-500 border border-gray-300">
+                    リクエスト済み ✓
+                  </span>
+                )
               ) : (
               <button
+                disabled={insufficientPoints}
+                title={insufficientPoints ? "譲渡リクエストには500ポイントが必要です" : undefined}
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
+
+                  // 所持ポイントが 500 未満なら譲渡リクエスト不可（最新の points を取得して判定）
+                  if (!userProfile?.id) return;
+                  const { data: me } = await supabase
+                    .from("user")
+                    .select("points")
+                    .eq("id", userProfile.id)
+                    .single();
+                  if ((me?.points ?? 0) < 500) {
+                    setMyPoints(me?.points ?? 0);
+                    alert("譲渡リクエストには500ポイントが必要です。ポイントが不足しています。");
+                    return;
+                  }
+
                   // 1. ボタンの種類によってメッセージを変える
                   const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
                   const confirmMessage = `${txtpost.user.username} さんに${actionText}のリクエストを送りますか？`;
@@ -199,30 +304,61 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
 
                   // 3. 「はい」が押された場合だけ処理を実行
                   if (hasConfirmed) {
-                    const {data,error} = await supabase.from("notification").insert({
+                    // 譲渡リクエスト時点で txt_transaction を pending で作成
+                    // 承諾フローと同じ giver/receiver マッピング:
+                    // - offering（譲ります）へのリクエスト: giver = リクエスト送信者 / receiver = ポスト主
+                    // - seeking（譲ってください）へのリクエスト: giver = ポスト主 / receiver = リクエスト送信者
+                    const isOffering = txtpost.give_type === "offering";
+                    const giverId = isOffering ? userProfile.id : txtpost.user.id;
+                    const receiverId = isOffering ? txtpost.user.id : userProfile.id;
+                    const { data: txData, error: txError } = await supabase.from("txt_transaction").insert({
+                      txt_post_id: txtpost.id,
+                      giver_id: giverId,
+                      receiver_id: receiverId,
+                      status: "pending",
+                    })
+                    .select()
+                    .single();
+                    if (txError) {
+                      console.error("取引レコード(pending)の作成に失敗しました:", txError);
+                    }
+
+
+
+                    const {data: insertedNotif, error} = await supabase.from("notification").insert({
                       receiver_id : txtpost.user.id,
-                      sender_id : userProfile?.id,
+                      sender_id : userProfile.id,
                       notification_type : txtpost.give_type === "offering" ? "request_for_offering" : "request_for_request",
                       txt_post_id : txtpost.id,
-                    });
+                      txt_transaction_id : txData?.id ?? null, 
+                    }).select("id").single();
 
                   if (error) {
                     console.error("❌ Supabaseインサートエラー詳細:", error);
                     alert(`エラーが発生しました: ${error.message}`);
-                  } else {
+                  } 
+                    
+
                     setHasRequested(true); // ボタンを「リクエスト済み」に切り替える
+                    setPendingRequestId(insertedNotif?.id ?? null); // 送信直後から取り下げ可能に
                     alert("リクエストを送信しました！相手からの返信をお待ちください。");
                   }
                   }
-                }}
+                }
 
-                className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-95 ${
-                  txtpost.give_type === "offering"
-                    ? "bg-green-600 hover:bg-green-700 text-white" // 「譲ります」に対しては「譲ってください（グリーン）」
-                    : "bg-blue-600 hover:bg-blue-700 text-white"   // 「譲ってください」に対しては「譲ります（ブルー）」
+                className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all ${
+                  insufficientPoints
+                    ? "bg-gray-200 text-gray-400 cursor-not-allowed" // ポイント不足時はグレーアウト
+                    : txtpost.give_type === "offering"
+                    ? "bg-green-600 hover:bg-green-700 text-white active:scale-95" // 「譲ります」に対しては「譲ってください（グリーン）」
+                    : "bg-blue-600 hover:bg-blue-700 text-white active:scale-95"   // 「譲ってください」に対しては「譲ります（ブルー）」
                 }`}
               >
-                {txtpost.give_type === "offering" ? "譲ってください 🙌" : "譲ります 📚"}
+                {insufficientPoints
+                  ? "ポイント不足"
+                  : txtpost.give_type === "offering"
+                  ? "譲ってください 🙌"
+                  : "譲ります 📚"}
               </button>
               )}
             </div>
