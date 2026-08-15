@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
-import { createNotification } from "@/lib/notifications";
+import { txtRequestErrorMessage } from "@/lib/txtRequest";
 import { CheckCheck, Trash2 } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 
@@ -118,212 +118,43 @@ export default function NotificationPage() {
   };
 
 
-  // 💡 コンポーネント内の、関数の内側（handleAction の下あたり）に追加
+  // 承諾：RPC でアトミックに実行（取引の matched 化・他リクエスト締切・各種通知まで）
 const handleAcceptAndNavigate = async (
   notificationId: string,
-  senderId: string,
-  senderName: string,
-  txtPostId?: string | number | null,
-  notificationType?: string,
-  txt_transactionId?: string | number | null
+  senderName: string
 ) => {
-  // ① {相手の名前}で確認ダイアログを出す
-  const isConfirmed = window.confirm(`${senderName} さんとの譲渡を合意しますか？`);
+  if (!window.confirm(`${senderName} さんとの譲渡を合意しますか？`)) return;
 
-  if (!isConfirmed) return;
+  const { error } = await supabase.rpc("accept_txt_request", {
+    p_notification_id: notificationId,
+  });
 
-  // 該当の取引が pending か確認。pending でなければ操作不可。
-  if (txt_transactionId != null) {
-    const { data: pendingTx } = await supabase
-      .from("txt_transaction")
-      .select("id")
-      .eq("id", Number(txt_transactionId))
-      .eq("status", "pending")
-      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`)
-      .limit(1);
-    if (!pendingTx || pendingTx.length === 0) {
-      alert("操作を実行できませんでした");
-      return;
-    }
+  if (error) {
+    alert(txtRequestErrorMessage(error.message));
+    await fetchNotifications();
+    return;
   }
 
-  // ボタンを「承諾しました」ラベルに切り替える
   setActionStatus((prev) => ({ ...prev, [notificationId]: "accepted" }));
-
-  try {
-    // 🟢 Supabaseの notification テーブルの is_read を true（既読）に更新！
-    const { error } = await supabase
-      .from("notification")
-      .update({ is_read: true, request_status: "accepted" }) // 既読 + 承諾を保存
-      .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
-
-    if (error) throw error; // もしエラーが起きたら catch ブロックへ飛ばす
-  } catch (error) {
-    console.error("通知の既読更新に失敗しました:", error);
-  }
-
-  // ② 該当の教科書譲渡ポストを「マッチング済み」に更新
-  if (txtPostId != null) {
-    const { error: postError } = await supabase
-      .from("txt_post")
-      .update({ status: "マッチング済み" })
-      .eq("id", Number(txtPostId));
-
-    if (postError) {
-      console.error("ポストのステータス更新に失敗しました:", postError);
-    }
-  }
-
-  // ②-2 txt_transaction を matched に更新
-  // - request_for_offering（出品へのリクエスト）: giver = 通知の sender / receiver = 通知の receiver（＝自分）
-  // - request_for_request（募集へのリクエスト）  : giver = 通知の receiver（＝自分）/ receiver = 通知の sender
-  if (currentUserId && txtPostId != null && txt_transactionId != null) {
-    // 該当の pending 取引を id 指定で matched に更新。
-    // pending でなければ 0 件更新となり、新規作成もしない（取り下げ済みの復活を防ぐ）。
-    const { data: updatedTx, error: txUpdateError } = await supabase
-      .from("txt_transaction")
-      .update({ status: "matched" })
-      .eq("id", Number(txt_transactionId))
-      .eq("status", "pending")
-      .select("id");
-
-    if (txUpdateError) {
-      console.error("取引レコードの更新に失敗しました:", txUpdateError);
-    } else if (!updatedTx || updatedTx.length === 0) {
-      // 冒頭ガードを通過していれば基本的に来ないが、保険として中断
-      alert("操作を実行できませんでした");
-      await fetchNotifications();
-      return;
-    }
-
-    // 同じポストの他の pending 取引はまとめて cancelled に
-    const { error: cancelError } = await supabase
-      .from("txt_transaction")
-      .update({ status: "cancelled" })
-      .eq("txt_post_id", Number(txtPostId))
-      .eq("status", "pending");
-    if (cancelError) {
-      console.error("他の取引のキャンセルに失敗しました:", cancelError);
-    }
-  }
-
-  // ③ リクエスト送信者へ「承諾されました」の通知を作成
-  if (currentUserId) {
-    await createNotification({
-      receiverId: senderId, // リクエストを送ってきた人
-      senderId: currentUserId, // 承諾した自分
-      type: "request_accepted",
-      txtPostId: txtPostId != null ? Number(txtPostId) : null,
-    });
-  }
-
-  // ④ 同じポストへの他の未処理リクエストを自動で締め切り、各送信者へ通知する
-  if (currentUserId && txtPostId != null) {
-    // 自分宛の、同じポストに対する未処理（request_status が未設定）のリクエスト通知を取得
-    const { data: otherRequests, error: othersError } = await supabase
-      .from("notification")
-      .select("id, sender_id")
-      .eq("receiver_id", currentUserId)
-      .eq("txt_post_id", Number(txtPostId))
-      .in("notification_type", ["request_for_offering", "request_for_request"])
-      .is("request_status", null)
-      .neq("id", notificationId);
-
-    if (othersError) {
-      console.error("他リクエストの取得に失敗しました:", othersError);
-    } else if (otherRequests && otherRequests.length > 0) {
-      // 締め切る通知をまとめて既読 + 見送り扱いに更新
-      const { error: closeError } = await supabase
-        .from("notification")
-        .update({ is_read: true, request_status: "rejected" })
-        .in(
-          "id",
-          otherRequests.map((r) => r.id)
-        );
-
-      if (closeError) {
-        console.error("他リクエストの締め切りに失敗しました:", closeError);
-      }
-
-      // 各送信者へ「見送り（他の方に決定）」の通知を作成
-      for (const req of otherRequests) {
-        await createNotification({
-          receiverId: req.sender_id,
-          senderId: currentUserId,
-          type: "request_rejected",
-          txtPostId: Number(txtPostId),
-        });
-      }
-    }
-  }
-
   await fetchNotifications();
-  // 遷移はせず、「承諾しました」ラベル＋「メッセージへ」ボタンを表示する
 };
 
-const handleReject = async (
-  notificationId: string,
-  senderId: string,
-  txtPostId?: string | number | null,
-  txt_transactionId?: string | number | null
-) => {
-  const isConfirmed = window.confirm("このリクエストを見送りますか？");
+// 見送り：RPC でアトミックに実行（取引の cancelled 化・見送り通知まで）
+const handleReject = async (notificationId: string) => {
+  if (!window.confirm("このリクエストを見送りますか？")) return;
 
-  if (!isConfirmed) return;
+  const { error } = await supabase.rpc("reject_txt_request", {
+    p_notification_id: notificationId,
+  });
 
-  // 該当の取引が pending か確認。pending でなければ操作不可。
-  if (txt_transactionId != null) {
-    const { data: pendingTx } = await supabase
-      .from("txt_transaction")
-      .select("id")
-      .eq("id", Number(txt_transactionId))
-      .eq("status", "pending")
-      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`)
-      .limit(1);
-    if (!pendingTx || pendingTx.length === 0) {
-      alert("操作を実行できませんでした");
-      return;
-    }
+  if (error) {
+    console.error("見送りに失敗しました:", error);
+    alert(txtRequestErrorMessage(error.message));
+    await fetchNotifications();
+    return;
   }
 
-  // ボタンを「見送りました」ラベルに切り替える
   setActionStatus((prev) => ({ ...prev, [notificationId]: "rejected" }));
-
-  try {
-    // 🔴 Supabaseの notification テーブルの is_read を true（既読）に更新！
-    const { error } = await supabase
-      .from("notification")
-      .update({ is_read: true, request_status: "rejected" }) // 既読 + 見送りを保存
-      .eq("id", notificationId); // 💡 この通知IDの行だけをピンポイントで指定
-
-    if (error) throw error;
-  } catch (error) {
-    console.error("通知の既読更新に失敗しました:", error);
-  }
-
-  // 見送ったリクエストの pending 取引を cancelled に更新
-  if (txtPostId != null) {
-    const { error: cancelError } = await supabase
-      .from("txt_transaction")
-      .update({ status: "cancelled" })
-      .eq("txt_post_id", Number(txtPostId))
-      .eq("status", "pending")
-      .or(`giver_id.eq.${senderId},receiver_id.eq.${senderId}`);
-    if (cancelError) {
-      console.error("取引のキャンセルに失敗しました:", cancelError);
-    }
-  }
-
-  // リクエスト送信者へ「拒否されました」の通知を作成
-  if (currentUserId) {
-    await createNotification({
-      receiverId: senderId, // リクエストを送ってきた人
-      senderId: currentUserId, // 拒否した自分
-      type: "request_rejected",
-      txtPostId: txtPostId != null ? Number(txtPostId) : null,
-    });
-  }
-
   await fetchNotifications();
 };
 
@@ -548,7 +379,7 @@ const handleDeleteAll = async () => {
                             {/* 🟢 承諾ボタン */}
                             <button
                             className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, notif.sender_id, senderName, notif.txt_post?.id, notif.notification_type,notif.txt_transaction_id); }}
+                            onClick={(e) => { e.stopPropagation(); handleAcceptAndNavigate(notif.id, senderName); }}
                             >
                             承諾
                             </button>
@@ -556,7 +387,7 @@ const handleDeleteAll = async () => {
                             {/* 🔴 拒否ボタン */}
                             <button
                             className="px-4 py-2 bg-white hover:bg-gray-50 text-gray-600 border border-gray-300 font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleReject(notif.id, notif.sender_id, notif.txt_post?.id, notif.txt_transaction_id); }}
+                            onClick={(e) => { e.stopPropagation(); handleReject(notif.id); }}
                             >
                             見送る
                             </button>

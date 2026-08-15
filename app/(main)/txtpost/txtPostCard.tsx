@@ -2,6 +2,7 @@ import  Link  from "next/link";
 import { useRouter } from "next/navigation";
 import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
+import { txtRequestErrorMessage } from "@/lib/txtRequest";
 import { useAuth } from "@/components/loginUser";
 import { Trash2, X, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -82,6 +83,28 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
   // ポイント不足（500未満）か。取得前(null)はボタンを止めない。
   const insufficientPoints = myPoints !== null && myPoints < 500;
 
+  // 自分のリクエスト状態を再取得（送信・取り下げ後に呼ぶ）
+  const refreshRequestState = async () => {
+    const myId = userProfile?.id;
+    if (!myId || isMine) return;
+    const { data } = await supabase
+      .from("notification")
+      .select("id, request_status")
+      .eq("sender_id", myId)
+      .eq("txt_post_id", txtpost.id)
+      .in("notification_type", ["request_for_offering", "request_for_request"])
+      .order("created_at", { ascending: false })
+      .limit(1);
+    const req = data?.[0];
+    if (req) {
+      setHasRequested(true);
+      setPendingRequestId(req.request_status == null ? req.id : null);
+    } else {
+      setHasRequested(false);
+      setPendingRequestId(null);
+    }
+  };
+
   // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
   const normalizeImageUrls = (value: unknown): string[] => {
     if (Array.isArray(value)) return value as string[];
@@ -153,43 +176,20 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     if (pendingRequestId == null) return;
     if (!confirm("この譲渡リクエストを取り下げますか？")) return;
 
-    // 承諾/見送り前（request_status が null）のみ、通知を「取り下げ」に変更
-    const { data, error } = await supabase
-      .from("notification")
-      .update({ notification_type: "request_withdrawn", is_read: false })
-      .eq("id", pendingRequestId)
-      .is("request_status", null)
-      .select("id");
+    // 通知の更新〜取引の cancelled 化までを RPC でアトミックに実行
+    const { error } = await supabase.rpc("withdraw_txt_request", {
+      p_notification_id: pendingRequestId,
+    });
 
     if (error) {
       console.error("リクエストの取り下げに失敗しました:", error);
-      alert("取り下げに失敗しました。");
+      alert(txtRequestErrorMessage(error.message));
+      await refreshRequestState();
       return;
-    }
-    if (!data || data.length === 0) {
-      // 直前にポスト主が承諾/見送りした場合
-      alert("すでにポスト主が対応済みのため取り下げできません。");
-      setPendingRequestId(null);
-      return;
-    }
-
-    // 取り下げたリクエストの pending 取引を cancelled に更新
-    const myId = userProfile?.id;
-    if (myId) {
-      const { error: cancelError } = await supabase
-        .from("txt_transaction")
-        .update({ status: "cancelled" })
-        .eq("txt_post_id", txtpost.id)
-        .eq("status", "pending")
-        .or(`giver_id.eq.${myId},receiver_id.eq.${myId}`);
-      if (cancelError) {
-        console.error("取引のキャンセルに失敗しました:", cancelError);
-      }
     }
 
     // 取り下げ後は再度リクエストできる状態に戻す
-    setHasRequested(false);
-    setPendingRequestId(null);
+    await refreshRequestState();
   };
 
   return (
@@ -281,70 +281,26 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
                 title={insufficientPoints ? "譲渡リクエストには500ポイントが必要です" : undefined}
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
-
-                  // 所持ポイントが 500 未満なら譲渡リクエスト不可（最新の points を取得して判定）
                   if (!userProfile?.id) return;
-                  const { data: me } = await supabase
-                    .from("user")
-                    .select("points")
-                    .eq("id", userProfile.id)
-                    .single();
-                  if ((me?.points ?? 0) < 500) {
-                    setMyPoints(me?.points ?? 0);
-                    alert("譲渡リクエストには500ポイントが必要です。ポイントが不足しています。");
+
+                  const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
+                  if (!window.confirm(`${txtpost.user.username} さんに${actionText}のリクエストを送りますか？`)) return;
+
+                  // 送信〜取引作成〜通知作成までを RPC でアトミックに実行
+                  const { error } = await supabase.rpc("send_txt_request", {
+                    p_txt_post_id: txtpost.id,
+                  });
+
+                  if (error) {
+                    console.error("リクエスト送信に失敗しました:", error);
+                    if (error.message?.includes("insufficient points")) setMyPoints(0);
+                    alert(txtRequestErrorMessage(error.message));
                     return;
                   }
 
-                  // 1. ボタンの種類によってメッセージを変える
-                  const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
-                  const confirmMessage = `${txtpost.user.username} さんに${actionText}のリクエストを送りますか？`;
-
-                  // 2. 「はい」「いいえ」のダイアログを表示
-                  const hasConfirmed = window.confirm(confirmMessage);
-
-                  // 3. 「はい」が押された場合だけ処理を実行
-                  if (hasConfirmed) {
-                    // 譲渡リクエスト時点で txt_transaction を pending で作成
-                    // 承諾フローと同じ giver/receiver マッピング:
-                    // - offering（譲ります）へのリクエスト: giver = リクエスト送信者 / receiver = ポスト主
-                    // - seeking（譲ってください）へのリクエスト: giver = ポスト主 / receiver = リクエスト送信者
-                    const isOffering = txtpost.give_type === "offering";
-                    const giverId = isOffering ? userProfile.id : txtpost.user.id;
-                    const receiverId = isOffering ? txtpost.user.id : userProfile.id;
-                    const { data: txData, error: txError } = await supabase.from("txt_transaction").insert({
-                      txt_post_id: txtpost.id,
-                      giver_id: giverId,
-                      receiver_id: receiverId,
-                      status: "pending",
-                    })
-                    .select()
-                    .single();
-                    if (txError) {
-                      console.error("取引レコード(pending)の作成に失敗しました:", txError);
-                    }
-
-
-
-                    const {data: insertedNotif, error} = await supabase.from("notification").insert({
-                      receiver_id : txtpost.user.id,
-                      sender_id : userProfile.id,
-                      notification_type : txtpost.give_type === "offering" ? "request_for_offering" : "request_for_request",
-                      txt_post_id : txtpost.id,
-                      txt_transaction_id : txData?.id ?? null, 
-                    }).select("id").single();
-
-                  if (error) {
-                    console.error("❌ Supabaseインサートエラー詳細:", error);
-                    alert(`エラーが発生しました: ${error.message}`);
-                  } 
-                    
-
-                    setHasRequested(true); // ボタンを「リクエスト済み」に切り替える
-                    setPendingRequestId(insertedNotif?.id ?? null); // 送信直後から取り下げ可能に
-                    alert("リクエストを送信しました！相手からの返信をお待ちください。");
-                  }
-                  }
-                }
+                  await refreshRequestState(); // 送信直後から取り下げ可能に
+                  alert("リクエストを送信しました！相手からの返信をお待ちください。");
+                }}
 
                 className={`px-4 py-2 rounded-xl font-bold text-sm shadow-sm transition-all ${
                   insufficientPoints
