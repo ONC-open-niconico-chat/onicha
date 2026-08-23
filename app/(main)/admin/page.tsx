@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { txtRequestErrorMessage } from "@/lib/txtRequest";
 import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -102,21 +103,20 @@ export default function AdminTransactionsPage() {
     fetchTransactions();
   }, []);
 
-  // 「譲渡完了」ボタン：window.confirm で確認し、OK なら status を completed に更新
+  // 「譲渡完了」ボタン：RPC でアトミックに完了処理（贈与者+500 / 受取者-500）
   const handleComplete = async (id: number) => {
-    const confirmed = window.confirm("この取引を譲渡完了にしますか？");
+    const confirmed = window.confirm(
+      "この取引を譲渡完了にしますか？\n（贈与者に +500pt / 受取者に -500pt）"
+    );
     if (!confirmed) return;
 
     setUpdatingId(id);
-    const { error } = await supabase
-      .from("txt_transaction")
-      .update({ status: "completed" })
-      .eq("id", id);
+    const { error } = await supabase.rpc("complete_txt_transaction", { p_id: id });
     setUpdatingId(null);
 
     if (error) {
-      console.error("ステータス更新に失敗しました:", error);
-      window.alert("更新に失敗しました。");
+      console.error("譲渡完了に失敗しました:", error);
+      window.alert(txtRequestErrorMessage(error.message));
       return;
     }
 

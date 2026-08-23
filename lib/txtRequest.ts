@@ -10,6 +10,9 @@ const MESSAGES: Record<string, string> = {
   "post not found": "投稿が見つかりません。",
   "notification not found": "通知が見つかりません。",
   "not a request notification": "操作を実行できませんでした。リクエストが取り下げ済みの可能性があります。",
+  "transaction not found": "取引が見つかりません。",
+  "transaction not matched": "この取引は完了できません（マッチング済みの取引のみ完了できます）。",
+  "receiver insufficient points": "受取者のポイントが不足しているため完了できません。",
   "not authenticated": "ログインが必要です。再ログインしてください。",
 };
 

@@ -10,6 +10,8 @@ export type NotificationType =
   | "message" // メッセージ受信
   | "follow" // フォローされた
   | "txt_post_reply" // 自分の教科書譲渡ポストにコメントが付いた
+  | "transfer_completed_giver" // 譲渡完了（贈与者：ポイント付与）
+  | "transfer_completed_receiver" // 譲渡完了（受取者：ポイント消費）
   | "welcome"; // 新規登録の歓迎通知
 
 export interface CreateNotificationParams {
