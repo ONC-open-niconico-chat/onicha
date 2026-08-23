@@ -1,7 +1,7 @@
 // 教科書譲渡リクエスト RPC（send/accept/reject/withdraw_txt_request）が
 // raise exception で返すメッセージを、ユーザー向けの日本語に変換する。
 const MESSAGES: Record<string, string> = {
-  "insufficient points": "譲渡リクエストには500ポイントが必要です。ポイントが不足しています。",
+  "insufficient points": "ポイントが不足しています（この教科書の価格分のポイントが必要です）。",
   "already requested": "すでにこの投稿にリクエスト済みです。",
   "cannot request own post": "自分の投稿にはリクエストできません。",
   "transaction not pending": "操作を実行できませんでした（すでに処理済み、または取り下げ済みです）。",

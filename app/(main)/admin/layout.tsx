@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const tabs = [
   { href: "/admin", label: "取引管理" },
   { href: "/admin/messages", label: "メッセージ" },
+  { href: "/admin/textbooks", label: "教科書価格" },
 ];
 
 export default function AdminLayout({

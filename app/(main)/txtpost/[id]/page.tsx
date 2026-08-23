@@ -58,7 +58,7 @@ export default function TxtPostDetailPage() {
           `
             id,
             user:"user" ( id, username, icon_src ),
-            book:"textbook" ( id, title ),
+            book:"textbook" ( id, title, price ),
             condition:"txtbook_condition" ( id, name ),
             description,
             give_type,

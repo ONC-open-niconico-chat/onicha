@@ -31,8 +31,9 @@ export function Sidebar() {
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
 
-  // 現在のポイント / 累計獲得ポイント
+  // 現在のポイント / 仮消費（予約）ポイント / 累計獲得ポイント
   const [points, setPoints] = useState<number | null>(null);
+  const [reserved, setReserved] = useState<number>(0);
   const [totalEarned, setTotalEarned] = useState<number | null>(null);
 
   useEffect(() => {
@@ -52,11 +53,12 @@ export function Sidebar() {
       if (!myId) return;
       const { data } = await supabase
         .from("user")
-        .select("points, total_earned_points")
+        .select("points, reserved_points, total_earned_points")
         .eq("id", myId)
         .single();
       if (data) {
         setPoints(data.points ?? 0);
+        setReserved(data.reserved_points ?? 0);
         setTotalEarned(data.total_earned_points ?? 0);
       }
     };
@@ -101,9 +103,10 @@ export function Sidebar() {
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "user" },
           (payload) => {
-            const row = payload.new as { id?: string; points?: number; total_earned_points?: number };
+            const row = payload.new as { id?: string; points?: number; reserved_points?: number; total_earned_points?: number };
             if (row?.id === myId) {
               setPoints(row.points ?? 0);
+              setReserved(row.reserved_points ?? 0);
               setTotalEarned(row.total_earned_points ?? 0);
             }
           }
@@ -160,12 +163,18 @@ export function Sidebar() {
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-sm text-gray-600">現在のポイント</span>
+            <span className="text-sm text-gray-600">利用可能ポイント</span>
             <span className="text-lg font-bold text-blue-600">
-              {points.toLocaleString()}
+              {Math.max(points - reserved, 0).toLocaleString()}
               <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
             </span>
           </div>
+          {reserved > 0 && (
+            <div className="mt-0.5 flex items-baseline justify-between text-xs text-gray-400">
+              <span>予約中（リクエスト保留分）</span>
+              <span>{reserved.toLocaleString()} pt</span>
+            </div>
+          )}
         </div>
       )}
     </div>

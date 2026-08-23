@@ -4,7 +4,7 @@ import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
 import { useAuth } from "@/components/loginUser";
-import { Trash2, X, ChevronLeft, ChevronRight, MessageCircle } from "lucide-react";
+import { Trash2, X, ChevronLeft, ChevronRight, MessageCircle, Coins } from "lucide-react";
 import { useEffect, useState } from "react";
 
 
@@ -29,8 +29,9 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
   // 保留中（ポスト主が未対応）のリクエスト通知ID。取り下げ可能なときだけ入る。
   const [pendingRequestId, setPendingRequestId] = useState<number | string | null>(null);
 
-  // 自分の所持ポイント（500未満ならリクエスト不可）
+  // 自分の所持ポイント / 仮消費（予約）ポイント。利用可能 = points - reserved。
   const [myPoints, setMyPoints] = useState<number | null>(null);
+  const [myReserved, setMyReserved] = useState<number>(0);
 
   // 自分の投稿かどうか
   const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
@@ -70,18 +71,32 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     (async () => {
       const { data } = await supabase
         .from("user")
-        .select("points")
+        .select("points, reserved_points")
         .eq("id", myId)
         .single();
-      if (active) setMyPoints(data?.points ?? 0);
+      if (active) {
+        setMyPoints(data?.points ?? 0);
+        setMyReserved(data?.reserved_points ?? 0);
+      }
     })();
     return () => {
       active = false;
     };
   }, [userProfile?.id, isMine]);
 
-  // ポイント不足（500未満）か。取得前(null)はボタンを止めない。
-  const insufficientPoints = myPoints !== null && myPoints < 500;
+  // この教科書の価格
+  const price = txtpost.book?.price ?? null;
+  // offering（譲ります）投稿では、リクエスト者＝受取者なので価格分のポイントを支払う。
+  // seeking（譲ってください）投稿では、リクエスト者＝贈与者なので支払い不要。
+  const requesterPays = txtpost.give_type === "offering";
+  // 利用可能残高（仮消費分を差し引いた残り）
+  const available = myPoints !== null ? myPoints - myReserved : null;
+  // ポイント不足か。取得前(null)や価格未設定はボタンを止めない。
+  const insufficientPoints =
+    requesterPays &&
+    price != null &&
+    available !== null &&
+    available < price;
 
   // 自分のリクエスト状態を再取得（送信・取り下げ後に呼ぶ）
   const refreshRequestState = async () => {
@@ -103,6 +118,19 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
       setHasRequested(false);
       setPendingRequestId(null);
     }
+  };
+
+  // 所持/予約ポイントを再取得（送信・取り下げ後に呼ぶ）
+  const refreshPoints = async () => {
+    const myId = userProfile?.id;
+    if (!myId) return;
+    const { data } = await supabase
+      .from("user")
+      .select("points, reserved_points")
+      .eq("id", myId)
+      .single();
+    setMyPoints(data?.points ?? 0);
+    setMyReserved(data?.reserved_points ?? 0);
   };
 
   // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
@@ -188,8 +216,9 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
       return;
     }
 
-    // 取り下げ後は再度リクエストできる状態に戻す
+    // 取り下げ後は再度リクエストできる状態に戻す（予約解放も残高へ反映）
     await refreshRequestState();
+    await refreshPoints();
   };
 
   return (
@@ -251,8 +280,23 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
             </div>
 
             <h3 className="font-bold text-lg mb-1">{txtpost.book.title}</h3>
-            <div className="flex gap-4 text-sm text-gray-700">
+            <div className="flex items-center gap-4 text-sm text-gray-700 mb-2">
               <span>{txtpost.condition?.name || ""}</span>
+            </div>
+
+            {/* 価格（目立たせる） */}
+            <div className="inline-flex items-baseline gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2.5 py-1 shadow-sm">
+              <Coins className="w-4 h-4 text-amber-500 self-center" />
+              {txtpost.book.price != null ? (
+                <>
+                  <span className="text-xl font-extrabold text-amber-700 leading-none tabular-nums">
+                    {txtpost.book.price.toLocaleString()}
+                  </span>
+                  <span className="text-xs font-bold text-amber-600">pt</span>
+                </>
+              ) : (
+                <span className="text-sm font-bold text-gray-400 self-center">価格未設定</span>
+              )}
             </div>
 
 
@@ -278,7 +322,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
               ) : (
               <button
                 disabled={insufficientPoints}
-                title={insufficientPoints ? "譲渡リクエストには500ポイントが必要です" : undefined}
+                title={insufficientPoints ? `この教科書の受け取りには ${price} ポイントが必要です` : undefined}
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
                   if (!userProfile?.id) return;
@@ -293,12 +337,13 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
 
                   if (error) {
                     console.error("リクエスト送信に失敗しました:", error);
-                    if (error.message?.includes("insufficient points")) setMyPoints(0);
+                    await refreshPoints();
                     alert(txtRequestErrorMessage(error.message));
                     return;
                   }
 
                   await refreshRequestState(); // 送信直後から取り下げ可能に
+                  await refreshPoints();        // 仮消費（予約）分を残高に反映
                   alert("リクエストを送信しました！相手からの返信をお待ちください。");
                 }}
 
