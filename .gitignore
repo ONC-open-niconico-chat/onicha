@@ -7,3 +7,4 @@ build
 .branches
 .temp
 tsconfig.tsbuildinfo
+txt_request_functions.sql

@@ -22,6 +22,7 @@ export interface Post {
   book: {
     id:number;
     title:string;
+    price?:number | null;
   }
 
   condition: {
@@ -65,9 +66,10 @@ export default function TxtPostPage() {
               username,
               icon_src
             ),
-            book:"textbook" (     
+            book:"textbook" (
               id,
-              title
+              title,
+              price
             ),
             condition:"txtbook_condition" (
               id,

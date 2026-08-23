@@ -22,8 +22,15 @@
 -- ============================================================
 
 
--- 取引ごとの付与/消費ポイント（作成時に txt_post.points を取り込む）
+-- 教科書ごとの価格（付与/消費ポイント）。教科書マスタで管理する。
+alter table textbook add column if not exists price integer;
+
+-- 取引ごとの付与/消費ポイント（作成時に textbook.price を取り込む）
 alter table txt_transaction add column if not exists points integer;
+
+-- 仮消費（予約）ポイント。offering リクエスト送信時に価格分を確保し、
+-- 完了で確定 / キャンセルで解放する。利用可能残高 = points - reserved_points。
+alter table "user" add column if not exists reserved_points integer not null default 0;
 
 
 -- ------------------------------------------------------------
@@ -41,26 +48,29 @@ security definer
 set search_path = public
 as $$
 declare
-  v_me          uuid := auth.uid();
-  v_owner       uuid;
-  v_give        text;
-  v_points      integer;
-  v_post_points integer;
-  v_giver       uuid;
-  v_receiver    uuid;
-  v_type        text;
-  v_tx_id       bigint;
+  v_me       uuid := auth.uid();
+  v_owner    uuid;
+  v_give     text;
+  v_points   integer;
+  v_reserved integer;
+  v_price    integer;
+  v_giver    uuid;
+  v_receiver uuid;
+  v_type     text;
+  v_tx_id    bigint;
 begin
   if v_me is null then
     raise exception 'not authenticated';
   end if;
 
-  -- 投稿をロックして取得（削除・状態変更との競合防止）。points も取り込む。
-  select user_id, give_type, points
-    into v_owner, v_give, v_post_points
-  from txt_post
-  where id = p_txt_post_id
-  for update;
+  -- 投稿をロックして取得（削除・状態変更との競合防止）。
+  -- 価格は教科書マスタ（textbook.price）から取り込む。
+  select tp.user_id, tp.give_type, tb.price
+    into v_owner, v_give, v_price
+  from txt_post tp
+  left join textbook tb on tb.id = tp.textbook_id
+  where tp.id = p_txt_post_id
+  for update of tp;
 
   if v_owner is null then
     raise exception 'post not found';
@@ -69,10 +79,19 @@ begin
     raise exception 'cannot request own post';
   end if;
 
-  -- ポイント判定
-  select points into v_points from "user" where id = v_me;
-  if coalesce(v_points, 0) < 500 then
-    raise exception 'insufficient points';
+  -- 残高判定：offering（譲ります）へのリクエストはリクエスト者＝受取者（支払う側）。
+  -- 利用可能残高（points - reserved_points）がその教科書の価格分あるか確認し、価格分を予約（仮消費）。
+  -- seeking では支払わないのでチェック・予約は不要。
+  if v_give = 'offering' then
+    -- ユーザー行をロックして同時リクエストによる予約超過を防ぐ
+    select points, reserved_points into v_points, v_reserved
+      from "user" where id = v_me for update;
+    if coalesce(v_points, 0) - coalesce(v_reserved, 0) < coalesce(v_price, 0) then
+      raise exception 'insufficient points';
+    end if;
+    update "user"
+       set reserved_points = coalesce(reserved_points, 0) + coalesce(v_price, 0)
+     where id = v_me;
   end if;
 
   -- 既に自分の pending リクエストがあれば重複させない
@@ -95,7 +114,7 @@ begin
   end if;
 
   insert into txt_transaction (txt_post_id, giver_id, receiver_id, status, points)
-  values (p_txt_post_id, v_giver, v_receiver, 'pending', v_post_points)
+  values (p_txt_post_id, v_giver, v_receiver, 'pending', v_price)
   returning id into v_tx_id;
 
   insert into notification (sender_id, receiver_id, notification_type, txt_post_id, txt_transaction_id)
@@ -123,6 +142,7 @@ declare
   v_me     uuid := auth.uid();
   v_notif  record;
   v_status text;
+  v_give   text;
   r        record;
 begin
   if v_me is null then
@@ -139,6 +159,8 @@ begin
   if v_notif.notification_type not in ('request_for_offering', 'request_for_request') then
     raise exception 'not a request notification';
   end if;
+
+  select give_type into v_give from txt_post where id = v_notif.txt_post_id;
 
   -- 取引をロックして pending か検証
   select status into v_status
@@ -162,7 +184,17 @@ begin
   update notification set is_read = true, request_status = 'accepted'
   where id = p_notification_id;
 
-  -- 同じ投稿の他の pending 取引は cancelled に
+  -- 同じ投稿の他の pending 取引：offering なら各受取者の予約を解放してから cancelled に
+  if v_give = 'offering' then
+    update "user" u
+       set reserved_points = greatest(coalesce(u.reserved_points, 0) - coalesce(t.points, 0), 0)
+    from txt_transaction t
+    where t.txt_post_id = v_notif.txt_post_id
+      and t.status = 'pending'
+      and t.id <> v_notif.txt_transaction_id
+      and u.id = t.receiver_id;
+  end if;
+
   update txt_transaction set status = 'cancelled'
   where txt_post_id = v_notif.txt_post_id
     and status = 'pending'
@@ -202,9 +234,10 @@ security definer
 set search_path = public
 as $$
 declare
-  v_me     uuid := auth.uid();
-  v_notif  record;
-  v_status text;
+  v_me    uuid := auth.uid();
+  v_notif record;
+  v_tx    record;
+  v_give  text;
 begin
   if v_me is null then
     raise exception 'not authenticated';
@@ -215,20 +248,28 @@ begin
     raise exception 'not authorized';
   end if;
 
-  select status into v_status
+  select * into v_tx
   from txt_transaction
   where id = v_notif.txt_transaction_id
   for update;
 
-  if v_status is distinct from 'pending' then
+  if v_tx is null or v_tx.status <> 'pending' then
     raise exception 'transaction not pending';
   end if;
 
   update txt_transaction set status = 'cancelled'
-  where id = v_notif.txt_transaction_id;
+  where id = v_tx.id;
 
   update notification set is_read = true, request_status = 'rejected'
   where id = p_notification_id;
+
+  -- offering の request 時に仮消費した予約を解放
+  select give_type into v_give from txt_post where id = v_tx.txt_post_id;
+  if v_give = 'offering' then
+    update "user"
+       set reserved_points = greatest(coalesce(reserved_points, 0) - coalesce(v_tx.points, 0), 0)
+     where id = v_tx.receiver_id;
+  end if;
 
   insert into notification (sender_id, receiver_id, notification_type, txt_post_id)
   values (v_me, v_notif.sender_id, 'request_rejected', v_notif.txt_post_id);
@@ -248,9 +289,10 @@ security definer
 set search_path = public
 as $$
 declare
-  v_me     uuid := auth.uid();
-  v_notif  record;
-  v_status text;
+  v_me    uuid := auth.uid();
+  v_notif record;
+  v_tx    record;
+  v_give  text;
 begin
   if v_me is null then
     raise exception 'not authenticated';
@@ -264,20 +306,28 @@ begin
     raise exception 'already handled';
   end if;
 
-  select status into v_status
+  select * into v_tx
   from txt_transaction
   where id = v_notif.txt_transaction_id
   for update;
 
-  if v_status is distinct from 'pending' then
+  if v_tx is null or v_tx.status <> 'pending' then
     raise exception 'transaction not pending';
   end if;
 
   update txt_transaction set status = 'cancelled'
-  where id = v_notif.txt_transaction_id;
+  where id = v_tx.id;
 
   update notification set notification_type = 'request_withdrawn', is_read = false
   where id = p_notification_id;
+
+  -- offering の request 時に仮消費した予約を解放
+  select give_type into v_give from txt_post where id = v_tx.txt_post_id;
+  if v_give = 'offering' then
+    update "user"
+       set reserved_points = greatest(coalesce(reserved_points, 0) - coalesce(v_tx.points, 0), 0)
+     where id = v_tx.receiver_id;
+  end if;
 end;
 $$;
 
@@ -299,6 +349,7 @@ declare
   v_tx              record;
   v_amount          integer;
   v_receiver_points integer;
+  v_give            text;
 begin
   if v_me is null then
     raise exception 'not authenticated';
@@ -336,10 +387,18 @@ begin
          total_earned_points = coalesce(total_earned_points, 0) + v_amount
    where id = v_tx.giver_id;
 
-  -- 受取者から -v_amount
+  -- 受取者から -v_amount（確定消費）
   update "user"
      set points = points - v_amount
    where id = v_tx.receiver_id;
+
+  -- offering は request 時に仮消費(reserved)していた分を解放（確定に振り替え）
+  select give_type into v_give from txt_post where id = v_tx.txt_post_id;
+  if v_give = 'offering' then
+    update "user"
+       set reserved_points = greatest(coalesce(reserved_points, 0) - v_amount, 0)
+     where id = v_tx.receiver_id;
+  end if;
 
   -- 完了通知（双方向）。相手を sender に設定し、フロントで相手名/書籍名/ポイントを表示する。
   -- 贈与者へ：ポイント付与
@@ -353,6 +412,33 @@ $$;
 
 
 -- ------------------------------------------------------------
+-- 6) 教科書の価格を設定（運営のみ）
+-- ------------------------------------------------------------
+create or replace function public.set_textbook_price(p_textbook_id bigint, p_price integer)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+  if not exists (select 1 from staff_members s where s.user_id = v_me) then
+    raise exception 'not authorized';
+  end if;
+  if p_price is null or p_price < 0 then
+    raise exception 'invalid price';
+  end if;
+
+  update textbook set price = p_price where id = p_textbook_id;
+end;
+$$;
+
+
+-- ------------------------------------------------------------
 -- 実行権限：ログインユーザーが RPC を呼べるようにする
 -- ------------------------------------------------------------
 grant execute on function public.send_txt_request(bigint)          to authenticated;
@@ -360,3 +446,4 @@ grant execute on function public.accept_txt_request(bigint)        to authentica
 grant execute on function public.reject_txt_request(bigint)        to authenticated;
 grant execute on function public.withdraw_txt_request(bigint)      to authenticated;
 grant execute on function public.complete_txt_transaction(bigint)  to authenticated;
+grant execute on function public.set_textbook_price(bigint, integer) to authenticated;
