@@ -171,6 +171,7 @@ export default function AdminTransactionsPage() {
           <table className="w-full text-lg text-left">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
+                <th className="px-5 py-4 text-lg font-semibold">ID</th>
                 <th className="px-5 py-4 text-lg font-semibold">贈与者</th>
                 <th className="px-5 py-4 text-lg font-semibold">受取者</th>
                 <th className="px-5 py-4 text-lg font-semibold">教科書</th>
@@ -181,6 +182,7 @@ export default function AdminTransactionsPage() {
             <tbody>
               {transactions.map((t) => (
                 <tr key={t.id} className="border-t border-gray-100 text-left">
+                  <td className="px-5 py-4 text-gray-500 tabular-nums">{t.id}</td>
                   <td className="px-5 py-4">{renderUser(t.giver_id)}</td>
                   <td className="px-5 py-4">{renderUser(t.receiver_id)}</td>
                   <td className="px-5 py-4">

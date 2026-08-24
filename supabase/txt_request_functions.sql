@@ -28,6 +28,9 @@ alter table textbook add column if not exists price integer;
 -- ユーザーが入力した定価（運営の確認用に保持）。price = round(list_price * 0.4)。
 alter table textbook add column if not exists list_price integer;
 
+-- 運営が定価/価格を確認済みか（ユーザー追加分のレビュー用）。
+alter table textbook add column if not exists confirmed boolean not null default false;
+
 -- 取引ごとの付与/消費ポイント（作成時に textbook.price を取り込む）
 alter table txt_transaction add column if not exists points integer;
 
@@ -478,6 +481,30 @@ $$;
 
 
 -- ------------------------------------------------------------
+-- 8) 教科書を確認済みにする（運営のみ）
+-- ------------------------------------------------------------
+create or replace function public.confirm_textbook(p_textbook_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+  if not exists (select 1 from staff_members s where s.user_id = v_me) then
+    raise exception 'not authorized';
+  end if;
+
+  update textbook set confirmed = true where id = p_textbook_id;
+end;
+$$;
+
+
+-- ------------------------------------------------------------
 -- 実行権限：ログインユーザーが RPC を呼べるようにする
 -- ------------------------------------------------------------
 grant execute on function public.send_txt_request(bigint)          to authenticated;
@@ -487,3 +514,4 @@ grant execute on function public.withdraw_txt_request(bigint)      to authentica
 grant execute on function public.complete_txt_transaction(bigint)  to authenticated;
 grant execute on function public.set_textbook_price(bigint, integer) to authenticated;
 grant execute on function public.create_textbook(text, integer)      to authenticated;
+grant execute on function public.confirm_textbook(bigint)            to authenticated;
