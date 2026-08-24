@@ -38,6 +38,9 @@ alter table txt_transaction add column if not exists points integer;
 -- 完了で確定 / キャンセルで解放する。利用可能残高 = points - reserved_points。
 alter table "user" add column if not exists reserved_points integer not null default 0;
 
+-- 運営が取引を確認済みか（取引管理での未読管理用）。既定は未読(false)。
+alter table txt_transaction add column if not exists is_read boolean not null default false;
+
 
 -- ------------------------------------------------------------
 -- 1) リクエスト送信
@@ -505,6 +508,65 @@ $$;
 
 
 -- ------------------------------------------------------------
+-- 9) 取引を既読にする（運営のみ）
+-- ------------------------------------------------------------
+create or replace function public.mark_transaction_read(p_id bigint)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me uuid := auth.uid();
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+  if not exists (select 1 from staff_members s where s.user_id = v_me) then
+    raise exception 'not authorized';
+  end if;
+
+  update txt_transaction set is_read = true where id = p_id;
+end;
+$$;
+
+
+-- ------------------------------------------------------------
+-- 10) 運営宛メッセージ通知を既読にする（運営として/運営のみ）
+--     - 管理チャットで相手(p_partner_id)との会話を開いたときに呼ぶ
+-- ------------------------------------------------------------
+create or replace function public.mark_official_messages_read(p_partner_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me       uuid := auth.uid();
+  v_official uuid;
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+  if not exists (select 1 from staff_members s where s.user_id = v_me) then
+    raise exception 'not authorized';
+  end if;
+
+  select id into v_official from "user" where is_official limit 1;
+  if v_official is null then
+    return;
+  end if;
+
+  update notification set is_read = true
+  where receiver_id = v_official
+    and sender_id = p_partner_id
+    and notification_type = 'message'
+    and is_read = false;
+end;
+$$;
+
+
+-- ------------------------------------------------------------
 -- 実行権限：ログインユーザーが RPC を呼べるようにする
 -- ------------------------------------------------------------
 grant execute on function public.send_txt_request(bigint)          to authenticated;
@@ -515,3 +577,5 @@ grant execute on function public.complete_txt_transaction(bigint)  to authentica
 grant execute on function public.set_textbook_price(bigint, integer) to authenticated;
 grant execute on function public.create_textbook(text, integer)      to authenticated;
 grant execute on function public.confirm_textbook(bigint)            to authenticated;
+grant execute on function public.mark_transaction_read(bigint)       to authenticated;
+grant execute on function public.mark_official_messages_read(uuid)   to authenticated;

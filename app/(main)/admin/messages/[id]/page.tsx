@@ -70,6 +70,9 @@ export default function AdminChatPage() {
         .order("created_at", { ascending: true });
       if (chatData) setMessages(chatData as ChatMessage[]);
 
+      // この相手からの運営宛メッセージ通知を既読にする
+      await supabase.rpc("mark_official_messages_read", { p_partner_id: userId });
+
       setLoading(false);
       scrollToBottom();
     };

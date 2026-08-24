@@ -16,6 +16,7 @@ interface Transaction {
   giver_id: string | null;
   receiver_id: string | null;
   points: number | null;
+  is_read: boolean;
 }
 
 // user テーブルの表示用サブセット（id は Auth の UUID）
@@ -34,14 +35,27 @@ export default function AdminTransactionsPage() {
   const [loading, setLoading] = useState(true);
   // 完了処理中のレコード id（二重押し防止・ボタンのローディング表示用）
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+  // 表示タブ（譲渡中 / 譲渡完了）
+  const [view, setView] = useState<"matched" | "completed">("matched");
   const router = useRouter();
+
+  // 未読の取引を既読にする（譲渡中のみ）
+  const handleMarkRead = async (id: number) => {
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, is_read: true } : t))
+    );
+    const { error } = await supabase.rpc("mark_transaction_read", { p_id: id });
+    if (error) {
+      console.error("既読更新に失敗しました:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchTransactions = async () => {
       // 1. 取引一覧を取得
       const { data: txData, error } = await supabase
         .from("txt_transaction")
-        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, points")
+        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, points, is_read")
         .order("id", { ascending: false })
         .in("status", ["matched", "completed"]); // マッチングした取引のみ表示
 
@@ -155,17 +169,51 @@ export default function AdminTransactionsPage() {
     );
   };
 
+  const matchedTx = transactions.filter((t) => t.status === "matched");
+  const completedTx = transactions.filter((t) => t.status === "completed");
+  const unreadCount = matchedTx.filter((t) => !t.is_read).length;
+  const shownTx = view === "matched" ? matchedTx : completedTx;
+
   return (
     <div className="w-full p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-6 text-left">教科書譲渡 取引管理</h1>
+      <h1 className="text-3xl font-bold text-gray-900 mb-4 text-left">教科書譲渡 取引管理</h1>
+
+      {/* タブ（譲渡中 / 譲渡完了）＋ 未読件数 */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => setView("matched")}
+          className={`px-4 py-2 rounded-full font-bold text-base transition-colors ${
+            view === "matched"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          譲渡中
+        </button>
+        <button
+          onClick={() => setView("completed")}
+          className={`px-4 py-2 rounded-full font-bold text-base transition-colors ${
+            view === "completed"
+              ? "bg-blue-600 text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          譲渡完了
+        </button>
+        {view === "matched" && (
+          <span className="text-sm text-gray-500">未読 {unreadCount} 件</span>
+        )}
+      </div>
 
       {loading ? (
         <div className="flex items-center gap-2 text-gray-500">
           <Loader2 className="w-5 h-5 animate-spin" />
           読み込み中...
         </div>
-      ) : transactions.length === 0 ? (
-        <p className="text-gray-500">取引データがありません。</p>
+      ) : shownTx.length === 0 ? (
+        <p className="text-gray-500">
+          {view === "matched" ? "譲渡中の取引はありません。" : "譲渡完了の取引はありません。"}
+        </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200">
           <table className="w-full text-lg text-left">
@@ -180,9 +228,22 @@ export default function AdminTransactionsPage() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id} className="border-t border-gray-100 text-left">
-                  <td className="px-5 py-4 text-gray-500 tabular-nums">{t.id}</td>
+              {shownTx.map((t) => {
+                const unread = view === "matched" && !t.is_read;
+                return (
+                <tr
+                  key={t.id}
+                  onClick={unread ? () => handleMarkRead(t.id) : undefined}
+                  className={`border-t border-gray-100 text-left ${
+                    unread ? "bg-amber-50 hover:bg-amber-100 cursor-pointer" : ""
+                  }`}
+                >
+                  <td className="px-5 py-4 text-gray-500 tabular-nums">
+                    {unread && (
+                      <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-2 align-middle" />
+                    )}
+                    {t.id}
+                  </td>
                   <td className="px-5 py-4">{renderUser(t.giver_id)}</td>
                   <td className="px-5 py-4">{renderUser(t.receiver_id)}</td>
                   <td className="px-5 py-4">
@@ -225,7 +286,8 @@ export default function AdminTransactionsPage() {
                     )}
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>

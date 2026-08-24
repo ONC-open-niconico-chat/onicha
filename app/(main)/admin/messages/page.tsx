@@ -15,6 +15,7 @@ interface UserLite {
 interface Partner extends UserLite {
   last_message?: string;
   last_message_at?: string;
+  unread_count: number;
 }
 
 export default function AdminMessagesPage() {
@@ -59,6 +60,19 @@ export default function AdminMessagesPage() {
         }
       });
 
+      // 運営宛の未読メッセージ通知を相手ごとに集計
+      const { data: unread } = await supabase
+        .from("notification")
+        .select("sender_id")
+        .eq("receiver_id", oid)
+        .eq("notification_type", "message")
+        .eq("is_read", false);
+      const unreadMap = new Map<string, number>();
+      (unread ?? []).forEach((n) => {
+        const sid = (n as { sender_id?: string }).sender_id;
+        if (sid) unreadMap.set(sid, (unreadMap.get(sid) || 0) + 1);
+      });
+
       if (ids.size > 0) {
         const { data: users } = await supabase
           .from("user")
@@ -68,6 +82,7 @@ export default function AdminMessagesPage() {
           ...(u as UserLite),
           last_message: lastMap.get((u as UserLite).id)?.content,
           last_message_at: lastMap.get((u as UserLite).id)?.created_at,
+          unread_count: unreadMap.get((u as UserLite).id) || 0,
         })) as Partner[];
         list.sort(
           (a, b) =>
@@ -175,11 +190,18 @@ export default function AdminMessagesPage() {
                   {p.last_message || ""}
                 </span>
               </div>
-              {p.last_message_at && (
-                <span className="text-xs text-gray-400 whitespace-nowrap">
-                  {new Date(p.last_message_at).toLocaleDateString()}
-                </span>
-              )}
+              <div className="flex flex-col items-end justify-center shrink-0 gap-1.5">
+                {p.last_message_at && (
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {new Date(p.last_message_at).toLocaleDateString()}
+                  </span>
+                )}
+                {p.unread_count > 0 && (
+                  <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                    {p.unread_count > 99 ? "99+" : p.unread_count}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>

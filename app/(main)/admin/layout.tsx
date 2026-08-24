@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { getOfficialUserId } from "@/lib/official";
 
 const tabs = [
   { href: "/admin", label: "取引管理" },
@@ -20,17 +21,39 @@ export default function AdminLayout({
 
   // ユーザー追加・未確認の教科書件数（教科書価格タブのバッジ用）
   const [unconfirmedCount, setUnconfirmedCount] = useState(0);
+  // 未読の譲渡中取引件数（取引管理タブのバッジ用）
+  const [unreadTxCount, setUnreadTxCount] = useState(0);
+  // 運営宛の未読メッセージ件数（メッセージタブのバッジ用）
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
 
   useEffect(() => {
-    const fetchCount = async () => {
-      const { count } = await supabase
-        .from("textbook")
-        .select("*", { count: "exact", head: true })
-        .not("list_price", "is", null)
-        .eq("confirmed", false);
-      setUnconfirmedCount(count ?? 0);
+    const fetchCounts = async () => {
+      const officialId = await getOfficialUserId();
+      const [tb, tx, msg] = await Promise.all([
+        supabase
+          .from("textbook")
+          .select("*", { count: "exact", head: true })
+          .not("list_price", "is", null)
+          .eq("confirmed", false),
+        supabase
+          .from("txt_transaction")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "matched")
+          .eq("is_read", false),
+        officialId
+          ? supabase
+              .from("notification")
+              .select("*", { count: "exact", head: true })
+              .eq("receiver_id", officialId)
+              .eq("notification_type", "message")
+              .eq("is_read", false)
+          : Promise.resolve({ count: 0 }),
+      ]);
+      setUnconfirmedCount(tb.count ?? 0);
+      setUnreadTxCount(tx.count ?? 0);
+      setUnreadMsgCount(msg.count ?? 0);
     };
-    fetchCount();
+    fetchCounts();
   }, [pathname]);
 
   return (
@@ -48,6 +71,16 @@ export default function AdminLayout({
           >
             <span className="inline-flex items-center gap-1.5">
               {t.label}
+              {t.href === "/admin" && unreadTxCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {unreadTxCount > 99 ? "99+" : unreadTxCount}
+                </span>
+              )}
+              {t.href === "/admin/messages" && unreadMsgCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {unreadMsgCount > 99 ? "99+" : unreadMsgCount}
+                </span>
+              )}
               {t.href === "/admin/textbooks" && unconfirmedCount > 0 && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
                   {unconfirmedCount > 99 ? "99+" : unconfirmedCount}
