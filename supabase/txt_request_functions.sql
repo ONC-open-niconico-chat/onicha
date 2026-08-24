@@ -25,6 +25,9 @@
 -- 教科書ごとの価格（付与/消費ポイント）。教科書マスタで管理する。
 alter table textbook add column if not exists price integer;
 
+-- ユーザーが入力した定価（運営の確認用に保持）。price = round(list_price * 0.4)。
+alter table textbook add column if not exists list_price integer;
+
 -- 取引ごとの付与/消費ポイント（作成時に textbook.price を取り込む）
 alter table txt_transaction add column if not exists points integer;
 
@@ -439,6 +442,42 @@ $$;
 
 
 -- ------------------------------------------------------------
+-- 7) 新規教科書の追加（ログインユーザー）
+--    - price は定価×0.4 をサーバー側で計算（クライアントで改ざん不可）
+--    - 入力された定価は list_price に保持（運営の確認用）
+--    戻り値：作成した textbook.id
+-- ------------------------------------------------------------
+create or replace function public.create_textbook(p_title text, p_list_price integer)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me    uuid := auth.uid();
+  v_title text := btrim(coalesce(p_title, ''));
+  v_id    bigint;
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+  if v_title = '' then
+    raise exception 'invalid title';
+  end if;
+  if p_list_price is null or p_list_price <= 0 then
+    raise exception 'invalid list price';
+  end if;
+
+  insert into textbook (title, price, list_price)
+  values (v_title, round(p_list_price * 0.4)::integer, p_list_price)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+
+-- ------------------------------------------------------------
 -- 実行権限：ログインユーザーが RPC を呼べるようにする
 -- ------------------------------------------------------------
 grant execute on function public.send_txt_request(bigint)          to authenticated;
@@ -447,3 +486,4 @@ grant execute on function public.reject_txt_request(bigint)        to authentica
 grant execute on function public.withdraw_txt_request(bigint)      to authenticated;
 grant execute on function public.complete_txt_transaction(bigint)  to authenticated;
 grant execute on function public.set_textbook_price(bigint, integer) to authenticated;
+grant execute on function public.create_textbook(text, integer)      to authenticated;

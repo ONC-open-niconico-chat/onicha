@@ -22,6 +22,11 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
   const [selectedBook, setSelectedBook] = useState<SearchTextbook | null>(null);
   const [suggestions, setSuggestions] = useState<SearchTextbook[]>([]); // 教科書のサジェストリスト
   const [bookError, setBookError] = useState(""); // 教科書未選択などのエラー表示
+  // 新規教科書追加フォーム
+  const [showNewBook, setShowNewBook] = useState(false);
+  const [newBookTitle, setNewBookTitle] = useState("");
+  const [newBookListPrice, setNewBookListPrice] = useState(""); // 定価
+  const [creatingBook, setCreatingBook] = useState(false);
   const [giveType, setGiveType] = useState<"offering" | "seeking">("offering");
   const MAX_IMAGES = 4; // 画像の最大枚数
   const [imageFiles, setImageFiles] = useState<File[]>([]); // 添付する画像（最大4枚）
@@ -86,6 +91,44 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
 
     searchBooks();
   }, [bookTitle, selectedBook]);
+
+  // 新規教科書を追加：RPC で定価×0.4 を price として登録（価格はサーバー側で計算）
+  const handleCreateTextbook = async () => {
+    const title = newBookTitle.trim();
+    const listPrice = Number(newBookListPrice);
+
+    if (!title) {
+      alert("教科書名を入力してください。");
+      return;
+    }
+    if (!Number.isFinite(listPrice) || listPrice <= 0) {
+      alert("定価は正の数で入力してください。");
+      return;
+    }
+
+    setCreatingBook(true);
+    const { data: newId, error } = await supabase.rpc("create_textbook", {
+      p_title: title,
+      p_list_price: Math.round(listPrice),
+    });
+    setCreatingBook(false);
+
+    if (error || newId == null) {
+      console.error("教科書の追加に失敗しました:", error);
+      alert("教科書の追加に失敗しました。");
+      return;
+    }
+
+    // 追加した教科書を選択状態にする
+    setSelectedBook({ id: newId as number, title });
+    setBookTitle(title);
+    setSuggestions([]);
+    setBookError("");
+    // フォームを閉じてリセット
+    setShowNewBook(false);
+    setNewBookTitle("");
+    setNewBookListPrice("");
+  };
 
   const handleSubmit = async (formData: FormData) => {
     const description = formData.get("description") as string;
@@ -196,7 +239,17 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
 
             {/* 教科書名入力 */}
             <div className="mb- relative w-full">
-                <label className="block text-s font-bold text-gray-600 mb-3">教科書名</label>
+                <div className="flex items-center gap-2 mb-3">
+                  <label className="text-s font-bold text-gray-600">教科書名</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewBook(true)}
+                    className="shrink-0 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-3 py-1.5 shadow-sm"
+                  >
+                    ＋ 新規教科書追加
+                  </button>
+                  
+                </div>
                 <input
                 type="text"
                 value={bookTitle}
@@ -239,10 +292,56 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
               {selectedBook && selectedBook.title === bookTitle ? (
                 <p className="text-xs text-green-600 font-medium">「{selectedBook.title}」を選択中</p>
               ) : (
-                <p className="text-xs text-gray-400">教科書検索に登録済みの教科書から選択してください。</p>
+                <p className="text-sm text-gray-400">教科書検索に登録済みの教科書から選択してください。</p>
               )}
               {bookError && (
                 <p className="mt-1 text-xs text-red-500 font-medium">{bookError}</p>
+              )}
+
+              {/* 一覧に無い教科書を追加（フォーム） */}
+              {showNewBook && (
+                <div className="mt-2 p-3 border border-blue-200 bg-blue-50 rounded-xl space-y-2">
+                  <p className="text-xs font-bold text-gray-600">新規教科書を追加</p>
+                  <input
+                    type="text"
+                    value={newBookTitle}
+                    onChange={(e) => setNewBookTitle(e.target.value)}
+                    placeholder="教科書名"
+                    className="w-full px-3 py-2 border rounded-lg text-s focus:outline-blue-500 bg-white"
+                  />
+                  <input
+                    type="number"
+                    min={0}
+                    value={newBookListPrice}
+                    onChange={(e) => setNewBookListPrice(e.target.value)}
+                    placeholder="定価（円）"
+                    className="w-full px-3 py-2 border rounded-lg text-s focus:outline-blue-500 bg-white"
+                  />
+                  <p className="text-sm text-red-500">
+                    入力された定価は後ほど運営で確認させていただくことがあります。
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCreateTextbook}
+                      disabled={creatingBook}
+                      className="flex-1 py-2 rounded-lg font-bold text-white text-sm bg-blue-600 hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      {creatingBook ? "追加中..." : "追加して選択"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNewBook(false);
+                        setNewBookTitle("");
+                        setNewBookListPrice("");
+                      }}
+                      className="px-4 py-2 rounded-lg font-bold text-gray-600 text-sm bg-white border border-gray-300 hover:bg-gray-50"
+                    >
+                      キャンセル
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
 
