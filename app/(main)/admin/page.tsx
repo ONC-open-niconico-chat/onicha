@@ -15,6 +15,7 @@ interface Transaction {
   txt_post_id: number | null;
   giver_id: string | null;
   receiver_id: string | null;
+  points: number | null;
 }
 
 // user テーブルの表示用サブセット（id は Auth の UUID）
@@ -40,7 +41,7 @@ export default function AdminTransactionsPage() {
       // 1. 取引一覧を取得
       const { data: txData, error } = await supabase
         .from("txt_transaction")
-        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id")
+        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, points")
         .order("id", { ascending: false })
         .in("status", ["matched", "completed"]); // マッチングした取引のみ表示
 
@@ -106,7 +107,7 @@ export default function AdminTransactionsPage() {
   // 「譲渡完了」ボタン：RPC でアトミックに完了処理（贈与者+500 / 受取者-500）
   const handleComplete = async (id: number) => {
     const confirmed = window.confirm(
-      "この取引を譲渡完了にしますか？\n（贈与者に +500pt / 受取者に -500pt）"
+      "この取引を譲渡完了にしますか？"
     );
     if (!confirmed) return;
 
@@ -173,6 +174,7 @@ export default function AdminTransactionsPage() {
                 <th className="px-5 py-4 text-lg font-semibold">贈与者</th>
                 <th className="px-5 py-4 text-lg font-semibold">受取者</th>
                 <th className="px-5 py-4 text-lg font-semibold">教科書</th>
+                <th className="px-5 py-4 text-lg font-semibold">取引ポイント</th>
                 <th className="px-5 py-4 text-lg font-semibold">ステータス</th>
               </tr>
             </thead>
@@ -184,6 +186,11 @@ export default function AdminTransactionsPage() {
                   <td className="px-5 py-4">
                     <span className="text-gray-700">
                       {t.txt_post_id != null ? bookMap[t.txt_post_id] ?? "不明" : "不明"}
+                    </span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <span className="font-bold text-amber-600 whitespace-nowrap">
+                      {t.points != null ? `${t.points.toLocaleString()} pt` : "—"}
                     </span>
                   </td>
                   <td className="px-5 py-4">
