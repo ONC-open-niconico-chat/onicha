@@ -376,6 +376,13 @@ const handleDeleteAll = async () => {
                           譲渡が<span className="font-bold text-gray-500">難しいようです。</span>
                           他のポストを見てみましょう！
                         </>
+                      ) : notif.notification_type === "transfer_cancelled" ? (
+                        <>
+                          {senderNameEl} さんとの
+                          <span className="font-bold">「{textbookTitle}」</span> の取引が
+                          <span className="font-bold text-gray-500">取り消されました。</span>
+                          投稿は募集中に戻りました。
+                        </>
                       ) : (
                         <>
                           {senderNameEl} さんが、

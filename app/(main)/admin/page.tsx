@@ -140,6 +140,29 @@ export default function AdminTransactionsPage() {
     );
   };
 
+  // 「取り消し」ボタン：成立後に立ち消えた取引を RPC で巻き戻す
+  // （取引を cancelled、投稿を募集中に戻し、予約を解放する）
+  const handleCancel = async (id: number) => {
+    const confirmed = window.confirm(
+      "この取引を取り消しますか？（投稿は募集中に戻り、予約ポイントは解放されます）"
+    );
+    if (!confirmed) return;
+
+    setUpdatingId(id);
+    const { error } = await supabase.rpc("cancel_txt_transaction", { p_id: id });
+    setUpdatingId(null);
+
+    if (error) {
+      console.error("取引の取り消しに失敗しました:", error);
+      window.alert(txtRequestErrorMessage(error.message));
+      return;
+    }
+
+    setTransactions((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, status: "cancelled" } : t))
+    );
+  };
+
   // ユーザー表示（アイコン＋名前、無ければ不明）
   const renderUser = (userId: string | null) => {
     const u = userId ? userMap[userId] : null;
@@ -277,6 +300,13 @@ export default function AdminTransactionsPage() {
                           ) : (
                             "譲渡完了"
                           )}
+                        </Button>
+                        <Button
+                          onClick={() => handleCancel(t.id)}
+                          disabled={updatingId === t.id}
+                          className="rounded-full bg-white border border-red-300 text-red-600 hover:bg-red-50 h-8 px-3"
+                        >
+                          取り消し
                         </Button>
                       </div>
                     ) : (

@@ -133,25 +133,34 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     setMyReserved(data?.reserved_points ?? 0);
   };
 
-  // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）
+  // image_urls を配列に正規化する（配列 / JSON文字列 / Postgres配列リテラル "{a,b}" に対応）。
+  // 空文字を必ず除外する（空の配列 "{}" や [""] を壊れた <img> にしないため）。
   const normalizeImageUrls = (value: unknown): string[] => {
-    if (Array.isArray(value)) return value as string[];
+    const clean = (arr: unknown[]): string[] =>
+      arr.filter((s): s is string => typeof s === "string" && s.trim() !== "");
+
+    if (value == null) return [];
+    if (Array.isArray(value)) return clean(value);
     if (typeof value === "string") {
       const str = value.trim();
-      if (!str) return [];
+      // 空・空配列（JSON "[]" / Postgres "{}"）は画像なし
+      if (!str || str === "{}" || str === "[]") return [];
+      // JSON 配列文字列（例: '["https://..."]'）
       try {
         const parsed = JSON.parse(str);
-        if (Array.isArray(parsed)) return parsed as string[];
+        if (Array.isArray(parsed)) return clean(parsed);
       } catch {
-        // Postgres の配列リテラル "{url1,url2}" を分解
-        if (str.startsWith("{") && str.endsWith("}")) {
-          return str
-            .slice(1, -1)
-            .split(",")
-            .map((s) => s.replace(/^"|"$/g, "").trim())
-            .filter(Boolean);
-        }
+        // JSON でなければ下の Postgres 配列リテラルとして処理する
       }
+      // Postgres の配列リテラル "{url1,url2}" を分解
+      if (str.startsWith("{") && str.endsWith("}")) {
+        return str
+          .slice(1, -1)
+          .split(",")
+          .map((s) => s.replace(/^"|"$/g, "").trim())
+          .filter(Boolean);
+      }
+      // 単一URL文字列
       return [str];
     }
     return [];
@@ -184,17 +193,21 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     };
   }, [zoomIndex, imageUrls.length]);
 
-  // 自分の教科書譲渡ポストを削除する
+  // 自分の教科書譲渡ポストを削除する。
+  // 削除〜予約解放〜通知/取引の後始末を RPC でアトミックに実行する。
+  // マッチング済みは RPC 側で拒否される（'post already matched'）。
   const handleDelete = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!confirm("この投稿を削除しますか？")) return;
-    await supabase.from("notification").delete().eq("txt_post_id", txtpost.id);
-    const { error } = await supabase.from("txt_post").delete().eq("id", txtpost.id);
+    const { error } = await supabase.rpc("delete_txt_post", {
+      p_txt_post_id: txtpost.id,
+    });
     if (error) {
       console.error("投稿の削除に失敗しました:", error);
-      alert("削除に失敗しました。");
+      alert(txtRequestErrorMessage(error.message));
       return;
     }
+    await refreshPoints(); // seeking 投稿削除時の予約解放を残高へ反映
     onDeleted?.();
   };
 
@@ -247,7 +260,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
             {/*<span className="text-gray-600">{txtpost.user.username}</span>*/}
             <span className="text-gray-600">·</span>
             <span className="text-gray-600">{txtpost.created_at}</span>
-            {isMine && (
+            {isMine && txtpost.status !== "マッチング済み" && (
               <button
                 onClick={handleDelete}
                 className="ml-auto text-gray-500 hover:text-red-500 transition-colors"
