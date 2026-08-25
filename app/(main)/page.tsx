@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Avatar } from "@mui/material";
@@ -44,6 +44,20 @@ interface PostRow {
   reply_count?: number;
 }
 
+// 1ページあたりの取得件数（無限スクロールの単位）
+const PAGE_SIZE = 20;
+
+// post の SELECT。user は結合フィルタ（同学年/学科/学部）で使うため !inner。
+const POST_SELECT = `
+  *,
+  user:user_id!inner (username, grade, department_id, icon_src, appartment:department_id(faculty_id)),
+  parent_post:parent_id (
+    id,
+    content,
+    user:user_id (username)
+  )
+`;
+
 // 投稿日時フォーマット（UTC/JST補正済み）
 function formatPostTime(createdAtString: string): string {
   if (!createdAtString) return "";
@@ -68,13 +82,145 @@ function formatPostTime(createdAtString: string): string {
   });
 }
 
+// 取得した1ページ分の投稿に、いいね状態・返信数を付与する。
+// postId 単位でまとめて引くので、ページ内の件数分だけの軽いクエリで済む。
+async function attachExtraStates(rawPosts: any[], uid: string | null): Promise<PostRow[]> {
+  if (rawPosts.length === 0) return [];
+
+  const postIds = rawPosts.map((p) => p.id);
+
+  let myLikes: any[] = [];
+  if (uid) {
+    const { data } = await supabase
+      .from("like")
+      .select("post_id")
+      .eq("user_id", uid)
+      .in("post_id", postIds);
+    myLikes = data || [];
+  }
+
+  const { data: allChildren } = await supabase
+    .from("post")
+    .select("id, parent_id, content")
+    .in("parent_id", postIds);
+
+  return rawPosts.map((p) => {
+    const children = (allChildren || []).filter((c) => c.parent_id === p.id);
+
+    // 旧・引用リポスト（[QUOTE]）は返信数に含めない
+    const repliesList = children.filter((c) => !c.content?.startsWith("[QUOTE]"));
+
+    return {
+      ...p,
+      is_liked_by_me: myLikes.some((l) => l.post_id === p.id),
+      reply_count: repliesList.length,
+    };
+  });
+}
+
+// 無限スクロール付きの投稿リストを管理するフック。
+// applyFilters でタブ固有の絞り込みを渡し、created_at 降順で .range() 分割取得する。
+function useInfinitePosts(params: {
+  applyFilters: (q: any) => any; // useCallback で安定させて渡すこと（依存が変わると先頭から取り直す）
+  uid: string | null;
+  enabled?: boolean;
+  onError?: (message: string) => void;
+}) {
+  const { applyFilters, uid, enabled = true, onError } = params;
+
+  const [posts, setPosts] = useState<PostRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true); // 初回 / リセット読み込み
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // 追加読み込み中
+  const [hasMore, setHasMore] = useState(true);
+
+  // 非同期処理中に最新値を参照するための ref 群
+  const offsetRef = useRef(0);
+  const loadingRef = useRef(false);
+  const seenRef = useRef<Set<number>>(new Set());
+  const hasMoreRef = useRef(true);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // reset=true で先頭から取り直し、false で続きを追加読み込み
+  const loadPage = useCallback(
+    async (reset: boolean) => {
+      if (!enabled) return;
+      if (loadingRef.current) return;
+      if (!reset && !hasMoreRef.current) return;
+      loadingRef.current = true;
+
+      if (reset) {
+        setIsLoading(true);
+        offsetRef.current = 0;
+        seenRef.current = new Set();
+        hasMoreRef.current = true;
+        setHasMore(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      try {
+        const from = offsetRef.current;
+        let query = supabase
+          .from("post")
+          .select(POST_SELECT)
+          .order("created_at", { ascending: false })
+          .range(from, from + PAGE_SIZE - 1);
+
+        query = applyFilters(query);
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const rows = data ?? [];
+        const enriched = await attachExtraStates(rows, uid);
+        // 重複ガード（並行 insert 等で同じ行が来ても二重表示しない）
+        const fresh = enriched.filter((p) => !seenRef.current.has(p.id));
+        fresh.forEach((p) => seenRef.current.add(p.id));
+
+        setPosts((prev) => (reset ? fresh : [...prev, ...fresh]));
+        offsetRef.current = from + rows.length;
+        const more = rows.length === PAGE_SIZE;
+        hasMoreRef.current = more;
+        setHasMore(more);
+      } catch (e) {
+        onError?.("通信に失敗しました");
+      } finally {
+        loadingRef.current = false;
+        setIsLoading(false);
+        setIsLoadingMore(false);
+      }
+    },
+    [applyFilters, uid, enabled, onError]
+  );
+
+  // 絞り込み条件（applyFilters / uid / enabled）が変わったら先頭から取り直す
+  useEffect(() => {
+    loadPage(true);
+  }, [loadPage]);
+
+  // センチネルは初回ロード完了後に描画されるため、loading / hasMore を依存に含めて
+  // センチネル出現時に IntersectionObserver を張り直す
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadPage(false);
+      },
+      { rootMargin: "300px" }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [loadPage, isLoading, hasMore]);
+
+  const reload = useCallback(() => loadPage(true), [loadPage]);
+
+  return { posts, setPosts, isLoading, isLoadingMore, hasMore, sentinelRef, reload };
+}
+
 export default function HomePage() {
   const router = useRouter();
 
-  const [posts, setPosts] = useState<PostRow[]>([]);
-  const [schoolPosts, setSchoolPosts] = useState<PostRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSchoolLoading, setIsSchoolLoading] = useState(false);
   const [isPostOpen, setIsPostOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
@@ -82,6 +228,8 @@ export default function HomePage() {
   const [myIconSrc, setMyIconSrc] = useState<string | null>(null);
   const [myInfo, setMyInfo] = useState<{ grade: number; department_id: number; faculty_id: number } | null>(null);
   const [schoolFilter, setSchoolFilter] = useState<"grade" | "dept" | "faculty">("grade");
+  // 同学部フィルタ用：自分の学部に属する学科IDを先に解決しておく
+  const [facultyDeptIds, setFacultyDeptIds] = useState<number[] | null>(null);
 
   // いいね連打防止
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
@@ -96,7 +244,7 @@ export default function HomePage() {
     setErrorMessage(message);
   }, []);
 
-  // ソートロジック
+  // FollowingTimeline に渡す従来のミックスソート（フォロータブ用に維持）
   const sortPostsByMixLogic = (rawPosts: any[]) => {
     const now = Date.now();
 
@@ -123,72 +271,36 @@ export default function HomePage() {
     });
   };
 
-  // 状態の拡張（いいね状態・返信数・リポスト数）
-  const attachExtraStates = async (rawPosts: any[], uid: string | null) => {
-    if (rawPosts.length === 0) return [];
+  // 「すべて」タブ：トップレベルの通常投稿のみ（返信・引用は除外）
+  const applyFiltersAll = useCallback((q: any) => q.is("parent_id", null), []);
 
-    const postIds = rawPosts.map((p) => p.id);
+  // 「同学年/学科/学部」タブ：トップレベル or 旧引用リポスト、かつ投稿者の所属で絞り込む
+  const applyFiltersSchool = useCallback(
+    (q: any) => {
+      let query = q.or("parent_id.is.null,content.ilike.[QUOTE]*");
+      if (!myInfo) return query;
+      if (schoolFilter === "grade") {
+        query = query.eq("user.grade", myInfo.grade);
+      } else if (schoolFilter === "dept") {
+        query = query.eq("user.department_id", myInfo.department_id);
+      } else {
+        const ids = facultyDeptIds ?? [];
+        query = query.in("user.department_id", ids.length ? ids : [-1]);
+      }
+      return query;
+    },
+    [schoolFilter, myInfo, facultyDeptIds]
+  );
 
-    let myLikes: any[] = [];
-    if (uid) {
-      const { data } = await supabase
-        .from("like")
-        .select("post_id")
-        .eq("user_id", uid)
-        .in("post_id", postIds);
-      myLikes = data || [];
-    }
+  const allFeed = useInfinitePosts({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
+  const schoolFeed = useInfinitePosts({
+    applyFilters: applyFiltersSchool,
+    uid: myId,
+    enabled: !!myInfo,
+    onError: showError,
+  });
 
-    const { data: allChildren } = await supabase
-      .from("post")
-      .select("id, parent_id, content")
-      .in("parent_id", postIds);
-
-    return rawPosts.map((p) => {
-      const children = (allChildren || []).filter((c) => c.parent_id === p.id);
-
-      // 旧・引用リポスト（[QUOTE]）は返信数に含めない
-      const repliesList = children.filter((c) => !c.content?.startsWith("[QUOTE]"));
-
-      return {
-        ...p,
-        is_liked_by_me: myLikes.some((l) => l.post_id === p.id),
-        reply_count: repliesList.length,
-      };
-    });
-  };
-
-  // メインタイムライン取得
-  const fetchPosts = async (uid: string | null = myId) => {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("post")
-        .select(`
-          *,
-          user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id)),
-          parent_post:parent_id (
-            id,
-            content,
-            user:user_id (username)
-          )
-        `);
-
-      if (error) throw error;
-
-      // トップレベルの通常投稿のみ表示（返信・旧引用リポストは除外）
-      const mainTimelinePosts = (data || []).filter((p) => !p.parent_id);
-
-      const enriched = await attachExtraStates(mainTimelinePosts, uid);
-      setPosts(sortPostsByMixLogic(enriched));
-    } catch (e) {
-      showError("通信に失敗しました");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchMyInfo = async () => {
+  const fetchMyInfo = useCallback(async () => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -214,65 +326,35 @@ export default function HomePage() {
         faculty_id: (data.appartment as any)?.faculty_id || 0,
       });
     }
-
-    fetchPosts(user.id);
-  };
-
-  const fetchSchoolPosts = async (type: "grade" | "dept" | "faculty", info = myInfo) => {
-    if (!info) return;
-    setIsSchoolLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("post")
-        .select(`
-          *,
-          user:user_id (username, grade, department_id, icon_src, appartment:department_id(faculty_id)),
-          parent_post:parent_id (
-            id,
-            content,
-            user:user_id (username)
-          )
-        `);
-
-      if (error) throw error;
-
-      const filtered = (data || []).filter((p: any) => {
-        const isMainOrQuote = !p.parent_id || p.content?.startsWith("[QUOTE]");
-        if (!isMainOrQuote) return false;
-
-        if (type === "grade") return p.user?.grade === info.grade;
-        if (type === "dept") return p.user?.department_id === info.department_id;
-        return p.user?.appartment?.faculty_id === info.faculty_id;
-      });
-
-      const enriched = await attachExtraStates(filtered, myId);
-      setSchoolPosts(sortPostsByMixLogic(enriched));
-    } catch (e) {
-      showError("通信に失敗しました");
-    } finally {
-      setIsSchoolLoading(false);
-    }
-  };
-
-  const mutateAll = () => {
-    fetchPosts();
-    if (myInfo) fetchSchoolPosts(schoolFilter, myInfo);
-  };
+  }, [router]);
 
   useEffect(() => {
-    fetchPosts();
     fetchMyInfo();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [fetchMyInfo]);
 
+  // 同学部フィルタ用に、自分の学部に属する学科IDを解決
   useEffect(() => {
-    if (myInfo) fetchSchoolPosts(schoolFilter, myInfo);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!myInfo) return;
+    let cancelled = false;
+    supabase
+      .from("department")
+      .select("id")
+      .eq("faculty_id", myInfo.faculty_id)
+      .then(({ data }) => {
+        if (!cancelled) setFacultyDeptIds((data ?? []).map((d: any) => d.id as number));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [myInfo]);
 
+  const mutateAll = () => {
+    allFeed.reload();
+    if (myInfo) schoolFeed.reload();
+  };
+
   const handleFilterChange = (type: "grade" | "dept" | "faculty") => {
-    setSchoolFilter(type);
-    fetchSchoolPosts(type);
+    setSchoolFilter(type); // 変更で schoolFeed が自動的に先頭から取り直す
     setIsMenuOpen(false);
   };
 
@@ -477,19 +559,23 @@ export default function HomePage() {
     );
   };
 
-  // リストの描画
-  const renderPostList = (
-    list: PostRow[],
-    loading: boolean,
-    listSetter: React.Dispatch<React.SetStateAction<PostRow[]>>,
+  // リスト + 無限スクロールのセンチネル描画
+  const renderFeed = (
+    feed: ReturnType<typeof useInfinitePosts>,
     emptyMessage = "まだ投稿がありません"
   ) => {
-    if (loading) return <div className="py-20 text-center text-sm text-gray-400 font-medium">読み込み中...</div>;
-    if (list.length === 0) return <div className="py-20 text-center text-sm text-gray-400">{emptyMessage}</div>;
+    if (feed.isLoading) return <div className="py-20 text-center text-sm text-gray-400 font-medium">読み込み中...</div>;
+    if (feed.posts.length === 0) return <div className="py-20 text-center text-sm text-gray-400">{emptyMessage}</div>;
 
     return (
-      <div className="divide-y divide-gray-200">
-        {list.map((post) => renderSingleCard(post, listSetter, list))}
+      <div>
+        <div className="divide-y divide-gray-200">
+          {feed.posts.map((post) => renderSingleCard(post, feed.setPosts, feed.posts))}
+        </div>
+        {/* 無限スクロール用センチネル & 追加読み込み表示 */}
+        <div ref={feed.sentinelRef} className="py-6 text-center text-sm text-gray-400">
+          {feed.isLoadingMore ? "読み込み中..." : feed.hasMore ? "" : "すべて表示しました"}
+        </div>
       </div>
     );
   };
@@ -512,7 +598,7 @@ export default function HomePage() {
         <>
 
             <Header />
-            <Tabs defaultValue="all" className="w-full" onValueChange={() => mutateAll()}>
+            <Tabs defaultValue="all" className="w-full">
               <HomeTabHeader
                 filterLabel={filterLabels[schoolFilter]}
                 isMenuOpen={isMenuOpen}
@@ -521,7 +607,7 @@ export default function HomePage() {
               />
 
               <TabsContent value="all" className="p-0 m-0">
-                {renderPostList(posts, isLoading, setPosts)}
+                {renderFeed(allFeed)}
               </TabsContent>
 
               <TabsContent value="follow" className="p-0 m-0">
@@ -529,12 +615,7 @@ export default function HomePage() {
               </TabsContent>
 
               <TabsContent value="school" className="p-0 m-0">
-                {renderPostList(
-                  schoolPosts,
-                  isSchoolLoading,
-                  setSchoolPosts,
-                  `${filterLabels[schoolFilter]}の投稿はありません`
-                )}
+                {renderFeed(schoolFeed, `${filterLabels[schoolFilter]}の投稿はありません`)}
               </TabsContent>
             </Tabs>
         </>
