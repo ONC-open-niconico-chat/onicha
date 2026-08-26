@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { formatDistanceToNow } from "date-fns";
 import { ja } from "date-fns/locale";
 import CreatePostForm from "./createNewPost";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, HelpCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 
@@ -50,6 +50,7 @@ export default function TxtPostPage() {
   const [loadingMore, setLoadingMore] = useState(false); // 追加読み込み中
   const [hasMore, setHasMore] = useState(true); // まだ次のページがあるか
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHelpOpen, setIsHelpOpen] = useState(false); // 「使い方」モーダルの開閉
   const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
   // 教科書名での検索キーワード（入力用）と、デバウンス後の実クエリ用
   const [search, setSearch] = useState("");
@@ -270,8 +271,17 @@ export default function TxtPostPage() {
   return (
     <div>
       <div className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
-        <div className="border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
+        <div className="relative border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
         教科書ポスト
+          <button
+            type="button"
+            onClick={() => setIsHelpOpen(true)}
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 flex items-center gap-1 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-full px-2.5 py-1.5 transition-colors"
+            title="使い方"
+          >
+            <HelpCircle className="w-4 h-4" />
+            使い方
+          </button>
         </div>
 
         {textbookId && (
@@ -419,6 +429,99 @@ export default function TxtPostPage() {
           onPostCreated={() => loadPosts(true)} // 投稿成功後にタイムラインを先頭から更新
           onclose={() => setIsModalOpen(false)}
         />
+      )}
+
+      {/* ─── 「使い方」モーダル ─── */}
+      {isHelpOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={() => setIsHelpOpen(false)}
+        >
+          <div
+            className="relative bg-white w-full max-w-2xl rounded-2xl shadow-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* ヘッダー（固定） */}
+            <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-gray-100 px-6 py-5 flex items-center justify-between rounded-t-2xl">
+              <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+                <HelpCircle className="w-6 h-6 text-blue-600" />
+                教科書ポストの使い方
+              </h2>
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+                title="閉じる"
+              >
+                <X className="w-7 h-7" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-6 text-base text-gray-700 leading-relaxed">
+              {/* 2種類の投稿 */}
+              <section>
+                <h3 className="font-bold text-lg text-gray-900 mb-2">① 2種類の投稿</h3>
+                <ul className="space-y-1.5">
+                  <li>
+                    <span className="inline-block font-bold text-blue-700 bg-blue-50 rounded px-1.5 py-0.5 mr-1">譲ります</span>
+                    使わない教科書を出品します。受け取った相手から<b>ポイントを獲得</b>できます。
+                  </li>
+                  <li>
+                    <span className="inline-block font-bold text-green-700 bg-green-50 rounded px-1.5 py-0.5 mr-1">譲ってください</span>
+                    欲しい教科書を募集します。受け取るときに<b>ポイントを消費</b>します（投稿時に必要ポイントを仮消費します）。
+                  </li>
+                  <li>教科書データベースに登録されている教科書のみ投稿できます。登録されていない教科書を新規追加して投稿することもできます。その際、投稿する書籍の定価を入力してください。
+                  </li>
+                </ul>
+              </section>
+
+              {/* ポイント */}
+              <section>
+                <h3 className="font-bold text-lg text-gray-900 mb-2">② ポイントの仕組み</h3>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>教科書ごとに必要ポイントが設定されています。</li>
+                  <li>譲ると <b className="text-blue-600">＋ポイント</b>、受け取ると <b className="text-red-500">−ポイント</b>。</li>
+                  <li><b>利用可能ポイント</b> ＝ 所持ポイント − 仮消費ポイント。</li>
+                </ul>
+              </section>
+
+              {/* 流れ */}
+              <section>
+                <h3 className="font-bold text-lg text-gray-900 mb-2">③ 取引の流れ</h3>
+                <ol className="list-decimal list-inside space-y-1">
+                  <li>投稿を見つけて「譲ってください／譲ります」ボタンでリクエスト</li>
+                  <li>相手（投稿者）が承諾するとマッチング成立</li>
+                  <li>運営が双方へそれぞれ連絡し、実際に会って贈与者から教科書を受け取り、受取者へ渡します。</li>
+                  <li>運営が完了処理を行い、贈与者へポイントを付与し、受取者がポイントを消費します。</li>
+                </ol>
+                <p className="mt-2 text-gray-500 text-sm">
+                  ※ リクエストは相手が対応する前なら取り下げできます。投稿者はリクエストに対して承諾／見送りを選べます。
+                </p>
+              </section>
+
+              {/* 注意 */}
+              <section>
+                <h3 className="font-bold text-lg text-gray-900 mb-2">④ 注意点</h3>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>「譲ってください」の投稿には、必要ポイント分の利用可能残高が必要です。</li>
+                  <li>マッチング済みの投稿は削除できません。</li>
+                  <li>出品できる書籍は、講義で使う教科書や学習用の参考書のみです。漫画や雑誌は不可です。不適切な書籍の投稿は削除される可能性があります。</li>
+                </ul>
+              </section>
+            </div>
+
+            {/* フッター */}
+            <div className="sticky bottom-0 bg-white border-t border-gray-100 px-6 py-4">
+              <button
+                type="button"
+                onClick={() => setIsHelpOpen(false)}
+                className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-base font-bold transition-colors"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
