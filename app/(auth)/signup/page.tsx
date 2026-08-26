@@ -101,14 +101,14 @@ export default function Signup() {
   return (
     <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50 overflow-auto py-8">
       <div className="w-full max-w-4xl mx-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
           <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">新規登録</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">新規登録</h1>
             <p className="text-gray-600">アカウントを作成してください</p>
           </div>
 
           <form action={handleSignup}>
-            <div className="grid grid-cols-2 gap-x-6 gap-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
 
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
@@ -158,7 +158,7 @@ export default function Signup() {
                   メールアドレス(eから始まる学籍番号を入力してください)
                 </label>
                 <div className="flex items-center w-full border border-gray-200 rounded-xl overflow-hidden focus-within:border-blue-500 bg-white transition-colors">
-                  <div className="relative">
+                  <div className="relative flex-1 min-w-0">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <Mail className="h-5 w-5 text-gray-400" />
                     </div>
@@ -170,10 +170,8 @@ export default function Signup() {
                       autoComplete="one-time-code"
                       required
                     />
-
-                    
                   </div>
-                  <div className="text-gray-500 text-sm px-4 py-3 border-l border-gray-200 select-none font-medium">
+                  <div className="shrink-0 whitespace-nowrap text-gray-500 text-xs sm:text-sm px-2 sm:px-4 py-3 border-l border-gray-200 select-none font-medium">
                     @cs.u-ryukyu.ac.jp
                   </div>
                 </div>

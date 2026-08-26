@@ -725,13 +725,13 @@ export default function App({ params }: Props) {
           </div>
         </div>
 
-        {/* ボタンエリア */}
-        <div className="flex justify-end pt-3 pr-4 sm:pr-6 h-16 gap-2">
+        {/* ボタンエリア（左はアバターと重ならないよう余白を確保、狭ければ折り返す） */}
+        <div className="flex flex-wrap justify-end items-start gap-2 pt-3 pr-4 sm:pr-6 pl-28 sm:pl-0 min-h-16">
           {isMe ? (
             <>
               <button
                 onClick={handleLogout}
-                className="h-9 px-4 rounded-full border border-red-200 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5"
+                className="h-9 px-3 sm:px-4 rounded-full border border-red-200 text-sm font-bold text-red-600 hover:bg-red-50 transition flex items-center gap-1.5 whitespace-nowrap"
               >
                 <LogOut size={16} />
                 ログアウト
@@ -739,10 +739,11 @@ export default function App({ params }: Props) {
 
               <button
                 onClick={() => setIsEditing(true)}
-                className="h-9 px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2"
+                className="h-9 px-3 sm:px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-2 whitespace-nowrap"
               >
                 <Settings size={16} />
-                プロフィール編集
+                <span className="sm:hidden">編集</span>
+                <span className="hidden sm:inline">プロフィール編集</span>
               </button>
             </>
           ) : (
