@@ -4,6 +4,7 @@ import type { Post } from "@/app/(main)/txtpost/page";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
 import { useAuth } from "@/components/loginUser";
+import { ReportButton } from "@/components/ReportButton";
 import { Trash2, X, ChevronLeft, ChevronRight, MessageCircle, Coins } from "lucide-react";
 import { useEffect, useState } from "react";
 
@@ -268,6 +269,14 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+            )}
+            {!isMine && (
+              <ReportButton
+                targetType="txt_post"
+                targetId={txtpost.id}
+                reportedUserId={String(txtpost.user.id)}
+                className="ml-auto"
+              />
             )}
           </div>
 

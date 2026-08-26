@@ -12,6 +12,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
+import { ReportButton } from "@/components/ReportButton";
 import { PostDialog } from "@/app/(main)/homecomponent/post/PostDialog";
 import { FollowingTimeline } from "@/app/(main)/homecomponent/post/FollowingTimeline";
 import { Header } from "@/app/(main)/homecomponent/layout/Header";
@@ -498,6 +499,14 @@ export default function HomePage() {
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+            )}
+            {!isMine && (
+              <ReportButton
+                targetType="post"
+                targetId={post.id}
+                reportedUserId={post.user_id}
+                className="ml-auto"
+              />
             )}
           </div>
 
