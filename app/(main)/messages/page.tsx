@@ -112,7 +112,7 @@ export default function MessageListPage() {
   }
 
   return (
-    <div className="w-full bg-white min-h-screen text-black p-6">
+    <div className="w-full bg-white min-h-screen text-black p-4 md:p-6">
       <h1 className="text-2xl font-bold border-b border-gray-100 pb-4 mb-4">メッセージ</h1>
 
       {partners.length === 0 ? (

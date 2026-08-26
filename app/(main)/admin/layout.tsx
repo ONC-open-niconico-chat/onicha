@@ -58,12 +58,12 @@ export default function AdminLayout({
 
   return (
     <div className="w-full">
-      <div className="flex gap-2 border-b border-gray-200 px-6 pt-4">
+      <div className="flex gap-2 border-b border-gray-200 px-4 md:px-6 pt-4 overflow-x-auto">
         {tabs.map((t) => (
           <Link
             key={t.href}
             href={t.href}
-            className={`px-4 py-3 text-lg font-bold rounded-t-lg transition-colors ${
+            className={`px-3 md:px-4 py-3 text-base md:text-lg font-bold rounded-t-lg transition-colors whitespace-nowrap ${
               isActive(t.href)
                 ? "text-blue-600 border-b-2 border-blue-600"
                 : "text-gray-500 hover:text-gray-800"

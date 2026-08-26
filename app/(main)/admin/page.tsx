@@ -198,8 +198,8 @@ export default function AdminTransactionsPage() {
   const shownTx = view === "matched" ? matchedTx : completedTx;
 
   return (
-    <div className="w-full p-6">
-      <h1 className="text-3xl font-bold text-gray-900 mb-4 text-left">教科書譲渡 取引管理</h1>
+    <div className="w-full p-4 md:p-6">
+      <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-4 text-left">教科書譲渡 取引管理</h1>
 
       {/* タブ（譲渡中 / 譲渡完了）＋ 未読件数 */}
       <div className="flex items-center gap-3 mb-6">

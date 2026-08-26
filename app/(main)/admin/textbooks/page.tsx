@@ -114,8 +114,8 @@ export default function AdminTextbooksPage() {
   };
 
   return (
-    <div className="w-full p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-4">教科書の価格設定</h1>
+    <div className="w-full p-4 md:p-6">
+      <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-4">教科書の価格設定</h1>
       <p className="text-sm text-gray-500 mb-4">
         ここで設定した価格が、譲渡完了時に贈与者へ付与／受取者から消費されるポイントになります。
         「定価」はユーザーが新規追加時に入力した値です（価格＝定価×0.4）。内容を確認したら「確認済みにする」を押してください。

@@ -626,7 +626,7 @@ export default function HomePage() {
       {/* 新規投稿ボタン */}
       <button
         onClick={() => setIsPostOpen(true)}
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-linear-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-90 hover:rotate-90"
+        className="fixed bottom-20 right-6 md:bottom-6 z-40 w-14 h-14 bg-linear-to-tr from-blue-600 to-indigo-600 text-white rounded-full flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-200 active:scale-90 hover:rotate-90"
         title="新規投稿"
       >
         <Plus />
