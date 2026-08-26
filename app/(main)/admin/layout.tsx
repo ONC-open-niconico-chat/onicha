@@ -10,6 +10,7 @@ const tabs = [
   { href: "/admin", label: "取引管理" },
   { href: "/admin/messages", label: "メッセージ" },
   { href: "/admin/textbooks", label: "教科書価格" },
+  { href: "/admin/reports", label: "通報" },
 ];
 
 export default function AdminLayout({
@@ -25,11 +26,13 @@ export default function AdminLayout({
   const [unreadTxCount, setUnreadTxCount] = useState(0);
   // 運営宛の未読メッセージ件数（メッセージタブのバッジ用）
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  // 未対応の通報件数（通報タブのバッジ用）
+  const [pendingReportCount, setPendingReportCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
       const officialId = await getOfficialUserId();
-      const [tb, tx, msg] = await Promise.all([
+      const [tb, tx, msg, rep] = await Promise.all([
         supabase
           .from("textbook")
           .select("*", { count: "exact", head: true })
@@ -48,10 +51,15 @@ export default function AdminLayout({
               .eq("notification_type", "message")
               .eq("is_read", false)
           : Promise.resolve({ count: 0 }),
+        supabase
+          .from("report")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "pending"),
       ]);
       setUnconfirmedCount(tb.count ?? 0);
       setUnreadTxCount(tx.count ?? 0);
       setUnreadMsgCount(msg.count ?? 0);
+      setPendingReportCount(rep.count ?? 0);
     };
     fetchCounts();
   }, [pathname]);
@@ -84,6 +92,11 @@ export default function AdminLayout({
               {t.href === "/admin/textbooks" && unconfirmedCount > 0 && (
                 <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
                   {unconfirmedCount > 99 ? "99+" : unconfirmedCount}
+                </span>
+              )}
+              {t.href === "/admin/reports" && pendingReportCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                  {pendingReportCount > 99 ? "99+" : pendingReportCount}
                 </span>
               )}
             </span>
