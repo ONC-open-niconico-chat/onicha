@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Search,  Handshake,ShieldCheck  } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Search, Handshake, ShieldCheck, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 // 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
@@ -21,9 +21,14 @@ const RANKS = [
 const getRank = (totalEarned: number) =>
   RANKS.find((r) => totalEarned >= r.min) ?? RANKS[RANKS.length - 1];
 
+// 会話詳細（独自の入力バーを持つフルスクリーン画面）ではモバイル下部バーを隠す
+const isConversationRoute = (pathname: string) =>
+  /^\/(messages|admin\/messages)\/[^/]+$/.test(pathname);
+
 export function Sidebar() {
   const pathname = usePathname();
   const isActive = (path: string) => pathname === path;
+  const hideMobileBar = isConversationRoute(pathname);
 
   // 未読通知の件数（バッジ表示用）
   const [unreadCount, setUnreadCount] = useState(0);
@@ -35,6 +40,9 @@ export function Sidebar() {
   const [points, setPoints] = useState<number | null>(null);
   const [reserved, setReserved] = useState<number>(0);
   const [totalEarned, setTotalEarned] = useState<number | null>(null);
+
+  // モバイル：メニュー（ドロワー）の開閉
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   useEffect(() => {
     let myId: string | null = null;
@@ -124,66 +132,129 @@ export function Sidebar() {
     };
   }, []);
 
+  // ポイント / ランク表示ブロック（デスクトップ・モバイルのドロワーで共用）
+  const pointsBlock =
+    points !== null && totalEarned !== null ? (
+      <div className="mt-auto border-t border-gray-200 pt-4">
+        <div className="flex items-center gap-3">
+          <img
+            src={getRank(totalEarned).src}
+            alt={getRank(totalEarned).label}
+            className="w-12 h-12 rounded-lg object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="font-bold text-gray-900">{getRank(totalEarned).label}</div>
+            <div className="text-xs text-gray-500">累計 {totalEarned.toLocaleString()} pt</div>
+          </div>
+        </div>
+        <div className="mt-3 flex items-baseline justify-between">
+          <span className="text-sm text-gray-600">利用可能ポイント</span>
+          <span className="text-lg font-bold text-blue-600">
+            {Math.max(points - reserved, 0).toLocaleString()}
+            <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
+          </span>
+        </div>
+        {reserved > 0 && (
+          <div className="mt-0.5 flex items-baseline justify-between text-xs text-gray-400">
+            <span>予約中（リクエスト保留分）</span>
+            <span>{reserved.toLocaleString()} pt</span>
+          </div>
+        )}
+      </div>
+    ) : null;
 
   return (
-    <div className="w-72 border-r border-gray-200 p-6 flex flex-col gap-8 h-screen bg-white shrink-0">
-      <div className="flex items-center gap-2 px-2">
-        <div className="p-2 rounded-xl text-white">
-          <img className="w-13 h-13" src="/onicha_icon/onicha_icon.jpg" alt="Icon" />
+    <>
+      {/* ─── デスクトップ：左サイドバー（md 以上） ─── */}
+      <div className="hidden md:flex w-72 border-r border-gray-200 p-6 flex-col gap-8 h-screen bg-white shrink-0">
+        <div className="flex items-center gap-2 px-2">
+          <div className="p-2 rounded-xl text-white">
+            <img className="w-13 h-13" src="/onicha_icon/onicha_icon.jpg" alt="Icon" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">オニチャ</h1>
         </div>
-        <h1 className="text-2xl font-bold text-gray-900">オニチャ</h1>
+
+        <nav className="flex flex-col gap-2">
+          <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
+          <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
+          <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
+          <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
+          <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
+          <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
+          {isStaff && (
+            <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
+          )}
+        </nav>
+
+        {pointsBlock}
       </div>
 
-      <nav className="flex flex-col gap-2">
-        <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
-        {/* ここを /search に変更し、アイコンを Search に変更！ */}
-        <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
-        <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5"/>} label="教科書譲渡" active={isActive("/txtpost")} />
-        <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
-        <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
-        <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
-        {isStaff && (
-          <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
-        )}
-
+      {/* ─── モバイル：下部タブバー（md 未満／会話画面では非表示） ─── */}
+      <nav className={`${hideMobileBar ? "hidden" : "flex"} md:hidden fixed bottom-0 inset-x-0 z-40 items-stretch justify-around border-t border-gray-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] h-16`}>
+        <MobileTab href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
+        <MobileTab href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")}  />
+        <MobileTab href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="譲渡" active={isActive("/txtpost")} />
+        <MobileTab href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          className="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-600 hover:text-blue-600 transition-colors"
+        >
+          <Menu className="w-5 h-5" />
+          <span className="text-[10px] font-medium">メニュー</span>
+        </button>
       </nav>
 
-      {/* 現在のポイント & ランクバッジ */}
-      {points !== null && totalEarned !== null && (
-        <div className="mt-auto border-t border-gray-200 pt-4">
-          <div className="flex items-center gap-3">
-            <img
-              src={getRank(totalEarned).src}
-              alt={getRank(totalEarned).label}
-              className="w-12 h-12 rounded-lg object-cover shrink-0"
-            />
-            <div className="min-w-0">
-              <div className="font-bold text-gray-900">{getRank(totalEarned).label}</div>
-              <div className="text-xs text-gray-500">累計 {totalEarned.toLocaleString()} pt</div>
+      {/* ─── モバイル：メニュー（ドロワー） ─── */}
+      {drawerOpen && (
+        <div className="md:hidden fixed inset-0 z-50">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDrawerOpen(false)} />
+          <div className="absolute right-0 top-0 h-full w-72 max-w-[85%] bg-white shadow-xl p-6 flex flex-col gap-6 overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-gray-900">メニュー</h2>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+                title="閉じる"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
+
+            <nav className="flex flex-col gap-2">
+              <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
+              <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} onClick={() => setDrawerOpen(false)} />
+              {isStaff && (
+                <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} onClick={() => setDrawerOpen(false)} />
+              )}
+            </nav>
+
+            {pointsBlock}
           </div>
-          <div className="mt-3 flex items-baseline justify-between">
-            <span className="text-sm text-gray-600">利用可能ポイント</span>
-            <span className="text-lg font-bold text-blue-600">
-              {Math.max(points - reserved, 0).toLocaleString()}
-              <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
-            </span>
-          </div>
-          {reserved > 0 && (
-            <div className="mt-0.5 flex items-baseline justify-between text-xs text-gray-400">
-              <span>予約中（リクエスト保留分）</span>
-              <span>{reserved.toLocaleString()} pt</span>
-            </div>
-          )}
         </div>
       )}
-    </div>
+    </>
   );
 }
 
-function SidebarItem({ href, icon, label, active, badge = 0 }: { href: string, icon: React.ReactNode, label: string, active: boolean, badge?: number }) {
+function SidebarItem({
+  href,
+  icon,
+  label,
+  active,
+  badge = 0,
+  onClick,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  badge?: number;
+  onClick?: () => void;
+}) {
   return (
-    <Link href={href}>
+    <Link href={href} onClick={onClick}>
       <Button
         variant={active ? "secondary" : "ghost"}
         className={`w-full justify-start gap-3 text-base py-6 rounded-full transition-all ${active ? "bg-blue-50 text-blue-600 font-bold hover:bg-blue-100" : "text-gray-600 hover:bg-gray-100"}`}
@@ -198,6 +269,40 @@ function SidebarItem({ href, icon, label, active, badge = 0 }: { href: string, i
         </span>
         {label}
       </Button>
+    </Link>
+  );
+}
+
+// モバイル下部タブバーの各タブ（アイコン＋小さいラベルの縦並び）
+function MobileTab({
+  href,
+  icon,
+  label,
+  active,
+  badge = 0,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  active: boolean;
+  badge?: number;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
+        active ? "text-blue-600" : "text-gray-600 hover:text-blue-600"
+      }`}
+    >
+      <span className="relative flex items-center">
+        {icon}
+        {badge > 0 && (
+          <span className="absolute -top-2 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+            {badge > 99 ? "99+" : badge}
+          </span>
+        )}
+      </span>
+      <span className="text-[10px] font-medium">{label}</span>
     </Link>
   );
 }

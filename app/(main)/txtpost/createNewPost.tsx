@@ -231,7 +231,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <form action={handleSubmit} className="relative bg-white w-full max-w-2xl p-6 rounded-2xl border border-gray-200 mb-6 shadow-sm">
+        <form action={handleSubmit} className="relative bg-white w-full max-w-2xl p-4 sm:p-6 rounded-2xl border border-gray-200 shadow-sm max-h-[90vh] overflow-y-auto">
             {/* 閉じる（×）ボタン */}
             <button
             type="button"

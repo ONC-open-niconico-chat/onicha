@@ -410,13 +410,6 @@ const handleDeleteAll = async () => {
                             <span className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 font-bold text-sm rounded-xl">
                             承諾しました
                             </span>
-                            {/* 相手とのメッセージ画面へ */}
-                            <button
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                            onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id, true); }}
-                            >
-                            メッセージへ
-                            </button>
                           </>
                         ) : requestStatus === "rejected" ? (
                             <span className="px-4 py-2 bg-gray-50 text-gray-500 border border-gray-200 font-bold text-sm rounded-xl">
@@ -444,17 +437,6 @@ const handleDeleteAll = async () => {
                     </div>
                 )}
 
-                {/* 承諾通知：相手とのメッセージ画面へ移動するボタン */}
-                {notif.notification_type === "request_accepted" && (
-                    <div className="flex items-center gap-2 shrink-0">
-                        <button
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-sm rounded-xl shadow-sm transition-all"
-                        onClick={(e) => { e.stopPropagation(); handleGoToMessage(notif.id, notif.sender_id); }}
-                        >
-                        メッセージへ
-                        </button>
-                    </div>
-                )}
 
                 {/* コメント通知：該当の教科書譲渡ポストへ移動するボタン */}
                 {notif.notification_type === "txt_post_reply" && notif.txt_post?.id && (
