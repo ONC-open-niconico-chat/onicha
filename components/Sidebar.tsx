@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Search, Handshake, ShieldCheck, Menu, X } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ShieldCheck, Menu, X } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 // 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
@@ -176,7 +176,6 @@ export function Sidebar() {
 
         <nav className="flex flex-col gap-2">
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
-          <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
@@ -224,7 +223,6 @@ export function Sidebar() {
 
             <nav className="flex flex-col gap-2">
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
-              <SidebarItem href="/search" icon={<Search className="w-5 h-5" />} label="教科書検索" active={isActive("/search")} onClick={() => setDrawerOpen(false)} />
               {isStaff && (
                 <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} onClick={() => setDrawerOpen(false)} />
               )}
