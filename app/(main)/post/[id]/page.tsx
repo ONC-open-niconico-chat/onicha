@@ -191,7 +191,7 @@ export default function PostDetailPage({ params }: Props) {
       } else {
         await supabase.from("like").insert({ user_id: myId, post_id: post.id });
       }
-      await supabase.from("post").update({ number_of_likes: newCount }).eq("id", post.id);
+      // number_of_likes は like テーブルのトリガーが自動集計する（クライアントからは更新しない）
     } catch {
       setErrorMessage("いいねの更新に失敗しました。");
       fetchThread();

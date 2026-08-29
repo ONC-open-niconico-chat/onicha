@@ -201,7 +201,6 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
     try {
       const currentPost = currentList.find((p) => p.id === postId);
       if (!currentPost) return;
-      const newLikeCount = currentPost.number_of_likes + (isLikedByMe ? -1 : 1);
 
       if (isLikedByMe) {
         await supabase.from("like").delete().eq("user_id", myId).eq("post_id", postId);
@@ -209,7 +208,7 @@ export function FollowingTimeline({ sortLogic }: FollowingTimelineProps) {
         await supabase.from("like").insert({ user_id: myId, post_id: postId });
       }
 
-      await supabase.from("post").update({ number_of_likes: newLikeCount }).eq("id", postId);
+      // number_of_likes は like テーブルのトリガーが自動集計する（クライアントからは更新しない）
     } catch (error) {
       fetchFollowingPosts();
     } finally {
