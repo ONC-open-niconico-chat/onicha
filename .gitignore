@@ -8,3 +8,4 @@ build
 .temp
 tsconfig.tsbuildinfo
 txt_request_functions.sql
+rls_policies.sql

@@ -101,7 +101,7 @@ export function PostList({ posts, onRefresh }: PostListProps) {
       await supabase.from('like').delete().eq('post_id', postId).eq('user_id', currentUserId);
     }
     
-    await supabase.from('post').update({ number_of_likes: newCount }).eq('id', postId);
+    // number_of_likes は like テーブルのトリガーが自動集計する（クライアントからは更新しない）
 
     // ★ 究極の修正：いいねのDB更新が終わったら、親（page.tsx）の一括更新を即座に叩く！
     // これにより、おすすめタブ・同学年タブ両方のデータが一瞬で最新化されます。
