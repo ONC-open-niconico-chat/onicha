@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useRef } from 'react';
-import { ImageWithFallback } from '../profile/ImageWithFallback';
 import { Avatar } from '@mui/material';
 import { X, Camera } from 'lucide-react';
 
@@ -9,18 +8,15 @@ interface EditProfileProps {
   initialUsername: string;
   initialGrade: number;
   iconSrc: string;
-  initialCoverSrc: string; //初期カバー画像URL
   initialBio: string;
   onClose: () => void;
-  // 引数の最後に coverFile を追加
-  onSave: (username: string, grade: number, bio: string, imageFile: File | null, coverFile: File | null) => Promise<void>; 
+  onSave: (username: string, grade: number, bio: string, imageFile: File | null) => Promise<void>;
 }
 
 export default function EditProfile({
   initialUsername,
   initialGrade,
   iconSrc,
-  initialCoverSrc, 
   initialBio,
   onClose,
   onSave
@@ -35,11 +31,6 @@ export default function EditProfile({
   const [previewUrl, setPreviewUrl] = useState<string>(iconSrc);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // カバー画像用のStateとRef
-  const [coverFile, setCoverFile] = useState<File | null>(null);
-  const [previewCoverUrl, setPreviewCoverUrl] = useState<string>(initialCoverSrc);
-  const coverInputRef = useRef<HTMLInputElement>(null);
-
   // アバター画像が選択されたとき
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -49,22 +40,8 @@ export default function EditProfile({
     }
   };
 
-  // カバー画像が選択されたとき
-  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setCoverFile(file);
-      setPreviewCoverUrl(URL.createObjectURL(file));
-    }
-  };
-
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
-  };
-
-  // カバー画像エリアがクリックされたとき
-  const handleCoverClick = () => {
-    coverInputRef.current?.click();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -73,8 +50,7 @@ export default function EditProfile({
 
     try {
       setIsSaving(true);
-      // imageFile の後ろに coverFile も添えて親に送る
-      await onSave(username, grade, bio, imageFile, coverFile); 
+      await onSave(username, grade, bio, imageFile);
     } catch (error) {
       console.error(error);
     } finally {
@@ -117,30 +93,9 @@ export default function EditProfile({
           className="hidden"
         />
 
-        {/* カバー画像用の隠しインプット */}
-        <input 
-          type="file" 
-          ref={coverInputRef}
-          onChange={handleCoverChange}
-          accept="image/*"
-          className="hidden"
-        />
-
-        {/* カバー・アバター画像 */}
+        {/* 背景（グラデーション）・アバター画像 */}
         <div className="relative">
-          {/* クリックイベントを追加し、divタグに変更して扱いやすく */}
-          <div onClick={handleCoverClick} className="relative group cursor-pointer">
-            <ImageWithFallback
-              src={previewCoverUrl} // 固定URLからプレビューStateに変更
-              alt="Cover"
-              className="w-full h-48 sm:h-52 object-cover bg-gray-200"
-            />
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition flex items-center justify-center">
-              <div className="bg-black/60 p-2.5 rounded-full">
-                <Camera size={22} className="text-white" />
-              </div>
-            </div>
-          </div>
+          <div className="w-full h-48 sm:h-52 bg-linear-to-r from-blue-500 to-indigo-600" />
 
           <div className="absolute -bottom-16 left-4 sm:left-6">
             <div onClick={handleAvatarClick} className="relative group cursor-pointer">

@@ -243,7 +243,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
       <div className="flex gap-3">
         <Link href={`/profile/${txtpost.user.id}`} onClick={(e) => e.stopPropagation()}>
           <img
-            src={txtpost?.user?.icon_src || "https://kvppbmrsywcabytfrhit.supabase.co/storage/v1/object/public/avatar/IMG_1108.JPG"}
+            src={txtpost?.user?.icon_src || "/onicha_icon/onicha_icon.JPG"}
             alt={txtpost.user.username}
             className="w-12 h-12 rounded-full"
           />

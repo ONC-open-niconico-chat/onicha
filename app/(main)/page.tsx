@@ -368,16 +368,18 @@ export default function HomePage() {
     const exactNow = new Date().toISOString();
 
     let imageUrl: string | null = null;
+    let uploadedPath: string | null = null;
     if (file) {
       try {
         const fileExt = file.name.split(".").pop();
         const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
         const filePath = `${user.id}/${fileName}`;
-        const { error: uploadError } = await supabase.storage.from("images").upload(filePath, file);
+        const { error: uploadError } = await supabase.storage.from("post_images").upload(filePath, file);
         if (uploadError) throw uploadError;
+        uploadedPath = filePath;
         const {
           data: { publicUrl },
-        } = supabase.storage.from("images").getPublicUrl(filePath);
+        } = supabase.storage.from("post_images").getPublicUrl(filePath);
         imageUrl = publicUrl;
       } catch (uploadErr) {
         console.error("画像のアップロードに失敗しました:", uploadErr);
@@ -394,6 +396,10 @@ export default function HomePage() {
       setIsPostOpen(false);
       setTimeout(() => mutateAll(), 100);
     } else {
+      // 投稿に失敗したら、先にアップロードした画像を掃除する（孤児画像を残さない）
+      if (uploadedPath) {
+        await supabase.storage.from("post_images").remove([uploadedPath]).catch(() => {});
+      }
       showError("投稿に失敗しました。");
     }
   };

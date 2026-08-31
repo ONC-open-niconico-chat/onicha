@@ -165,6 +165,9 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
 
     setLoading(true);
 
+    // アップロード済み画像のパス（投稿作成に失敗したら掃除して孤児画像を残さない）
+    const uploadedPaths: string[] = [];
+
     try {
       // 1. 現在ログインしているユーザーのIDを取得
       const { data: { user } } = await supabase.auth.getUser();
@@ -198,6 +201,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
           .from("txt_post_images")
           .upload(filePath, file);
         if (uploadError) throw uploadError;
+        uploadedPaths.push(filePath);
         const { data: { publicUrl } } = supabase.storage
           .from("txt_post_images")
           .getPublicUrl(filePath);
@@ -222,6 +226,10 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       onPostCreated(); // 親コンポーネント（タイムライン）を再読み込みさせる関数
       onclose(); // フォームを閉じる
     } catch (error: any) {
+      // 投稿作成に失敗したら、先にアップロードした画像を掃除する（孤児画像を残さない）
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from("txt_post_images").remove(uploadedPaths).catch(() => {});
+      }
       console.error(error);
       alert(txtRequestErrorMessage(error?.message));
     } finally {
