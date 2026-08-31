@@ -2,6 +2,7 @@
 
 import { Heart, Trash2, UserPlus, UserMinus } from "lucide-react";
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 
 // ★ 修正：型定義に onRefresh?: () => void を追加して ts(2322) エラーを完全抹殺
@@ -152,21 +153,29 @@ export function PostList({ posts, onRefresh }: PostListProps) {
     <div className="divide-y divide-gray-100 pb-20">
       {localPosts.map((post) => (
         <div key={post.id} className="p-4 flex gap-3">
-          {post.user?.icon_src ? (
-            <img
-              src={post.user.icon_src}
-              alt={post.user?.username || "ユーザー"}
-              className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100"
-            />
-          ) : (
-            <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold">
-              {post.user?.username?.substring(0, 1) || "U"}
-            </div>
-          )}
+          <Link href={`/profile/${post.user_id}`} className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+            {post.user?.icon_src ? (
+              <img
+                src={post.user.icon_src}
+                alt={post.user?.username || "ユーザー"}
+                className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100 hover:opacity-90 transition"
+              />
+            ) : (
+              <div className="w-12 h-12 bg-blue-100 rounded-full flex-shrink-0 flex items-center justify-center text-blue-600 font-bold hover:opacity-90 transition">
+                {post.user?.username?.substring(0, 1) || "U"}
+              </div>
+            )}
+          </Link>
           <div className="flex-1">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <span className="font-bold text-sm">{post.user?.username || "名無し"}</span>
+                <Link
+                  href={`/profile/${post.user_id}`}
+                  className="font-bold text-sm hover:underline"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {post.user?.username || "名無し"}
+                </Link>
                 <span className="text-[11px] text-gray-400">{formatTime(post.created_at)}</span>
                 
                 {currentUserId && post.user_id && currentUserId !== post.user_id && (
