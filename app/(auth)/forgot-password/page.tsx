@@ -45,12 +45,6 @@ export default function ForgotPassword() {
               <div className="p-4 bg-green-50 text-green-700 text-sm rounded-lg border border-green-100">
                 再設定用のリンクをメールで送信しました。メール内のリンクから新しいパスワードを設定してください。
               </div>
-              <a
-                href="/login"
-                className="block text-center w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
-              >
-                ログインへ戻る
-              </a>
             </div>
           ) : (
             <>
