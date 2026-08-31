@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
-import { ImageWithFallback } from '../ImageWithFallback';
 import { Avatar } from '@mui/material';
 import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
@@ -19,7 +18,6 @@ interface UserProfile {
     | { name: string; faculty?: { name: string } | { name: string }[] | null }[]
     | null;
   icon_src: string;
-  cover_src: string;
   bio: string;
 }
 
@@ -149,7 +147,7 @@ export default function App({ params }: Props) {
       // プロフィール情報の取得
       const { data: profileData, error: profileError } = await supabase
         .from('user')
-        .select('id, username, grade, department_id, icon_src, cover_src, bio, department:department_id(name,faculty:faculty_id(name))')
+        .select('id, username, grade, department_id, icon_src, bio, department:department_id(name,faculty:faculty_id(name))')
         .eq('id', userId)
         .single();
         console.log("Fetched profile data:", profileData); // デバッグ用ログ --- IGNORE ---
@@ -159,7 +157,6 @@ export default function App({ params }: Props) {
         setProfile({
           ...profileData,
           bio: profileData.bio || '',
-          cover_src: profileData.cover_src || '',
         });
       }
       //console.log("Profile state after fetch:", profile); // デバッグ用ログ --- IGNORE ---
@@ -276,6 +273,8 @@ export default function App({ params }: Props) {
     e.preventDefault();
     if ((!newPostText.trim() && !selectedImage) || !myId || isSubmitting) return;
 
+    // アップロード済み画像のパス（投稿に失敗したら掃除して孤児画像を残さない）
+    let uploadedPath: string | null = null;
     try {
       setIsSubmitting(true);
       let uploadedImageUrl = undefined;
@@ -284,16 +283,17 @@ export default function App({ params }: Props) {
       if (selectedImage) {
         const fileExt = selectedImage.name.split('.').pop();
         const fileName = `post-${myId}-${Date.now()}.${fileExt}`;
-        const filePath = `posts/${fileName}`;
+        const filePath = `${myId}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('avatar')
+          .from('post_images')
           .upload(filePath, selectedImage, { upsert: true });
 
         if (uploadError) throw uploadError;
+        uploadedPath = filePath;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('avatar')
+          .from('post_images')
           .getPublicUrl(filePath);
 
         uploadedImageUrl = publicUrl;
@@ -320,6 +320,10 @@ export default function App({ params }: Props) {
       await fetchAllData();
 
     } catch (error: any) {
+      // 投稿に失敗したら、先にアップロードした画像を掃除する（孤児画像を残さない）
+      if (uploadedPath) {
+        await supabase.storage.from('post_images').remove([uploadedPath]).catch(() => {});
+      }
       console.error('投稿に失敗しました詳細:', error?.message || JSON.stringify(error));
       showError(`投稿に失敗しました: ${error?.message || '不明なエラー'}`);
     } finally {
@@ -336,59 +340,35 @@ export default function App({ params }: Props) {
     newUsername: string,
     newGrade: number,
     newBio: string,
-    imageFile: File | null,
-    coverFile: File | null
+    imageFile: File | null
   ) => {
     if (!profile) return;
 
-    //  アップロード前にまとめてバリデーション
+    //  アップロード前にバリデーション
     if (imageFile) {
       const err = validateImageFile(imageFile);
-      if (err) { showError(err); return; }
-    }
-    if (coverFile) {
-      const err = validateImageFile(coverFile);
       if (err) { showError(err); return; }
     }
 
     try {
       let uploadedIconUrl = profile.icon_src;
-      let uploadedCoverUrl = profile.cover_src;
 
       if (imageFile) {
         const fileExt = imageFile.name.split('.').pop();
         const fileName = `icon-${profile.id}-${Date.now()}.${fileExt}`;
-        const filePath = `icons/${fileName}`;
+        const filePath = `${profile.id}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from('avatar')
+          .from('avatars')
           .upload(filePath, imageFile, { upsert: true });
 
         if (uploadError) throw uploadError;
 
         const { data: { publicUrl } } = supabase.storage
-          .from('avatar')
+          .from('avatars')
           .getPublicUrl(filePath);
 
         uploadedIconUrl = publicUrl;
-      }
-
-      if (coverFile) {
-        const fileExt = coverFile.name.split('.').pop();
-        const fileName = `cover-${profile.id}-${Date.now()}.${fileExt}`;
-        const filePath = `covers/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('avatar')
-          .upload(filePath, coverFile, { upsert: true });
-
-        if (uploadError) throw uploadError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatar')
-          .getPublicUrl(filePath);
-
-        uploadedCoverUrl = publicUrl;
       }
 
       const { error: updateError } = await supabase
@@ -398,7 +378,6 @@ export default function App({ params }: Props) {
           grade: newGrade,
           bio: newBio,
           icon_src: uploadedIconUrl,
-          cover_src: uploadedCoverUrl
         })
         .eq('id', profile.id);
 
@@ -589,8 +568,7 @@ export default function App({ params }: Props) {
     department_id: profile?.department_id || '-',
     departmentName: dept?.name || '未設定',
     facultyName: facul?.name || '未設定',
-    icon_src: profile?.icon_src || 'https://unsplash.com',
-    cover_src: profile?.cover_src || 'https://unsplash.com',
+    icon_src: profile?.icon_src || '/onicha_icon/onicha_icon.JPG',
     bio: profile?.bio || 'プロフィールは未設定です。'
   };
 
@@ -678,7 +656,6 @@ export default function App({ params }: Props) {
         initialUsername={profile.username}
         initialGrade={profile.grade}
         iconSrc={displayProfile.icon_src}
-        initialCoverSrc={displayProfile.cover_src}
         initialBio={displayProfile.bio}
         onClose={() => setIsEditing(false)}
         onSave={handleSaveProfile}
@@ -705,13 +682,9 @@ export default function App({ params }: Props) {
 
       <div className="w-full min-h-screen border-l border-gray-100">
 
-        {/* ヘッダー・カバー */}
+        {/* ヘッダー背景（グラデーション） */}
         <div className="relative">
-          <ImageWithFallback
-            src={displayProfile.cover_src}
-            alt="Cover"
-            className="w-full h-48 sm:h-52 object-cover bg-gray-200"
-          />
+          <div className="w-full h-48 sm:h-52 bg-linear-to-r from-blue-500 to-indigo-600" />
           <div className="absolute -bottom-16 left-4 sm:left-6">
             <Avatar
               src={displayProfile.icon_src}

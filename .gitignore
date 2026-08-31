@@ -1,11 +1,9 @@
 node_modules
 .next
-.env.local
+.env*
 out
 build
 
 .branches
 .temp
 tsconfig.tsbuildinfo
-txt_request_functions.sql
-rls_policies.sql

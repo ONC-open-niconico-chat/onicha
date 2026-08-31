@@ -16,7 +16,6 @@ interface ChatMessage {
   created_at: string;
   reply_to_id?: string | null;
   reply_content?: string | null;
-  image_url?: string | null;
   // 💡 TypeScriptのエラーを防ぐため、オプションで追加できるように型を拡張
   reply_user_name?: string | null;
   reply_user_avatar?: string | null;
@@ -46,10 +45,6 @@ export default function ChatPage() {
   const [partner, setPartner] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // 画像
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
   // 💡 右クリックメニューの表示状態を管理するステート
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -67,8 +62,6 @@ export default function ChatPage() {
 
   // 最下部へスクロールするための参照
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
   // 1. ログイン中の「自分」のIDおよびユーザー情報を取得する
   useEffect(() => {
@@ -207,53 +200,17 @@ export default function ChatPage() {
     return () => window.removeEventListener("click", closeMenu);
   }, []);
 
-  // 💡 画像が選ばれたときの処理
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setSelectedFile(file);
-    setImagePreview(URL.createObjectURL(file));
-  };
-
-  // 4. メッセージを送信する処理
+  // 4. メッセージを送信する処理（テキストのみ）
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if ((!inputText.trim() && !selectedFile) || !myId || !receiverId) return;
-
-    let uploadedImageUrl = null;
-
-    if (selectedFile) {
-      try {
-        const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${myId}/${fileName}`;
-
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from("images")
-          .upload(filePath, selectedFile);
-
-        if (storageError) throw storageError;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from("images")
-          .getPublicUrl(filePath);
-
-        uploadedImageUrl = publicUrl;
-      } catch (uploadErr) {
-        console.error("画像のアップロードに失敗しました:", uploadErr);
-        alert("画像のアップロードに失敗しました。");
-        return;
-      }
-    }
+    if (!inputText.trim() || !myId || !receiverId) return;
 
     const messageContent = inputText;
     const replyToId = replyingMessage?.id || null;
     const replyContent = replyingMessage?.content || null;
-    
+
     setInputText("");
     setReplyingMessage(null);
-    handleCancelImage();
 
     const { data: inserted, error } = await supabase
       .from("chat")
@@ -262,16 +219,14 @@ export default function ChatPage() {
           sender_id: myId,
           receiver_id: receiverId,
           content: messageContent,
-          reply_to_id: replyToId,      
+          reply_to_id: replyToId,
           reply_content: replyContent,
-          image_url: uploadedImageUrl
         },
       ])
       .select("id")
       .single();
 
     if (error) {
-      const errorDetails = JSON.stringify(error, null, 2);
       alert(`⚠️ 送信に失敗しました！\n\n【エラーコード】\n${error.code}\n\n【エラーメッセージ】\n${error.message}`);
       return;
     }
@@ -282,13 +237,6 @@ export default function ChatPage() {
       type: "message",
       chatId: inserted?.id ?? null,
     });
-  };
-
-  // 💡 選んだ画像をキャンセルする処理
-  const handleCancelImage = () => {
-    setSelectedFile(null);
-    setImagePreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   // 時間の表示を整形する関数
@@ -507,27 +455,11 @@ export default function ChatPage() {
                           x: e.clientX,
                           y: e.clientY,
                           messageId: msg.id,
-                          messageContent: msg.content || "画像メッセージ",
+                          messageContent: msg.content || "",
                           isMe: isMe,
                         });
                       }}
                     >
-                      {/* 画像メッセージ */}
-                      {msg.image_url && (
-                        <div 
-                          className="max-w-xs rounded-xl overflow-hidden cursor-pointer border border-black/5 active:scale-[0.99] transition-transform"
-                          onClick={() => {
-                            if (msg.image_url) setPreviewImage(msg.image_url);
-                          }}
-                        >
-                          <img 
-                            src={msg.image_url} 
-                            alt="添付画像" 
-                            className="w-full h-auto max-h-60 object-cover" 
-                          />
-                        </div>
-                      )}
-
                       {/* テキストメッセージ */}
                       {msg.content && msg.content.trim() !== "" && (
                         <div className="text-[15px] leading-snug select-none px-1">
@@ -595,59 +527,7 @@ export default function ChatPage() {
             </div>
           )}
 
-          {imagePreview && (
-            <div className="flex items-center gap-3 px-6 py-2.5 border-b border-gray-100 animate-in slide-in-from-bottom duration-150 relative bg-gray-50/50">
-              <div className="w-16 h-16 rounded-lg overflow-hidden border border-gray-200 relative shrink-0">
-                <img src={imagePreview} alt="プレビュー" className="w-full h-full object-cover" />
-              </div>
-              <div className="flex-1">
-                <p className="text-xs text-gray-500">送信される画像</p>
-                <p className="text-xs font-bold text-gray-400 truncate">{selectedFile?.name}</p>
-              </div>
-              <button 
-                type="button"
-                onClick={handleCancelImage}
-                className="text-gray-400 p-1.5 hover:bg-200 rounded-full transition flex items-center justify-center"
-                title="画像をキャンセル"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-              </button>
-            </div>
-          )}
-
           <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-[#EFF3F4] rounded-full px-5 py-2.5 m-4">
-    
-            <button 
-              type="button" 
-              onClick={() => fileInputRef.current?.click()}
-              className="text-[#1D9BF0] p-1 hover:bg-blue-50 rounded-full transition flex items-center justify-center"
-              title="画像を選択"
-            >
-              <svg 
-                xmlns="http://www.w3.org/2000/svg" 
-                width="22" 
-                height="22" 
-                viewBox="0 0 24 24" 
-                fill="none" 
-                stroke="currentColor" 
-                strokeWidth="2" 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                className="lucide lucide-album"
-              >
-                <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
-                <polyline points="11 3 11 11 14 8 17 11 17 3"/>
-              </svg>
-            </button>
-
-            <input 
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileChange}
-              accept="image/*"
-              className="hidden" 
-            />
-
             <input
               type="text"
               value={inputText}
@@ -658,10 +538,10 @@ export default function ChatPage() {
     
             <button
               type="submit"
-              disabled={!inputText.trim() && !selectedFile}
+              disabled={!inputText.trim()}
               className={`p-2 rounded-full transition flex items-center justify-center ${
-                (inputText.trim() || selectedFile)
-                  ? "text-[#1D9BF0] hover:bg-blue-50" 
+                inputText.trim()
+                  ? "text-[#1D9BF0] hover:bg-blue-50"
                   : "text-gray-300"
               }`}
               title="メッセージを送信"
@@ -734,26 +614,6 @@ export default function ChatPage() {
         )}
 
       </div>
-      
-      {previewImage && (
-        <div 
-          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fade-in"
-          onClick={() => setPreviewImage(null)}
-        >
-          <button 
-            className="absolute top-4 right-4 text-white bg-white/20 p-2 rounded-full hover:bg-white/30 transition-colors"
-            onClick={() => setPreviewImage(null)}
-          >
-            ✕
-          </button>
-          <img 
-            src={previewImage} 
-            alt="プレビュー大画像" 
-            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl animate-scale-up"
-            onClick={(e) => e.stopPropagation()}
-          ></img>
-        </div>
-      )}
     </div>
   );
 }
