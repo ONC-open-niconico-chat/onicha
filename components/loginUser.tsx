@@ -54,22 +54,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initAuth();
 
     // ログイン・ログアウトの状態変化を監視
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-        if(session?.user){
-        const currentAuthUser = session?.user ?? null;
-        setAuthUser(currentAuthUser);
+    // ⚠️ このコールバックは同期関数にすること。内部で await（特に supabase の
+    //    getSession()/getUser()/from() 等）を呼ぶと gotrue の認証ロックを保持したまま
+    //    待機してデッドロックし、以後すべてのクエリが「読み込み中」のまま固まる。
+    //    DB 取得はロック外へ逃がすため setTimeout(…, 0) で別タスクに分離する。
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      const currentAuthUser = session?.user ?? null;
+      setAuthUser(currentAuthUser);
 
-        if (currentAuthUser) {
-            // ログインした時もプロフィールを取得
-            const profile = await fetchUserProfile(currentAuthUser.id);
-            setUserProfile(profile);
-        } else {
-            // ログアウトした時はクリア
-            setUserProfile(null);
-        }
-        setLoading(false);
-        }
-        });
+      if (currentAuthUser) {
+        setTimeout(async () => {
+          const profile = await fetchUserProfile(currentAuthUser.id);
+          setUserProfile(profile);
+        }, 0);
+      } else {
+        // ログアウト（SIGNED_OUT）時はクリア
+        setUserProfile(null);
+      }
+      setLoading(false);
+    });
 
     return () => subscription.unsubscribe();
   }, []);
