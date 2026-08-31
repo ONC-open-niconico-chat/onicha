@@ -4,8 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Handshake, ShieldCheck, Menu, X } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ShieldCheck, Menu, X, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+
+// お問い合わせ用 Google フォームの URL。
+// 環境変数 NEXT_PUBLIC_CONTACT_FORM_URL があればそれを使う。未設定なら下の値を差し替える。
+// ★ TODO: 実際の Google フォールURL（例 https://forms.gle/xxxx）に置き換えてください。
+const CONTACT_FORM_URL =
+  process.env.NEXT_PUBLIC_CONTACT_FORM_URL || "https://forms.gle/your-form-id";
 
 // 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
 const RANKS = [
@@ -180,6 +186,7 @@ export function Sidebar() {
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
+          <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" />
           {isStaff && (
             <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
           )}
@@ -223,6 +230,7 @@ export function Sidebar() {
 
             <nav className="flex flex-col gap-2">
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
+               <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (
                 <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} onClick={() => setDrawerOpen(false)} />
               )}
@@ -268,6 +276,32 @@ function SidebarItem({
         {label}
       </Button>
     </Link>
+  );
+}
+
+// 外部リンク用の項目（Google フォームなど）。SidebarItem と同じ見た目だが
+// 内部ルーティングの Link ではなく通常の <a>（新規タブ）で開く。
+function ExternalItem({
+  href,
+  icon,
+  label,
+  onClick,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  onClick?: () => void;
+}) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick}>
+      <Button
+        variant="ghost"
+        className="w-full justify-start gap-3 text-base py-6 rounded-full transition-all text-gray-600 hover:bg-gray-100"
+      >
+        <span className="relative flex items-center">{icon}</span>
+        {label}
+      </Button>
+    </a>
   );
 }
 
