@@ -61,12 +61,12 @@ export default function EditProfile({
   return (
     <div className="size-full bg-white overflow-auto text-gray-900 selection:bg-blue-100">
       <div className="w-full bg-white text-gray-900 min-h-screen border-l border-gray-100 pb-20">
-        
+
         {/* ヘッダー */}
         <div className="sticky top-0 bg-white/80 backdrop-blur-md border-b border-gray-100 px-4 py-3 flex items-center justify-between z-10">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={onClose} 
+            <button
+              onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition"
               disabled={isSaving}
               type="button"
@@ -85,8 +85,8 @@ export default function EditProfile({
         </div>
 
         {/* アバター用の隠しインプット */}
-        <input 
-          type="file" 
+        <input
+          type="file"
           ref={fileInputRef}
           onChange={handleImageChange}
           accept="image/*"
@@ -101,9 +101,9 @@ export default function EditProfile({
             <div onClick={handleAvatarClick} className="relative group cursor-pointer">
               <Avatar
                 src={previewUrl}
-                sx={{ 
-                  width: { xs: 96, sm: 136 }, 
-                  height: { xs: 96, sm: 136 }, 
+                sx={{
+                  width: { xs: 96, sm: 136 },
+                  height: { xs: 96, sm: 136 },
                   border: '4px solid white',
                   backgroundColor: '#e5e7eb'
                 }}
