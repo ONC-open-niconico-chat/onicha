@@ -274,7 +274,6 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
               <ReportButton
                 targetType="txt_post"
                 targetId={txtpost.id}
-                reportedUserId={String(txtpost.user.id)}
                 className="ml-auto"
               />
             )}

@@ -789,3 +789,68 @@ grant execute on function public.create_textbook(text, integer)      to authenti
 grant execute on function public.confirm_textbook(bigint)            to authenticated;
 grant execute on function public.mark_transaction_read(bigint)       to authenticated;
 grant execute on function public.mark_official_messages_read(uuid)   to authenticated;
+
+
+-- ------------------------------------------------------------
+-- 11) 通報の作成（ログインユーザー）
+--    - reporter_id は auth.uid() を強制（なりすまし防止）
+--    - 対象の内容を通報時点でサーバー側から取得し、report にスナップショット保存
+--      （元投稿が後で削除/編集されても運営が確認できる＝改ざん不可の証拠）
+--    - 被通報者(reporterd_user_id)もサーバーが対象から特定
+--    戻り値：作成した report.id
+-- ------------------------------------------------------------
+create or replace function public.create_report(
+  p_target_type   text,
+  p_target_id     text,
+  p_reason_type   text,
+  p_reason_detail text default null
+)
+returns bigint
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_me      uuid := auth.uid();
+  v_owner   uuid;
+  v_content text;
+  v_image   text;
+  v_id      bigint;
+begin
+  if v_me is null then
+    raise exception 'not authenticated';
+  end if;
+
+  if p_target_type = 'post' then
+    select user_id, content, image_url into v_owner, v_content, v_image
+      from post where id = p_target_id::bigint;
+  elsif p_target_type = 'txt_post' then
+    select user_id, description, image_urls into v_owner, v_content, v_image
+      from txt_post where id = p_target_id::bigint;
+  elsif p_target_type = 'txt_post_reply' then
+    select user_id, content, img_url into v_owner, v_content, v_image
+      from txt_post_reply where id = p_target_id::bigint;
+  elsif p_target_type = 'user' then
+    select id, username, null::text into v_owner, v_content, v_image
+      from "user" where id = p_target_id::uuid;
+  else
+    raise exception 'invalid target_type';
+  end if;
+
+  if v_owner is null then
+    raise exception 'target not found';
+  end if;
+
+  insert into report
+    (reporter_id, reporterd_user_id, target_type, target_id, reason_type,
+     reason_detail, status, snapshot_content, snapshot_image)
+  values
+    (v_me, v_owner, p_target_type, p_target_id, p_reason_type,
+     nullif(btrim(coalesce(p_reason_detail,'')), ''), 'pending', v_content, v_image)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.create_report(text, text, text, text) to authenticated;

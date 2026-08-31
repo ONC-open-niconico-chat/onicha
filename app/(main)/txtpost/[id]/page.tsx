@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
 import { PostCard } from "@/app/(main)/txtpost/txtPostCard";
+import { ReportButton } from "@/components/ReportButton";
 import type { Post } from "@/app/(main)/txtpost/page";
 import { ChevronLeft, Loader2, Send, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -217,7 +218,7 @@ export default function TxtPostDetailPage() {
                   <span className="text-gray-400 text-xs">
                     {formatDistanceToNow(new Date(r.created_at), { addSuffix: true, locale: ja })}
                   </span>
-                  {r.user_id === myId && (
+                  {r.user_id === myId ? (
                     <button
                       onClick={() => handleDelete(r.id)}
                       className="ml-auto text-gray-300 hover:text-red-500 transition-colors"
@@ -225,6 +226,14 @@ export default function TxtPostDetailPage() {
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
+                  ) : (
+                    myId && (
+                      <ReportButton
+                        targetType="txt_post_reply"
+                        targetId={r.id}
+                        className="ml-auto"
+                      />
+                    )
                   )}
                 </div>
                 <p className="text-[15px] whitespace-pre-wrap break-words mt-0.5">{r.content}</p>

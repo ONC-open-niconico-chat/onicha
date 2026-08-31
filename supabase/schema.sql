@@ -157,6 +157,8 @@ create table public.report (
   reason_type       text not null,
   reason_detail     text,
   status            text not null,   -- 'pending' | 'resolved' | 'dismissed'
+  snapshot_content  text,            -- 通報時点の内容（本文/説明/ユーザー名）
+  snapshot_image    text,            -- 通報時点の画像URL（txt_post は JSON配列文字列）
   created_at        timestamptz not null default now()
 );
 

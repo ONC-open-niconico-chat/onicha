@@ -509,7 +509,6 @@ export default function HomePage() {
               <ReportButton
                 targetType="post"
                 targetId={post.id}
-                reportedUserId={post.user_id}
                 className="ml-auto"
               />
             )}

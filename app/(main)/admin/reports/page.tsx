@@ -16,6 +16,8 @@ interface Report {
   reason_detail: string | null;
   status: string;
   created_at: string;
+  snapshot_content: string | null; // 通報時点の内容（本文/説明/ユーザー名）
+  snapshot_image: string | null;   // 通報時点の画像URL（txt_post は JSON配列文字列のことがある）
 }
 
 interface UserLite {
@@ -39,6 +41,8 @@ const targetInfo = (type: string, id: string): { label: string; href: string | n
       return { label: "教科書投稿", href: `/txtpost/${id}` };
     case "post":
       return { label: "投稿", href: `/post/${id}` };
+    case "txt_post_reply":
+      return { label: "教科書投稿への返信", href: null };
     case "user":
       return { label: "ユーザー", href: `/profile/${id}` };
     case "message":
@@ -46,6 +50,20 @@ const targetInfo = (type: string, id: string): { label: string; href: string | n
     default:
       return { label: type, href: null };
   }
+};
+
+// スナップショット画像（単一URL / JSON配列文字列 / 空）を URL 配列に正規化
+const snapshotImages = (value: string | null): string[] => {
+  if (!value) return [];
+  const str = value.trim();
+  if (!str || str === "{}" || str === "[]") return [];
+  try {
+    const parsed = JSON.parse(str);
+    if (Array.isArray(parsed)) return parsed.filter((s) => typeof s === "string" && s.trim() !== "");
+  } catch {
+    /* JSON でなければ単一URL扱い */
+  }
+  return [str];
 };
 
 export default function AdminReportsPage() {
@@ -184,6 +202,24 @@ export default function AdminReportsPage() {
                   {r.reason_detail && (
                     <div className="mt-1 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 whitespace-pre-wrap text-gray-700">
                       {r.reason_detail}
+                    </div>
+                  )}
+
+                  {/* 通報時点の内容スナップショット（元投稿が削除/編集されても確認できる） */}
+                  {(r.snapshot_content || snapshotImages(r.snapshot_image).length > 0) && (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-xs font-bold text-amber-700 mb-1">通報時点の内容（スナップショット）</p>
+                      {r.snapshot_content && (
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{r.snapshot_content}</p>
+                      )}
+                      {snapshotImages(r.snapshot_image).length > 0 && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                          {snapshotImages(r.snapshot_image).map((url, i) => (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img key={i} src={url} alt="" className="w-24 h-24 object-cover rounded border border-amber-200" />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
