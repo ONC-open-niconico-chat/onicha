@@ -13,6 +13,7 @@ export default function ForgotPassword() {
   const handleSubmit = async (formData: FormData) => {
     setLoading(true);
     setErrorMsg(null);
+    supabase.auth.signOut(); 
 
     const email = formData.get('email') as string;
     const fullEmail = `${email}@${allowedDomain}`;
