@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar } from '@mui/material';
 import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
-import EditProfile from '../../editprofile/page';
+import EditProfile from '@/components/EditProfile';
 import { ReportButton } from '@/components/ReportButton';
 
 interface UserProfile {

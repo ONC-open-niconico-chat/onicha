@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { PostCard } from "@/app/(main)/txtpost/txtPostCard";
 import { supabase } from "@/lib/supabase";
@@ -38,7 +38,7 @@ export interface Post {
 }
 
 
-export default function TxtPostPage() {
+function TxtPostContent() {
   const searchParams = useSearchParams();
   const textbookId = searchParams.get("textbook_id");
     
@@ -524,5 +524,14 @@ export default function TxtPostPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams() は Suspense 境界の内側で使う必要があるため、ラップする
+export default function TxtPostPage() {
+  return (
+    <Suspense fallback={null}>
+      <TxtPostContent />
+    </Suspense>
   );
 }
