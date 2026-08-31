@@ -62,6 +62,7 @@ export default function ResetPassword() {
 
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
+    if (!error) await supabase.auth.signOut(); 
     setLoading(false);
 
     if (error) {
