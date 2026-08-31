@@ -51,8 +51,8 @@ export default function ResetPassword() {
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    if (password.length < 6) {
-      setErrorMsg('パスワードは6文字以上で入力してください。');
+    if (password.length < 8) {
+      setErrorMsg('パスワードは8文字以上で入力してください。');
       return;
     }
     if (password !== confirmPassword) {
