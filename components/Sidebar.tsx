@@ -175,7 +175,7 @@ export function Sidebar() {
       <div className="hidden md:flex w-72 border-r border-gray-200 p-6 flex-col gap-8 h-screen bg-white shrink-0">
         <div className="flex items-center gap-2 px-2">
           <div className="p-2 rounded-xl text-white">
-            <img className="w-13 h-13" src="/onicha_icon/onicha_icon.jpg" alt="Icon" />
+            <img className="w-13 h-13" src="/onicha_icon/onicha_icon.JPG" alt="Icon" />
           </div>
           <h1 className="text-2xl font-bold text-gray-900">オニチャ</h1>
         </div>
