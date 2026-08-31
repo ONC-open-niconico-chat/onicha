@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@mui/material";
 import { Heart, MessageCircle, ArrowLeft, Trash2 } from "lucide-react";
+import { ReportButton } from "@/components/ReportButton";
 
 interface PostUser {
   username: string;
@@ -258,6 +259,13 @@ export default function PostDetailPage({ params }: Props) {
               >
                 <Trash2 className="w-5 h-5" />
               </button>
+            )}
+            {myId && !isMine && (
+              <ReportButton
+                targetType="post"
+                targetId={post.id}
+                className="ml-auto"
+              />
             )}
           </div>
 

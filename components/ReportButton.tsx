@@ -13,17 +13,16 @@ const REASONS = [
   { value: "other", label: "その他" },
 ];
 
-// 投稿・ユーザー・メッセージを運営に報告するボタン＋モーダル。
-// 既存の report テーブル（RLS: 本人名義の insert のみ許可 / 閲覧は運営のみ）に直接 insert する。
+// 投稿・ユーザーを運営に報告するボタン＋モーダル。
+// create_report RPC 経由で通報する（サーバー側で reporter/被通報者を確定し、
+// 通報時点の内容スナップショットを report に保存＝改ざん不可）。
 export function ReportButton({
   targetType,
   targetId,
-  reportedUserId,
   className,
 }: {
-  targetType: "txt_post" | "post" | "user" | "message";
+  targetType: "txt_post" | "txt_post_reply" | "post" | "user" | "message";
   targetId: string | number;
-  reportedUserId: string;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -42,23 +41,12 @@ export function ReportButton({
   const submit = async () => {
     if (!reason) return;
     setSubmitting(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      setSubmitting(false);
-      alert("ログインが必要です。再ログインしてください。");
-      return;
-    }
-    // reporter_id は RLS の check（auth.uid() = reporter_id）に合わせて自分の uid を入れる
-    const { error } = await supabase.from("report").insert({
-      reporter_id: user.id,
-      reporterd_user_id: reportedUserId,
-      target_type: targetType,
-      target_id: String(targetId),
-      reason_type: reason,
-      reason_detail: detail.trim() || null,
-      status: "pending",
+    // reporter_id・被通報者・内容スナップショットはすべてサーバー（RPC）が確定する
+    const { error } = await supabase.rpc("create_report", {
+      p_target_type: targetType,
+      p_target_id: String(targetId),
+      p_reason_type: reason,
+      p_reason_detail: detail.trim() || null,
     });
     setSubmitting(false);
     if (error) {

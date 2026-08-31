@@ -7,6 +7,7 @@ import { Avatar } from '@mui/material';
 import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '../../editprofile/page';
+import { ReportButton } from '@/components/ReportButton';
 
 interface UserProfile {
   id: string;
@@ -720,24 +721,33 @@ export default function App({ params }: Props) {
               </button>
             </>
           ) : (
-            <button
-              onClick={handleFollowToggle}
-              disabled={isFollowPending}
-              className={`h-9 px-5 rounded-full text-sm font-bold transition-all border duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
-                isFollowing
-                  ? 'bg-white text-gray-900 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group'
-                  : 'bg-gray-900 text-white border-transparent hover:bg-gray-800'
-              }`}
-            >
-              {isFollowing ? (
-                <>
-                  <span className="group-hover:hidden">フォロー中</span>
-                  <span className="hidden group-hover:inline">フォロー解除</span>
-                </>
-              ) : (
-                'フォローする'
+            <>
+              <button
+                onClick={handleFollowToggle}
+                disabled={isFollowPending}
+                className={`h-9 px-5 rounded-full text-sm font-bold transition-all border duration-200 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  isFollowing
+                    ? 'bg-white text-gray-900 border-gray-300 hover:bg-red-50 hover:text-red-600 hover:border-red-200 group'
+                    : 'bg-gray-900 text-white border-transparent hover:bg-gray-800'
+                }`}
+              >
+                {isFollowing ? (
+                  <>
+                    <span className="group-hover:hidden">フォロー中</span>
+                    <span className="hidden group-hover:inline">フォロー解除</span>
+                  </>
+                ) : (
+                  'フォローする'
+                )}
+              </button>
+              {myId && (
+                <ReportButton
+                  targetType="user"
+                  targetId={userId}
+                  className="h-9 px-3 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center"
+                />
               )}
-            </button>
+            </>
           )}
         </div>
 

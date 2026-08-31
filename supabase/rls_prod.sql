@@ -137,10 +137,9 @@ create policy "manage own follows" on public.follows for all to authenticated
   using (auth.uid() = follower_id) with check (auth.uid() = follower_id);
 
 
--- ---------- report：本人が通報 insert、閲覧/更新は運営 ----------
+-- ---------- report：通報は create_report RPC 経由のみ（直接 insert 不可）、閲覧/更新は運営 ----------
+-- 直接 insert ポリシーは置かない（RPC が reporter/被通報者/スナップショットを確定するため）。
 drop policy if exists "user can insert own report" on public.report;
-create policy "user can insert own report" on public.report for insert to authenticated
-  with check (auth.uid() = reporter_id);
 drop policy if exists "staff can select reports" on public.report;
 create policy "staff can select reports" on public.report for select to authenticated
   using (exists (select 1 from staff_members s where s.user_id = auth.uid()));
@@ -176,3 +175,4 @@ grant execute on function public.set_textbook_price(bigint, integer)    to authe
 grant execute on function public.create_textbook(text, integer)         to authenticated;
 grant execute on function public.confirm_textbook(bigint)               to authenticated;
 grant execute on function public.mark_official_messages_read(uuid)      to authenticated;
+grant execute on function public.create_report(text, text, text, text)  to authenticated;
