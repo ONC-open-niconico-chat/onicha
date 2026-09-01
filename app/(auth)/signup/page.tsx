@@ -130,7 +130,7 @@ export default function Signup() {
 
               <div>
                 <label htmlFor="grade" className="block text-sm font-medium text-gray-700 mb-2">
-                  学年
+                  学年 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -139,7 +139,6 @@ export default function Signup() {
                   <select
                     name="grade"
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition appearance-none bg-white"
-                    required
                   >
                     <option value="">選択してください</option>
                     <option value="1">1年生</option>
@@ -180,7 +179,7 @@ export default function Signup() {
               {/* 学部セレクト */}
               <div>
                 <label htmlFor="faculty" className="block text-sm font-medium text-gray-700 mb-2">
-                  学部
+                  学部 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -192,7 +191,6 @@ export default function Signup() {
                     onChange={(e) => setSelectedFaculty(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     
-                    required
                   >
                     <option value="">学部を選択してください</option>
                     {faculties.map((f) => (
@@ -207,7 +205,7 @@ export default function Signup() {
               {/* 学科セレクト（学部が選ばれるまで無効化） */}
               <div>
                 <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
-                  学科
+                  学科 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -217,7 +215,6 @@ export default function Signup() {
                     name='department_id'
                     disabled={!selectedFaculty}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    required
                   >
                     <option value="">学科を選択してください</option>
                     {filteredDepartments.map((d)=> (
