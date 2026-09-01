@@ -10,18 +10,13 @@ export default function ResetPassword() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
-  // 無効時に原因を表示するためのデバッグ情報
-  const [debug, setDebug] = useState<string | null>(null);
 
   // メールのリンクから来たときに、URL 内のトークンを明示的に処理して復旧セッションを張る。
   // token_hash（推奨）/ PKCE code / implicit ハッシュ / 既存セッション のすべてに対応。
   useEffect(() => {
     let cancelled = false;
-    const fail = (reason: string) => {
-      if (!cancelled) {
-        setDebug(reason);
-        setStatus('invalid');
-      }
+    const fail = () => {
+      if (!cancelled) setStatus('invalid');
     };
     const ok = () => {
       if (!cancelled) setStatus('ready');
@@ -33,8 +28,7 @@ export default function ResetPassword() {
 
       // 1) エラーが素通りしてきた場合（otp_expired / access_denied など）
       const errCode = q.get('error_code') || hash.get('error_code');
-      const errDesc = q.get('error_description') || hash.get('error_description');
-      if (errCode) return fail(`${errCode}: ${(errDesc || '').replace(/\+/g, ' ')}`);
+      if (errCode) return fail();
 
       // 2) すでにセッションがある場合はそのまま
       const { data: sess } = await supabase.auth.getSession();
@@ -45,14 +39,14 @@ export default function ResetPassword() {
       if (token_hash) {
         const type = (q.get('type') || 'recovery') as 'recovery';
         const { error } = await supabase.auth.verifyOtp({ type, token_hash });
-        return error ? fail(`verifyOtp: ${error.message}`) : ok();
+        return error ? fail() : ok();
       }
 
       // 4) PKCE code 方式（?code=...）
       const code = q.get('code');
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
-        return error ? fail(`exchangeCodeForSession: ${error.message}`) : ok();
+        return error ? fail() : ok();
       }
 
       // 5) implicit 方式（#access_token=...&refresh_token=...）
@@ -60,11 +54,11 @@ export default function ResetPassword() {
       const refresh_token = hash.get('refresh_token');
       if (access_token && refresh_token) {
         const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-        return error ? fail(`setSession: ${error.message}`) : ok();
+        return error ? fail() : ok();
       }
 
       // 6) トークンが見当たらない
-      fail('URL に認証トークンが見つかりません（token_hash / code / access_token いずれも無し）');
+      fail();
     };
 
     run();
@@ -116,9 +110,6 @@ export default function ResetPassword() {
               <div className="p-4 bg-red-50 text-red-500 text-sm rounded-lg border border-red-100">
                 リンクが無効か、有効期限が切れています。お手数ですが再度お試しください。
               </div>
-              {debug && (
-                <p className="text-xs text-gray-400 text-center break-all">詳細: {debug}</p>
-              )}
               <a
                 href="/forgot-password"
                 className="block text-center w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
