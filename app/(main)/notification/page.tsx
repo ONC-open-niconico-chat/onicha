@@ -344,7 +344,7 @@ const handleDeleteAll = async () => {
                         </>
                       ) : notif.notification_type === "welcome" ? (
                         <>
-                          新規登録ありがとうございます！オニチャへようこそ🎉
+                          新規登録ありがとうございます！ユジリンクへようこそ🎉
                         </>
                       ) : notif.notification_type === "txt_post_reply" ? (
                         <>
