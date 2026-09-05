@@ -1,11 +1,13 @@
 // app/layout.tsx
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import { AuthProvider } from "@/components/loginUser";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// ロゴ（YujiLink）用のフォント
+const poppins = Poppins({ variable: "--font-logo", subsets: ["latin"], weight: ["600", "700"] });
 
 export const metadata: Metadata = {
   title: "ユジリンク",
@@ -16,7 +18,7 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ja" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    <html lang="ja" className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} h-full antialiased`}>
       <body className="h-full">
         <AuthProvider>
           {children}
