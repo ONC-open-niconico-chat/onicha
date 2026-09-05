@@ -178,10 +178,10 @@ export function Sidebar() {
             <img className="w-13 h-13" src="/onicha_icon/onicha_icon.JPG" alt="Icon" />
           </div>
           <h1
-            className="text-2xl font-bold tracking-tight text-gray-900"
+            className="inline-block text-2xl font-bold tracking-tight bg-linear-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent"
             style={{ fontFamily: "var(--font-logo), sans-serif" }}
           >
-            Yuji<span className="text-blue-600">Link</span>
+            YujiLink
           </h1>
         </div>
 
