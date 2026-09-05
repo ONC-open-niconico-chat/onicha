@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { Avatar } from "@mui/material";
 import {
@@ -487,7 +488,13 @@ export default function HomePage() {
         <Avatar src={u?.icon_src} sx={{ width: 40, height: 40 }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
-            <span className="font-bold hover:underline">{u?.username || "不明なユーザー"}</span>
+            <Link
+              href={`/profile/${post.user_id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="font-bold hover:underline"
+            >
+              {u?.username || "不明なユーザー"}
+            </Link>
             {u?.grade != null && (
               <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-semibold">
                 {u.grade}年生
