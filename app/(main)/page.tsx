@@ -281,8 +281,12 @@ export default function HomePage() {
       let query = q.or("parent_id.is.null,content.ilike.[QUOTE]*");
       if (!myInfo) return query;
       if (schoolFilter === "grade") {
+        // 学年未設定（null）なら bigint に "null" を渡さず、該当なしにする
+        if (myInfo.grade == null) return query.eq("id", -1);
         query = query.eq("user.grade", myInfo.grade);
       } else if (schoolFilter === "dept") {
+        // 学科未設定（null）なら同様に該当なし
+        if (myInfo.department_id == null) return query.eq("id", -1);
         query = query.eq("user.department_id", myInfo.department_id);
       } else {
         const ids = facultyDeptIds ?? [];
