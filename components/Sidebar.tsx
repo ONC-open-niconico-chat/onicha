@@ -177,7 +177,7 @@ export function Sidebar() {
           <div className="p-2 rounded-xl text-white">
             <img className="w-13 h-13" src="/onicha_icon/onicha_icon.JPG" alt="Icon" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">オニチャ</h1>
+          <h1 className="text-2xl font-bold text-gray-900">ユジリンク</h1>
         </div>
 
         <nav className="flex flex-col gap-2">
