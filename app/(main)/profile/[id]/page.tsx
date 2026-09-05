@@ -757,17 +757,25 @@ export default function App({ params }: Props) {
             <h1 className="text-xl font-extrabold tracking-tight leading-tight">
               {displayProfile.username}
             </h1>
-            <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
-              <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                {displayProfile.grade}年生
-              </span>
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {displayProfile.facultyName}
-              </span>
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {displayProfile.departmentName}
-              </span>
-            </div>
+            {(profile?.grade || facul?.name || dept?.name) && (
+              <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
+                {profile?.grade ? (
+                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                    {profile.grade}年生
+                  </span>
+                ) : null}
+                {facul?.name ? (
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    {facul.name}
+                  </span>
+                ) : null}
+                {dept?.name ? (
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    {dept.name}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <p className="text-[15px] leading-relaxed mb-3 whitespace-pre-wrap text-gray-600">
