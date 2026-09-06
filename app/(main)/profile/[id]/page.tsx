@@ -571,7 +571,7 @@ export default function App({ params }: Props) {
     department_id: profile?.department_id || '-',
     departmentName: dept?.name || '未設定',
     facultyName: facul?.name || '未設定',
-    icon_src: profile?.icon_src || '/onicha_icon/onicha_icon.JPG',
+    icon_src: profile?.icon_src || '/yujilink_icon/yujilink_icon.JPG',
     bio: profile?.bio || 'プロフィールは未設定です。'
   };
 

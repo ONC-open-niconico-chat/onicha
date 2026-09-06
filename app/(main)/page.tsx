@@ -485,7 +485,7 @@ export default function HomePage() {
         onClick={() => router.push(`/post/${post.id}`)}
         className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3 border-b border-gray-100"
       >
-        <Avatar src={u?.icon_src} sx={{ width: 40, height: 40 }} />
+        <Avatar src={u?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} sx={{ width: 40, height: 40 }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
             <Link
