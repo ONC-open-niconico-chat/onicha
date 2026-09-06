@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '@/components/EditProfile';
 import { ReportButton } from '@/components/ReportButton';
@@ -795,16 +795,6 @@ export default function App({ params }: Props) {
                 <span className="font-bold text-gray-950">{followerCount}</span> フォロワー
               </span>
             </div>
-
-            {!isMe && (
-              <button
-                onClick={() => router.push(`/messages/${userId}`)}
-                className="h-7 px-3 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm shrink-0 flex items-center gap-1.5 ml-1"
-              >
-                <Mail size={13} />
-                メッセージ
-              </button>
-            )}
           </div>
         </div>
         {/* タブ・タイムライン */}
