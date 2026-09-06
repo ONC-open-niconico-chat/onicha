@@ -339,8 +339,9 @@ export default function App({ params }: Props) {
 
   const handleSaveProfile = async (
     newUsername: string,
-    newGrade: number,
+    newGrade: number | null,
     newBio: string,
+    newDepartmentId: number | null,
     imageFile: File | null
   ) => {
     if (!profile) return;
@@ -378,6 +379,7 @@ export default function App({ params }: Props) {
           username: newUsername,
           grade: newGrade,
           bio: newBio,
+          department_id: newDepartmentId,
           icon_src: uploadedIconUrl,
         })
         .eq('id', profile.id);
@@ -656,6 +658,7 @@ export default function App({ params }: Props) {
       <EditProfile
         initialUsername={profile.username}
         initialGrade={profile.grade}
+        initialDepartmentId={profile.department_id}
         iconSrc={displayProfile.icon_src}
         initialBio={displayProfile.bio}
         onClose={() => setIsEditing(false)}

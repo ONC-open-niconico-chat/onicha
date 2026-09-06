@@ -1,30 +1,72 @@
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Avatar } from '@mui/material';
 import { X, Camera } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface EditProfileProps {
   initialUsername: string;
-  initialGrade: number;
+  initialGrade: number | null;
+  initialDepartmentId: number | null;
   iconSrc: string;
   initialBio: string;
   onClose: () => void;
-  onSave: (username: string, grade: number, bio: string, imageFile: File | null) => Promise<void>;
+  onSave: (
+    username: string,
+    grade: number | null,
+    bio: string,
+    departmentId: number | null,
+    imageFile: File | null
+  ) => Promise<void>;
 }
+
+type Faculty = { id: number; name: string };
+type Department = { id: number; name: string; faculty_id: number };
 
 export default function EditProfile({
   initialUsername,
   initialGrade,
+  initialDepartmentId,
   iconSrc,
   initialBio,
   onClose,
   onSave
 }: EditProfileProps) {
   const [username, setUsername] = useState(initialUsername);
-  const [grade, setGrade] = useState(initialGrade);
+  const [grade, setGrade] = useState<number | null>(initialGrade ?? null);
   const [bio, setBio] = useState(initialBio || "");
   const [isSaving, setIsSaving] = useState(false);
+
+  // 学部・学科（連動プルダウン）
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [facultyId, setFacultyId] = useState<number | null>(null);
+  const [departmentId, setDepartmentId] = useState<number | null>(initialDepartmentId ?? null);
+
+  // 学部・学科マスタを取得し、初期学科から所属学部を割り出す
+  useEffect(() => {
+    (async () => {
+      const [{ data: fac }, { data: dep }] = await Promise.all([
+        supabase.from('faculty').select('id, name').order('id'),
+        supabase.from('department').select('id, name, faculty_id').order('id'),
+      ]);
+      setFaculties((fac as Faculty[]) ?? []);
+      setDepartments((dep as Department[]) ?? []);
+      if (initialDepartmentId != null) {
+        const d = ((dep as Department[]) ?? []).find((x) => x.id === initialDepartmentId);
+        if (d) setFacultyId(d.faculty_id);
+      }
+    })();
+  }, [initialDepartmentId]);
+
+  // 学部を変えたら、選択中の学科がその学部に属さなければクリア
+  const handleFacultyChange = (v: number | null) => {
+    setFacultyId(v);
+    if (v == null) { setDepartmentId(null); return; }
+    const d = departments.find((x) => x.id === departmentId);
+    if (!d || d.faculty_id !== v) setDepartmentId(null);
+  };
 
   // アバター画像用
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -50,7 +92,7 @@ export default function EditProfile({
 
     try {
       setIsSaving(true);
-      await onSave(username, grade, bio, imageFile);
+      await onSave(username, grade, bio, departmentId, imageFile);
     } catch (error) {
       console.error(error);
     } finally {
@@ -135,13 +177,45 @@ export default function EditProfile({
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">学年</label>
             <select
-              value={grade}
-              onChange={(e) => setGrade(Number(e.target.value))}
+              value={grade ?? ""}
+              onChange={(e) => setGrade(e.target.value ? Number(e.target.value) : null)}
               className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-[15px] bg-white transition"
             >
+              <option value="">未設定</option>
               {[1, 2, 3, 4].map((g) => (
                 <option key={g} value={g}>{g}年生</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">学部</label>
+            <select
+              value={facultyId ?? ""}
+              onChange={(e) => handleFacultyChange(e.target.value ? Number(e.target.value) : null)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-[15px] bg-white transition"
+            >
+              <option value="">未設定</option>
+              {faculties.map((f) => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">学科</label>
+            <select
+              value={departmentId ?? ""}
+              onChange={(e) => setDepartmentId(e.target.value ? Number(e.target.value) : null)}
+              disabled={facultyId == null}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500 text-[15px] bg-white transition disabled:bg-gray-50 disabled:text-gray-400"
+            >
+              <option value="">{facultyId == null ? "先に学部を選択" : "未設定"}</option>
+              {departments
+                .filter((d) => d.faculty_id === facultyId)
+                .map((d) => (
+                  <option key={d.id} value={d.id}>{d.name}</option>
+                ))}
             </select>
           </div>
 
