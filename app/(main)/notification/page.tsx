@@ -298,7 +298,7 @@ const handleDeleteAll = async () => {
         <div className="space-y-4">
           {notifications.map((notif:any) => {
             const senderName = notif.sender_profile?.username || "名無しユーザー";
-            const senderIcon = notif.sender_profile?.icon_src || "/onicha_icon/onicha_icon.JPG";
+            const senderIcon = notif.sender_profile?.icon_src || "/yujilink_icon/yujilink_icon.JPG";
             // 送信者名（運営なら認証マーク付き）
             const senderNameEl = (
               <span className="font-bold text-indigo-600 inline-flex items-center gap-0.5">
