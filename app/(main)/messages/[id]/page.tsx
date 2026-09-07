@@ -233,6 +233,26 @@ export default function ChatPage() {
       return;
     }
 
+    // 楽観的更新：Realtime を待たずに送信直後から自分の画面へ反映する。
+    // Realtime が後から届いても id で重複を防ぐ。
+    if (inserted?.id) {
+      const optimistic: ChatMessage = {
+        id: inserted.id,
+        sender_id: myId,
+        receiver_id: receiverId,
+        content: messageContent,
+        created_at: new Date().toISOString(),
+        reply_to_id: replyToId,
+        reply_content: replyContent,
+      };
+      setMessages((prev) =>
+        prev.some((m) => m.id === optimistic.id) ? prev : [...prev, optimistic]
+      );
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+    }
+
     await createNotification({
       receiverId,
       senderId: myId,
