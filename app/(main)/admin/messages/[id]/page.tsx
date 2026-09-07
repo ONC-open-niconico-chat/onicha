@@ -63,7 +63,7 @@ export default function AdminChatPage() {
 
       const { data: chatData } = await supabase
         .from("chat")
-        .select("id, sender_id, receiver_id, content, created_at, image_url")
+        .select("id, sender_id, receiver_id, content, created_at")
         .or(
           `and(sender_id.eq.${oid},receiver_id.eq.${userId}),and(sender_id.eq.${userId},receiver_id.eq.${oid})`
         )
