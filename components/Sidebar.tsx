@@ -111,18 +111,17 @@ export function Sidebar() {
         .subscribe();
 
       // 自分の user 行の更新（ポイント変動）をリアルタイムに反映
+      // サーバー側フィルタで「自分の行だけ」受信する（全ユーザー分の配信を避ける）
       const userChannel = supabase
         .channel("sidebar-user-points")
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "user" },
+          { event: "UPDATE", schema: "public", table: "user", filter: `id=eq.${myId}` },
           (payload) => {
             const row = payload.new as { id?: string; points?: number; reserved_points?: number; total_earned_points?: number };
-            if (row?.id === myId) {
-              setPoints(row.points ?? 0);
-              setReserved(row.reserved_points ?? 0);
-              setTotalEarned(row.total_earned_points ?? 0);
-            }
+            setPoints(row.points ?? 0);
+            setReserved(row.reserved_points ?? 0);
+            setTotalEarned(row.total_earned_points ?? 0);
           }
         )
         .subscribe();
