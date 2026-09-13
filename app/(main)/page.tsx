@@ -119,10 +119,18 @@ async function attachExtraStates(rawPosts: any[], uid: string | null): Promise<P
   });
 }
 
-// 無限スクロール付きの投稿リストを管理するフック。
-// applyFilters でタブ固有の絞り込みを渡し、created_at 降順で .range() 分割取得する。
-function useInfinitePosts(params: {
-  applyFilters: (q: any) => any; // useCallback で安定させて渡すこと（依存が変わると先頭から取り直す）
+// メイン領域（overflow-y-auto の main）を先頭へスクロールする
+function scrollFeedTop() {
+  if (typeof document !== "undefined") {
+    document.querySelector("main")?.scrollTo({ top: 0 });
+    window.scrollTo({ top: 0 });
+  }
+}
+
+// 20件ごとのページ送りで投稿リストを管理するフック。
+// applyFilters でタブ固有の絞り込みを渡し、created_at 降順で .range() でページ取得する。
+function usePagedFeed(params: {
+  applyFilters: (q: any) => any; // useCallback で安定させて渡すこと（依存が変わると1ページ目に戻る）
   uid: string | null;
   enabled?: boolean;
   onError?: (message: string) => void;
@@ -130,37 +138,19 @@ function useInfinitePosts(params: {
   const { applyFilters, uid, enabled = true, onError } = params;
 
   const [posts, setPosts] = useState<PostRow[]>([]);
-  const [isLoading, setIsLoading] = useState(true); // 初回 / リセット読み込み
-  const [isLoadingMore, setIsLoadingMore] = useState(false); // 追加読み込み中
-  const [hasMore, setHasMore] = useState(true);
-
-  // 非同期処理中に最新値を参照するための ref 群
-  const offsetRef = useRef(0);
+  const [page, setPage] = useState(0); // 0起点
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasNext, setHasNext] = useState(false);
   const loadingRef = useRef(false);
-  const seenRef = useRef<Set<number>>(new Set());
-  const hasMoreRef = useRef(true);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // reset=true で先頭から取り直し、false で続きを追加読み込み
-  const loadPage = useCallback(
-    async (reset: boolean) => {
-      if (!enabled) return;
+  const goToPage = useCallback(
+    async (p: number) => {
+      if (!enabled || p < 0) return;
       if (loadingRef.current) return;
-      if (!reset && !hasMoreRef.current) return;
       loadingRef.current = true;
-
-      if (reset) {
-        setIsLoading(true);
-        offsetRef.current = 0;
-        seenRef.current = new Set();
-        hasMoreRef.current = true;
-        setHasMore(true);
-      } else {
-        setIsLoadingMore(true);
-      }
-
+      setIsLoading(true);
       try {
-        const from = offsetRef.current;
+        const from = p * PAGE_SIZE;
         let query = supabase
           .from("post")
           .select(POST_SELECT)
@@ -174,49 +164,43 @@ function useInfinitePosts(params: {
 
         const rows = data ?? [];
         const enriched = await attachExtraStates(rows, uid);
-        // 重複ガード（並行 insert 等で同じ行が来ても二重表示しない）
-        const fresh = enriched.filter((p) => !seenRef.current.has(p.id));
-        fresh.forEach((p) => seenRef.current.add(p.id));
-
-        setPosts((prev) => (reset ? fresh : [...prev, ...fresh]));
-        offsetRef.current = from + rows.length;
-        const more = rows.length === PAGE_SIZE;
-        hasMoreRef.current = more;
-        setHasMore(more);
+        setPosts(enriched);
+        setPage(p);
+        setHasNext(rows.length === PAGE_SIZE); // 20件ちょうどなら次ページがある可能性
       } catch (e) {
         onError?.("通信に失敗しました");
       } finally {
         loadingRef.current = false;
         setIsLoading(false);
-        setIsLoadingMore(false);
       }
     },
     [applyFilters, uid, enabled, onError]
   );
 
-  // 絞り込み条件（applyFilters / uid / enabled）が変わったら先頭から取り直す
+  // 絞り込み条件（applyFilters / uid / enabled）が変わったら1ページ目から取り直す
   useEffect(() => {
-    loadPage(true);
-  }, [loadPage]);
+    goToPage(0);
+  }, [goToPage]);
 
-  // センチネルは初回ロード完了後に描画されるため、loading / hasMore を依存に含めて
-  // センチネル出現時に IntersectionObserver を張り直す
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadPage(false);
-      },
-      { rootMargin: "300px" }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [loadPage, isLoading, hasMore]);
+  // next/prev を安定させるため、最新 page を ref で参照
+  const pageRef = useRef(0);
+  pageRef.current = page;
 
-  const reload = useCallback(() => loadPage(true), [loadPage]);
+  const next = useCallback(() => goToPage(pageRef.current + 1), [goToPage]);
+  const prev = useCallback(() => goToPage(pageRef.current - 1), [goToPage]);
+  const reload = useCallback(() => goToPage(0), [goToPage]);
 
-  return { posts, setPosts, isLoading, isLoadingMore, hasMore, sentinelRef, reload };
+  return {
+    posts,
+    setPosts,
+    page,
+    isLoading,
+    hasNext,
+    hasPrev: page > 0,
+    next,
+    prev,
+    reload,
+  };
 }
 
 export default function HomePage() {
@@ -224,6 +208,8 @@ export default function HomePage() {
 
   const [isPostOpen, setIsPostOpen] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // 表示中のタブ（ホームボタンで "all" に戻すため制御化）
+  const [tab, setTab] = useState("all");
 
   const [myId, setMyId] = useState<string | null>(null);
   const [myIconSrc, setMyIconSrc] = useState<string | null>(null);
@@ -253,7 +239,7 @@ export default function HomePage() {
   // 「同学年/学科/学部」タブ：トップレベル or 旧引用リポスト、かつ投稿者の所属で絞り込む
   const applyFiltersSchool = useCallback(
     (q: any) => {
-      let query = q.or("parent_id.is.null,content.ilike.[QUOTE]*");
+      let query = q.is("parent_id", null);
       if (!myInfo) return query;
       if (schoolFilter === "grade") {
         // 学年未設定（null）なら bigint に "null" を渡さず、該当なしにする
@@ -282,19 +268,33 @@ export default function HomePage() {
     [followingIds]
   );
 
-  const allFeed = useInfinitePosts({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
-  const schoolFeed = useInfinitePosts({
+  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
+  const schoolFeed = usePagedFeed({
     applyFilters: applyFiltersSchool,
     uid: myId,
     enabled: !!myInfo,
     onError: showError,
   });
-  const followFeed = useInfinitePosts({
+  const followFeed = usePagedFeed({
     applyFilters: applyFiltersFollow,
     uid: myId,
     enabled: followingIds !== null,
     onError: showError,
   });
+
+  // サイドバーの「ホーム」を押したとき（既にホームにいる場合）：
+  // おすすめタブ・1ページ目・最新に戻し、先頭へスクロールする。
+  const allReloadRef = useRef(allFeed.reload);
+  allReloadRef.current = allFeed.reload;
+  useEffect(() => {
+    const onHomeRefresh = () => {
+      setTab("all");
+      allReloadRef.current();
+      scrollFeedTop();
+    };
+    window.addEventListener("home:refresh", onHomeRefresh);
+    return () => window.removeEventListener("home:refresh", onHomeRefresh);
+  }, []);
 
   const fetchMyInfo = useCallback(async () => {
     const {
@@ -589,22 +589,47 @@ export default function HomePage() {
     );
   };
 
-  // リスト + 無限スクロールのセンチネル描画
+  // リスト + ページ送り（次へ/前へ）描画
   const renderFeed = (
-    feed: ReturnType<typeof useInfinitePosts>,
+    feed: ReturnType<typeof usePagedFeed>,
     emptyMessage = "まだ投稿がありません"
   ) => {
-    if (feed.isLoading) return <div className="py-20 text-center text-sm text-gray-400 font-medium">読み込み中...</div>;
-    if (feed.posts.length === 0) return <div className="py-20 text-center text-sm text-gray-400">{emptyMessage}</div>;
+    // 初回ロードのみ全面スピナー。ページ移動中は前ページを残してボタンだけ無効化。
+    if (feed.isLoading && feed.posts.length === 0)
+      return <div className="py-20 text-center text-sm text-gray-400 font-medium">読み込み中...</div>;
+    if (!feed.isLoading && feed.posts.length === 0)
+      return <div className="py-20 text-center text-sm text-gray-400">{emptyMessage}</div>;
 
     return (
       <div>
         <div className="divide-y divide-gray-200">
           {feed.posts.map((post) => renderSingleCard(post, feed.setPosts, feed.posts))}
         </div>
-        {/* 無限スクロール用センチネル & 追加読み込み表示 */}
-        <div ref={feed.sentinelRef} className="py-6 text-center text-sm text-gray-400">
-          {feed.isLoadingMore ? "読み込み中..." : feed.hasMore ? "" : "すべて表示しました"}
+        {/* ページ送り（中央寄せ：○ページ目の両隣に前へ/次へ） */}
+        <div className="flex items-center justify-center gap-4 px-4 py-5 border-t border-gray-100">
+          <button
+            type="button"
+            disabled={!feed.hasPrev || feed.isLoading}
+            onClick={() => {
+              feed.prev();
+              scrollFeedTop();
+            }}
+            className="px-4 py-2 rounded-full text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            ← 前へ
+          </button>
+          <span className="text-sm text-gray-500">{feed.page + 1} ページ目</span>
+          <button
+            type="button"
+            disabled={!feed.hasNext || feed.isLoading}
+            onClick={() => {
+              feed.next();
+              scrollFeedTop();
+            }}
+            className="px-4 py-2 rounded-full text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            次へ →
+          </button>
         </div>
       </div>
     );
@@ -628,7 +653,7 @@ export default function HomePage() {
         <>
 
             <Header />
-            <Tabs defaultValue="all" className="w-full">
+            <Tabs value={tab} onValueChange={setTab} className="w-full">
               <HomeTabHeader
                 filterLabel={filterLabels[schoolFilter]}
                 isMenuOpen={isMenuOpen}
