@@ -3,16 +3,15 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, User, GraduationCap, BookOpen, School } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 export default function Signup() {
-
-  const router = useRouter();
 
   const [faculties, setFaculties] = useState<{id: number,name:string}[]>([]);
   const [allDepartments, setAllDepartments] = useState<{id: number, name: string, faculty_id: number}[]>([]);
   const [filteredDepartments,setFilteredDepartments] = useState<{id:number,name: string}[]>([]);
   const [selectedFaculty,setSelectedFaculty] = useState<string>('');
+  // 登録後：確認メール送信済み（ボタンを「メールをご確認ください」に変える）
+  const [emailSent, setEmailSent] = useState(false);
   const allowedDomain = 'cs.u-ryukyu.ac.jp';
   
   
@@ -89,8 +88,8 @@ export default function Signup() {
     if (error) {
       alert("エラーが発生しました：");
     } else {
-      alert("確認メールを送信しました。メールのリンクからログインしてください");
-      router.push('/login');
+      // ログイン画面へ遷移せず、ボタンを「メールをご確認ください」に変える
+      setEmailSent(true);
     }
 
     
@@ -283,11 +282,20 @@ export default function Signup() {
             <div className="col-span-2 mt-4">
               <button
                 type="submit"
-                className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
-                
+                disabled={emailSent}
+                className={`w-full py-3 rounded-lg font-medium transition shadow-lg ${
+                  emailSent
+                    ? "bg-green-600 text-white cursor-default"
+                    : "bg-linear-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+                }`}
               >
-                アカウントを作成
+                {emailSent ? "メールをご確認ください" : "アカウントを作成"}
               </button>
+              {emailSent && (
+                <p className="mt-3 text-center text-sm text-gray-600">
+                  確認メールを送信しました。メール内のリンクから認証を完了してください。
+                </p>
+              )}
             </div>
           </form>
 
