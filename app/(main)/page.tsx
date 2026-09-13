@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { ReportButton } from "@/components/ReportButton";
 import { PostDialog } from "@/app/(main)/homecomponent/post/PostDialog";
-import { FollowingTimeline } from "@/app/(main)/homecomponent/post/FollowingTimeline";
 import { Header } from "@/app/(main)/homecomponent/layout/Header";
 import { HomeTabHeader } from "@/app/(main)/homecomponent/home/HomeTabHeader";
 import { supabase } from "@/lib/supabase";
@@ -232,6 +231,8 @@ export default function HomePage() {
   const [schoolFilter, setSchoolFilter] = useState<"grade" | "dept" | "faculty">("grade");
   // 同学部フィルタ用：自分の学部に属する学科IDを先に解決しておく
   const [facultyDeptIds, setFacultyDeptIds] = useState<number[] | null>(null);
+  // フォロー中フィルタ用：自分がフォローしているユーザーID（null=未解決）
+  const [followingIds, setFollowingIds] = useState<string[] | null>(null);
 
   // いいね連打防止
   const [pendingLikeIds, setPendingLikeIds] = useState<Set<number>>(new Set());
@@ -245,33 +246,6 @@ export default function HomePage() {
   const showError = useCallback((message: string) => {
     setErrorMessage(message);
   }, []);
-
-  // FollowingTimeline に渡す従来のミックスソート（フォロータブ用に維持）
-  const sortPostsByMixLogic = (rawPosts: any[]) => {
-    const now = Date.now();
-
-    const postsWithFlags = rawPosts.map((post) => {
-      const utcString = post.created_at?.endsWith("Z") ? post.created_at : `${post.created_at}Z`;
-      const time = new Date(utcString).getTime();
-      const diffInSeconds = (now - time) / 1000;
-
-      const isJustNow = diffInSeconds >= 0 && diffInSeconds < 60;
-
-      return { ...post, isJustNow, time };
-    });
-
-    return postsWithFlags.sort((a, b) => {
-      if (a.isJustNow && !b.isJustNow) return -1;
-      if (!a.isJustNow && b.isJustNow) return 1;
-      if (a.isJustNow && b.isJustNow) return b.time - a.time;
-
-      const likesA = a.number_of_likes || 0;
-      const likesB = b.number_of_likes || 0;
-      if (likesB !== likesA) return likesB - likesA;
-
-      return b.time - a.time;
-    });
-  };
 
   // 「すべて」タブ：トップレベルの通常投稿のみ（返信・引用は除外）
   const applyFiltersAll = useCallback((q: any) => q.is("parent_id", null), []);
@@ -298,11 +272,27 @@ export default function HomePage() {
     [schoolFilter, myInfo, facultyDeptIds]
   );
 
+  // 「フォロー中」タブ：自分がフォローしているユーザーのトップレベル投稿のみ
+  const applyFiltersFollow = useCallback(
+    (q: any) => {
+      const ids = followingIds ?? [];
+      if (ids.length === 0) return q.eq("id", -1); // フォロー0件なら該当なし
+      return q.is("parent_id", null).in("user_id", ids);
+    },
+    [followingIds]
+  );
+
   const allFeed = useInfinitePosts({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
   const schoolFeed = useInfinitePosts({
     applyFilters: applyFiltersSchool,
     uid: myId,
     enabled: !!myInfo,
+    onError: showError,
+  });
+  const followFeed = useInfinitePosts({
+    applyFilters: applyFiltersFollow,
+    uid: myId,
+    enabled: followingIds !== null,
     onError: showError,
   });
 
@@ -353,6 +343,22 @@ export default function HomePage() {
       cancelled = true;
     };
   }, [myInfo]);
+
+  // 「フォロー中」タブ用に、自分がフォローしているユーザーIDを解決
+  useEffect(() => {
+    if (!myId) return;
+    let cancelled = false;
+    supabase
+      .from("follows")
+      .select("following_id")
+      .eq("follower_id", myId)
+      .then(({ data }) => {
+        if (!cancelled) setFollowingIds((data ?? []).map((r: any) => r.following_id as string));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [myId]);
 
   const mutateAll = () => {
     allFeed.reload();
@@ -635,7 +641,7 @@ export default function HomePage() {
               </TabsContent>
 
               <TabsContent value="follow" className="p-0 m-0">
-                <FollowingTimeline sortLogic={sortPostsByMixLogic} />
+                {renderFeed(followFeed, "フォロー中の投稿はありません")}
               </TabsContent>
 
               <TabsContent value="school" className="p-0 m-0">

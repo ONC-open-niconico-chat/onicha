@@ -21,14 +21,14 @@ export function HomeTabHeader({
       <TabsList className="w-full bg-transparent rounded-none p-0 h-auto group-data-horizontal/tabs:h-auto flex relative border-0">
         <TabsTrigger
           value="all"
-          className="flex-1 h-auto py-3 px-0 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-b-2 border-transparent leading-6 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent"
+          className="flex-1 h-auto py-3 px-0 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-x-0 border-t-0 border-b-2 border-b-transparent leading-6 data-[state=active]:border-b-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent"
         >
           おすすめ
         </TabsTrigger>
 
         <TabsTrigger
           value="follow"
-          className="flex-1 h-auto py-3 px-0 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-b-2 border-transparent leading-6 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent"
+          className="flex-1 h-auto py-3 px-0 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-x-0 border-t-0 border-b-2 border-b-transparent leading-6 data-[state=active]:border-b-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent"
         >
           フォロー中
         </TabsTrigger>
@@ -36,7 +36,7 @@ export function HomeTabHeader({
         {/* 学内タブ */}
         <TabsTrigger
           value="school"
-          className="flex-1 h-auto py-3 pl-0 pr-8 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-b-2 border-transparent leading-6 data-[state=active]:border-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent min-w-[120px] relative"
+          className="flex-1 h-auto py-3 pl-0 pr-8 text-base font-normal text-gray-600 hover:bg-gray-100 transition-colors rounded-none border-x-0 border-t-0 border-b-2 border-b-transparent leading-6 data-[state=active]:border-b-blue-600 data-[state=active]:text-blue-600 data-[state=active]:font-medium data-[state=active]:shadow-none data-[state=active]:bg-transparent min-w-[120px] relative"
         >
           {filterLabel}
         </TabsTrigger>
