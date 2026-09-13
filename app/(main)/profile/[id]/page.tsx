@@ -936,7 +936,7 @@ export default function App({ params }: Props) {
                     }}
                     className="p-4 flex gap-3 hover:bg-gray-50 transition cursor-pointer"
                   >
-                    <Avatar src={u.icon_src} sx={{ width: 40, height: 40 }} />
+                    <Avatar src={u.icon_src || '/yujilink_icon/yujilink_icon.JPG'} sx={{ width: 40, height: 40 }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 truncate hover:underline">{u.username}</span>
