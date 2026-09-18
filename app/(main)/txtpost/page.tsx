@@ -42,13 +42,13 @@ function TxtPostContent() {
   const searchParams = useSearchParams();
   const textbookId = searchParams.get("textbook_id");
     
-  // 1ページあたりの取得件数
-  const PAGE_SIZE = 12;
+  // 1ページあたりの取得件数（ホームと統一）
+  const PAGE_SIZE = 20;
 
   const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true); // 初回 / フィルタ変更時のリセット読み込み
-  const [loadingMore, setLoadingMore] = useState(false); // 追加読み込み中
-  const [hasMore, setHasMore] = useState(true); // まだ次のページがあるか
+  const [loading, setLoading] = useState(true); // 読み込み中
+  const [page, setPage] = useState(0); // 0起点
+  const [hasNext, setHasNext] = useState(false); // 次ページがあるか
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isHelpOpen, setIsHelpOpen] = useState(false); // 「使い方」モーダルの開閉
   const [filter, setFilter] = useState<"all" | "offering" | "seeking">("all");
@@ -64,15 +64,8 @@ function TxtPostContent() {
   const [myId, setMyId] = useState<string | null>(null);
   const [requestedPostIds, setRequestedPostIds] = useState<Set<number>>(new Set());
 
-  // 次に取得する DB オフセット / 多重読み込み防止 / 重複表示防止
-  const offsetRef = useRef(0);
+  // 多重読み込み防止
   const loadingRef = useRef(false);
-  const seenIdsRef = useRef<Set<number>>(new Set());
-  // hasMore を loadPosts の依存に入れると、末尾到達で loadPosts が作り直され
-  // リセット effect が再発火して先頭へ戻ってしまう。ref で持って依存から外す。
-  const hasMoreRef = useRef(true);
-  // 無限スクロールの監視対象（リスト末尾のセンチネル）
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const router = useRouter();
 
@@ -121,25 +114,14 @@ function TxtPostContent() {
 
   // データ取得。reset=true で先頭から取り直し、false で続きを追加読み込み。
   // フィルタはすべてサーバー側（.eq / .neq / .in）で適用してから .range() で分割取得する。
-  const loadPosts = useCallback(
-    async (reset: boolean) => {
-      if (loadingRef.current) return;
-      if (!reset && !hasMoreRef.current) return;
+  const goToPage = useCallback(
+    async (p: number) => {
+      if (loadingRef.current || p < 0) return;
       loadingRef.current = true;
-
-      if (reset) {
-        setLoading(true);
-        offsetRef.current = 0;
-        seenIdsRef.current = new Set();
-        hasMoreRef.current = true;
-        setHasMore(true);
-      } else {
-        setLoadingMore(true);
-      }
+      setLoading(true);
 
       try {
         // 教科書名検索：先に textbook から一致する id を引き、txt_post を textbook_id で絞る。
-        // （結合テーブルへの埋め込みフィルタより堅実で、"リクエスト中" ID 方式と同じ考え方）
         let titleTextbookIds: number[] | null = null;
         if (debouncedSearch) {
           const { data: tb } = await supabase
@@ -149,7 +131,7 @@ function TxtPostContent() {
           titleTextbookIds = (tb ?? []).map((t: any) => t.id as number);
         }
 
-        const from = offsetRef.current;
+        const from = p * PAGE_SIZE;
         let query = supabase
           .from("txt_post")
           .select(SELECT)
@@ -187,21 +169,12 @@ function TxtPostContent() {
         }
 
         const rows = data ?? [];
-        // 重複ガード（並行 insert 等で同じ行が来ても二重表示しない）
-        const fresh = rows
-          .map(formatPost)
-          .filter((p) => !seenIdsRef.current.has(p.id));
-        fresh.forEach((p) => seenIdsRef.current.add(p.id));
-
-        setPosts((prev) => (reset ? fresh : [...prev, ...fresh]));
-        offsetRef.current = from + rows.length;
-        const more = rows.length === PAGE_SIZE;
-        hasMoreRef.current = more;
-        setHasMore(more);
+        setPosts(rows.map(formatPost));
+        setPage(p);
+        setHasNext(rows.length === PAGE_SIZE); // 20件ちょうどなら次ページがある可能性
       } finally {
         loadingRef.current = false;
         setLoading(false);
-        setLoadingMore(false);
       }
     },
     [
@@ -222,27 +195,11 @@ function TxtPostContent() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // フィルタ・検索・textbookId が変わったら先頭から取り直す
+  // フィルタ・検索・textbookId が変わったら1ページ目から取り直す
   useEffect(() => {
-    loadPosts(true);
-    // loadPosts は上記依存で作り直されるので、これで各条件変更を拾える
-  }, [loadPosts]);
-
-  // リスト末尾が見えたら次のページを読み込む（無限スクロール）
-  // センチネルは初回ロード完了後（!loading かつ posts あり）に描画されるため、
-  // loading / hasMore を依存に含めて、センチネル出現時にオブザーバーを張り直す。
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadPosts(false);
-      },
-      { rootMargin: "200px" }
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [loadPosts, loading, hasMore]);
+    goToPage(0);
+    // goToPage は上記依存で作り直されるので、これで各条件変更を拾える
+  }, [goToPage]);
 
   // ログインユーザーと、自分がリクエスト中（保留中）の投稿IDを取得
   useEffect(() => {
@@ -393,7 +350,7 @@ function TxtPostContent() {
       </div>
 
       <div className="divide-y divide-gray-200">
-        {loading ? (
+        {loading && posts.length === 0 ? (
           <div className="text-center py-10 text-gray-500">読み込み中...</div>
         ) : posts.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
@@ -401,15 +358,37 @@ function TxtPostContent() {
           </div>
         ) : (
           posts.map((post) => (
-            <PostCard key={post.id} txtpost={post} onDeleted={() => loadPosts(true)} />
+            <PostCard key={post.id} txtpost={post} onDeleted={() => goToPage(page)} />
           ))
         )}
       </div>
 
-      {/* 無限スクロール用センチネル & 追加読み込み表示 */}
-      {!loading && posts.length > 0 && (
-        <div ref={sentinelRef} className="py-6 text-center text-sm text-gray-400">
-          {loadingMore ? "読み込み中..." : hasMore ? "" : "すべて表示しました"}
+      {/* ページ送り（中央寄せ：○ページ目の両隣に前へ/次へ） */}
+      {posts.length > 0 && (
+        <div className="flex items-center justify-center gap-4 px-4 py-5 border-t border-gray-100">
+          <button
+            type="button"
+            disabled={page === 0 || loading}
+            onClick={() => {
+              goToPage(page - 1);
+              document.querySelector("main")?.scrollTo({ top: 0 });
+            }}
+            className="px-4 py-2 rounded-full text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            ← 前へ
+          </button>
+          <span className="text-sm text-gray-500">{page + 1} ページ目</span>
+          <button
+            type="button"
+            disabled={!hasNext || loading}
+            onClick={() => {
+              goToPage(page + 1);
+              document.querySelector("main")?.scrollTo({ top: 0 });
+            }}
+            className="px-4 py-2 rounded-full text-sm font-bold border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed transition"
+          >
+            次へ →
+          </button>
         </div>
       )}
 
@@ -426,7 +405,7 @@ function TxtPostContent() {
       {/* ─── 状態が true の時だけ投稿フォーム（モーダル）を表示 ─── */}
       {isModalOpen && (
         <CreatePostForm
-          onPostCreated={() => loadPosts(true)} // 投稿成功後にタイムラインを先頭から更新
+          onPostCreated={() => goToPage(0)} // 投稿成功後に1ページ目から更新
           onclose={() => setIsModalOpen(false)}
         />
       )}

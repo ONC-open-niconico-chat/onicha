@@ -12,6 +12,8 @@ export default function Signup() {
   const [selectedFaculty,setSelectedFaculty] = useState<string>('');
   // 登録後：確認メール送信済み（ボタンを「メールをご確認ください」に変える）
   const [emailSent, setEmailSent] = useState(false);
+  // 利用規約・プライバシーポリシーへの同意
+  const [agreed, setAgreed] = useState(false);
   const allowedDomain = 'cs.u-ryukyu.ac.jp';
   
   
@@ -70,6 +72,11 @@ export default function Signup() {
 
     if (password !== confirmPassword) {
       alert('パスワードが一致しません');
+      return;
+    }
+
+    if (!agreed) {
+      alert('利用規約とプライバシーポリシーへの同意が必要です');
       return;
     }
 
@@ -264,29 +271,35 @@ export default function Signup() {
               </div>
             </div>
 
-            <div className="col-span-2 flex items-start mt-2">
-              <input
-                id="terms"
-                type="checkbox"
-                className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                required
-              />
-              <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
-                <a href="#" className="text-purple-600 hover:text-purple-700">利用規約</a>
-                {' '}と{' '}
-                <a href="#" className="text-purple-600 hover:text-purple-700">プライバシーポリシー</a>
-                に同意します
-              </label>
-            </div>
+            
+
+            {!emailSent && (
+              <div className="col-span-2 mt-4">
+                <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span>
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">利用規約</a>
+                    ・
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">プライバシーポリシー</a>
+                    に同意します
+                  </span>
+                </label>
+              </div>
+            )}
 
             <div className="col-span-2 mt-4">
               <button
                 type="submit"
-                disabled={emailSent}
+                disabled={emailSent || !agreed}
                 className={`w-full py-3 rounded-lg font-medium transition shadow-lg ${
                   emailSent
                     ? "bg-green-600 text-white cursor-default"
-                    : "bg-linear-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+                    : "bg-linear-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 }`}
               >
                 {emailSent ? "メールをご確認ください" : "アカウントを作成"}
