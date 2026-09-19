@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Handshake, ShieldCheck, Menu, X, Mail } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 // お問い合わせ用 Google フォームの URL。
@@ -111,18 +111,17 @@ export function Sidebar() {
         .subscribe();
 
       // 自分の user 行の更新（ポイント変動）をリアルタイムに反映
+      // サーバー側フィルタで「自分の行だけ」受信する（全ユーザー分の配信を避ける）
       const userChannel = supabase
         .channel("sidebar-user-points")
         .on(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "user" },
+          { event: "UPDATE", schema: "public", table: "user", filter: `id=eq.${myId}` },
           (payload) => {
             const row = payload.new as { id?: string; points?: number; reserved_points?: number; total_earned_points?: number };
-            if (row?.id === myId) {
-              setPoints(row.points ?? 0);
-              setReserved(row.reserved_points ?? 0);
-              setTotalEarned(row.total_earned_points ?? 0);
-            }
+            setPoints(row.points ?? 0);
+            setReserved(row.reserved_points ?? 0);
+            setTotalEarned(row.total_earned_points ?? 0);
           }
         )
         .subscribe();
@@ -175,14 +174,20 @@ export function Sidebar() {
       <div className="hidden md:flex w-72 border-r border-gray-200 p-6 flex-col gap-8 h-screen bg-white shrink-0">
         <div className="flex items-center gap-2 px-2">
           <div className="p-2 rounded-xl text-white">
-            <img className="w-13 h-13" src="/onicha_icon/onicha_icon.JPG" alt="Icon" />
+            <img className="w-13 h-13" src="/yujilink_icon/yujilink_icon.JPG" alt="Icon" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">オニチャ</h1>
+          <h1
+            className="inline-block text-2xl font-bold tracking-tight bg-linear-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent"
+            style={{ fontFamily: "var(--font-logo), sans-serif" }}
+          >
+            YujiLink
+          </h1>
         </div>
 
         <nav className="flex flex-col gap-2">
-          <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
+          <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
+          <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -197,7 +202,7 @@ export function Sidebar() {
 
       {/* ─── モバイル：下部タブバー（md 未満／会話画面では非表示） ─── */}
       <nav className={`${hideMobileBar ? "hidden" : "flex"} md:hidden fixed bottom-0 inset-x-0 z-40 items-stretch justify-around border-t border-gray-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] h-16`}>
-        <MobileTab href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} />
+        <MobileTab href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
         <MobileTab href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")}  />
         <MobileTab href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="譲渡" active={isActive("/txtpost")} />
         <MobileTab href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
@@ -229,6 +234,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex flex-col gap-2">
+              <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} onClick={() => setDrawerOpen(false)} />
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
                <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (
@@ -312,16 +318,19 @@ function MobileTab({
   label,
   active,
   badge = 0,
+  onClick,
 }: {
   href: string;
   icon: React.ReactNode;
   label: string;
   active: boolean;
   badge?: number;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${
         active ? "text-blue-600" : "text-gray-600 hover:text-blue-600"
       }`}

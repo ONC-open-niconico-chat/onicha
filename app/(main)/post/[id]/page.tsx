@@ -235,7 +235,7 @@ export default function PostDetailPage({ params }: Props) {
           opts.clickable ? "hover:bg-gray-50/50 cursor-pointer transition" : ""
         }`}
       >
-        <Avatar src={u?.icon_src || undefined} sx={{ width: 40, height: 40 }} />
+        <Avatar src={u?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} sx={{ width: 40, height: 40 }} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
             <span className="font-bold hover:underline">{u?.username || "不明なユーザー"}</span>
@@ -360,7 +360,7 @@ export default function PostDetailPage({ params }: Props) {
           {/* 返信入力フォーム */}
           {myId && (
             <div className="p-4 border-b border-gray-200 flex gap-3 items-start bg-gray-50/30">
-              <Avatar src={myIconSrc || undefined} sx={{ width: 40, height: 40 }} />
+              <Avatar src={myIconSrc || "/yujilink_icon/yujilink_icon.JPG"} sx={{ width: 40, height: 40 }} />
               <div className="flex-1">
                 <textarea
                   rows={2}

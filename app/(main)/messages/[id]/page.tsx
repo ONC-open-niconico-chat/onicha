@@ -204,6 +204,8 @@ export default function ChatPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !myId || !receiverId) return;
+    // DMは運営（公式アカウント）宛のみ。運営以外には送信しない。
+    if (partner && !partner.is_official) return;
 
     const messageContent = inputText;
     const replyToId = replyingMessage?.id || null;
@@ -229,6 +231,26 @@ export default function ChatPage() {
     if (error) {
       alert(`⚠️ 送信に失敗しました！\n\n【エラーコード】\n${error.code}\n\n【エラーメッセージ】\n${error.message}`);
       return;
+    }
+
+    // 楽観的更新：Realtime を待たずに送信直後から自分の画面へ反映する。
+    // Realtime が後から届いても id で重複を防ぐ。
+    if (inserted?.id) {
+      const optimistic: ChatMessage = {
+        id: inserted.id,
+        sender_id: myId,
+        receiver_id: receiverId,
+        content: messageContent,
+        created_at: new Date().toISOString(),
+        reply_to_id: replyToId,
+        reply_content: replyContent,
+      };
+      setMessages((prev) =>
+        prev.some((m) => m.id === optimistic.id) ? prev : [...prev, optimistic]
+      );
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
     }
 
     await createNotification({
@@ -527,6 +549,11 @@ export default function ChatPage() {
             </div>
           )}
 
+          {partner && !partner.is_official ? (
+            <div className="m-4 rounded-2xl bg-gray-50 border border-gray-200 px-5 py-4 text-center text-sm text-gray-500">
+              運営以外にはメッセージを送れません。
+            </div>
+          ) : (
           <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-[#EFF3F4] rounded-full px-5 py-2.5 m-4">
             <input
               type="text"
@@ -563,6 +590,7 @@ export default function ChatPage() {
               </svg>
             </button>
           </form>
+          )}
         </div>
 
         {/* カスタム右クリックメニュー */}

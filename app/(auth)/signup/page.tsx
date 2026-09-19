@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Mail, Lock, User, GraduationCap, BookOpen, School } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 
 export default function Signup() {
-
-  const router = useRouter();
 
   const [faculties, setFaculties] = useState<{id: number,name:string}[]>([]);
   const [allDepartments, setAllDepartments] = useState<{id: number, name: string, faculty_id: number}[]>([]);
   const [filteredDepartments,setFilteredDepartments] = useState<{id:number,name: string}[]>([]);
   const [selectedFaculty,setSelectedFaculty] = useState<string>('');
+  // 登録後：確認メール送信済み（ボタンを「メールをご確認ください」に変える）
+  const [emailSent, setEmailSent] = useState(false);
+  // 利用規約・プライバシーポリシーへの同意
+  const [agreed, setAgreed] = useState(false);
   const allowedDomain = 'cs.u-ryukyu.ac.jp';
   
   
@@ -74,6 +75,11 @@ export default function Signup() {
       return;
     }
 
+    if (!agreed) {
+      alert('利用規約とプライバシーポリシーへの同意が必要です');
+      return;
+    }
+
     const { error } = await supabase.auth.signUp({
       email: fullEmail,
       password,
@@ -89,8 +95,8 @@ export default function Signup() {
     if (error) {
       alert("エラーが発生しました：");
     } else {
-      alert("確認メールを送信しました。メールのリンクからログインしてください");
-      router.push('/login');
+      // ログイン画面へ遷移せず、ボタンを「メールをご確認ください」に変える
+      setEmailSent(true);
     }
 
     
@@ -130,7 +136,7 @@ export default function Signup() {
 
               <div>
                 <label htmlFor="grade" className="block text-sm font-medium text-gray-700 mb-2">
-                  学年
+                  学年 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -139,7 +145,6 @@ export default function Signup() {
                   <select
                     name="grade"
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition appearance-none bg-white"
-                    required
                   >
                     <option value="">選択してください</option>
                     <option value="1">1年生</option>
@@ -180,7 +185,7 @@ export default function Signup() {
               {/* 学部セレクト */}
               <div>
                 <label htmlFor="faculty" className="block text-sm font-medium text-gray-700 mb-2">
-                  学部
+                  学部 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -192,7 +197,6 @@ export default function Signup() {
                     onChange={(e) => setSelectedFaculty(e.target.value)}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
                     
-                    required
                   >
                     <option value="">学部を選択してください</option>
                     {faculties.map((f) => (
@@ -207,7 +211,7 @@ export default function Signup() {
               {/* 学科セレクト（学部が選ばれるまで無効化） */}
               <div>
                 <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
-                  学科
+                  学科 (任意)
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -217,7 +221,6 @@ export default function Signup() {
                     name='department_id'
                     disabled={!selectedFaculty}
                     className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none transition"
-                    required
                   >
                     <option value="">学科を選択してください</option>
                     {filteredDepartments.map((d)=> (
@@ -268,29 +271,44 @@ export default function Signup() {
               </div>
             </div>
 
-            <div className="col-span-2 flex items-start mt-2">
-              <input
-                id="terms"
-                type="checkbox"
-                className="mt-1 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                required
-              />
-              <label htmlFor="terms" className="ml-2 text-sm text-gray-600">
-                <a href="#" className="text-purple-600 hover:text-purple-700">利用規約</a>
-                {' '}と{' '}
-                <a href="#" className="text-purple-600 hover:text-purple-700">プライバシーポリシー</a>
-                に同意します
-              </label>
-            </div>
+            
+
+            {!emailSent && (
+              <div className="col-span-2 mt-4">
+                <label className="flex items-start gap-2 text-sm text-gray-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={agreed}
+                    onChange={(e) => setAgreed(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                  />
+                  <span>
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">利用規約</a>
+                    ・
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-purple-600 underline">プライバシーポリシー</a>
+                    に同意します
+                  </span>
+                </label>
+              </div>
+            )}
 
             <div className="col-span-2 mt-4">
               <button
                 type="submit"
-                className="w-full bg-linear-to-r from-purple-600 to-blue-600 text-white py-3 rounded-lg font-medium hover:from-purple-700 hover:to-blue-700 transition shadow-lg"
-                
+                disabled={emailSent || !agreed}
+                className={`w-full py-3 rounded-lg font-medium transition shadow-lg ${
+                  emailSent
+                    ? "bg-green-600 text-white cursor-default"
+                    : "bg-linear-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
               >
-                アカウントを作成
+                {emailSent ? "メールをご確認ください" : "アカウントを作成"}
               </button>
+              {emailSent && (
+                <p className="mt-3 text-center text-sm text-gray-600">
+                  確認メールを送信しました。メール内のリンクから認証を完了してください。
+                </p>
+              )}
             </div>
           </form>
 

@@ -11,37 +11,59 @@ export default function ResetPassword() {
   const [done, setDone] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // メールのリンクから来たときに復旧セッションが確立されるのを待つ
+  // メールのリンクから来たときに、URL 内のトークンを明示的に処理して復旧セッションを張る。
+  // token_hash（推奨）/ PKCE code / implicit ハッシュ / 既存セッション のすべてに対応。
   useEffect(() => {
-    let settled = false;
-    const markReady = () => {
-      if (!settled) {
-        settled = true;
-        setStatus('ready');
-      }
+    let cancelled = false;
+    const fail = () => {
+      if (!cancelled) setStatus('invalid');
+    };
+    const ok = () => {
+      if (!cancelled) setStatus('ready');
     };
 
-    // detectSessionInUrl によりリンクのトークンが処理されるとセッションが張られる
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) markReady();
-    });
+    const run = async () => {
+      const q = new URLSearchParams(window.location.search);
+      const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''));
 
-    // 既にセッションが張られている場合のフォールバック
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) markReady();
-    });
+      // 1) エラーが素通りしてきた場合（otp_expired / access_denied など）
+      const errCode = q.get('error_code') || hash.get('error_code');
+      if (errCode) return fail();
 
-    // 一定時間セッションが確立されなければ無効リンクとみなす
-    const timer = setTimeout(() => {
-      if (!settled) {
-        settled = true;
-        setStatus('invalid');
+      // 2) すでにセッションがある場合はそのまま
+      const { data: sess } = await supabase.auth.getSession();
+      if (sess.session) return ok();
+
+      // 3) token_hash 方式（メールテンプレートを ?token_hash=...&type=recovery にしたとき）
+      const token_hash = q.get('token_hash');
+      if (token_hash) {
+        const type = (q.get('type') || 'recovery') as 'recovery';
+        const { error } = await supabase.auth.verifyOtp({ type, token_hash });
+        return error ? fail() : ok();
       }
-    }, 5000);
 
+      // 4) PKCE code 方式（?code=...）
+      const code = q.get('code');
+      if (code) {
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
+        return error ? fail() : ok();
+      }
+
+      // 5) implicit 方式（#access_token=...&refresh_token=...）
+      const access_token = hash.get('access_token');
+      const refresh_token = hash.get('refresh_token');
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        return error ? fail() : ok();
+      }
+
+      // 6) トークンが見当たらない
+      fail();
+    };
+
+    run();
     return () => {
-      subscription.unsubscribe();
-      clearTimeout(timer);
+      cancelled = true;
     };
   }, []);
 
@@ -51,8 +73,8 @@ export default function ResetPassword() {
     const password = formData.get('password') as string;
     const confirmPassword = formData.get('confirmPassword') as string;
 
-    if (password.length < 6) {
-      setErrorMsg('パスワードは6文字以上で入力してください。');
+    if (password.length < 8) {
+      setErrorMsg('パスワードは8文字以上で入力してください。');
       return;
     }
     if (password !== confirmPassword) {
@@ -62,6 +84,7 @@ export default function ResetPassword() {
 
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
+    if (!error) await supabase.auth.signOut(); 
     setLoading(false);
 
     if (error) {

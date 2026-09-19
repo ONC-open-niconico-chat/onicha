@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Mail, AlertCircle, X, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, AlertCircle, X, Trash2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '@/components/EditProfile';
 import { ReportButton } from '@/components/ReportButton';
@@ -339,8 +339,9 @@ export default function App({ params }: Props) {
 
   const handleSaveProfile = async (
     newUsername: string,
-    newGrade: number,
+    newGrade: number | null,
     newBio: string,
+    newDepartmentId: number | null,
     imageFile: File | null
   ) => {
     if (!profile) return;
@@ -378,6 +379,7 @@ export default function App({ params }: Props) {
           username: newUsername,
           grade: newGrade,
           bio: newBio,
+          department_id: newDepartmentId,
           icon_src: uploadedIconUrl,
         })
         .eq('id', profile.id);
@@ -569,7 +571,7 @@ export default function App({ params }: Props) {
     department_id: profile?.department_id || '-',
     departmentName: dept?.name || '未設定',
     facultyName: facul?.name || '未設定',
-    icon_src: profile?.icon_src || '/onicha_icon/onicha_icon.JPG',
+    icon_src: profile?.icon_src || '/yujilink_icon/yujilink_icon.JPG',
     bio: profile?.bio || 'プロフィールは未設定です。'
   };
 
@@ -656,6 +658,7 @@ export default function App({ params }: Props) {
       <EditProfile
         initialUsername={profile.username}
         initialGrade={profile.grade}
+        initialDepartmentId={profile.department_id}
         iconSrc={displayProfile.icon_src}
         initialBio={displayProfile.bio}
         onClose={() => setIsEditing(false)}
@@ -757,17 +760,25 @@ export default function App({ params }: Props) {
             <h1 className="text-xl font-extrabold tracking-tight leading-tight">
               {displayProfile.username}
             </h1>
-            <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
-              <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
-                {displayProfile.grade}年生
-              </span>
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {displayProfile.facultyName}
-              </span>
-              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
-                {displayProfile.departmentName}
-              </span>
-            </div>
+            {(profile?.grade || facul?.name || dept?.name) && (
+              <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
+                {profile?.grade ? (
+                  <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
+                    {profile.grade}年生
+                  </span>
+                ) : null}
+                {facul?.name ? (
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    {facul.name}
+                  </span>
+                ) : null}
+                {dept?.name ? (
+                  <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                    {dept.name}
+                  </span>
+                ) : null}
+              </div>
+            )}
           </div>
 
           <p className="text-[15px] leading-relaxed mb-3 whitespace-pre-wrap text-gray-600">
@@ -784,16 +795,6 @@ export default function App({ params }: Props) {
                 <span className="font-bold text-gray-950">{followerCount}</span> フォロワー
               </span>
             </div>
-
-            {!isMe && (
-              <button
-                onClick={() => router.push(`/messages/${userId}`)}
-                className="h-7 px-3 rounded-full border border-gray-300 text-xs font-bold text-gray-700 hover:bg-gray-100 transition shadow-sm shrink-0 flex items-center gap-1.5 ml-1"
-              >
-                <Mail size={13} />
-                メッセージ
-              </button>
-            )}
           </div>
         </div>
         {/* タブ・タイムライン */}
@@ -935,7 +936,7 @@ export default function App({ params }: Props) {
                     }}
                     className="p-4 flex gap-3 hover:bg-gray-50 transition cursor-pointer"
                   >
-                    <Avatar src={u.icon_src} sx={{ width: 40, height: 40 }} />
+                    <Avatar src={u.icon_src || '/yujilink_icon/yujilink_icon.JPG'} sx={{ width: 40, height: 40 }} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 truncate hover:underline">{u.username}</span>
