@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Handshake, ShieldCheck, Menu, X, Mail } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 // お問い合わせ用 Google フォームの URL。
@@ -187,6 +187,7 @@ export function Sidebar() {
         <nav className="flex flex-col gap-2">
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
+          <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -233,6 +234,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex flex-col gap-2">
+              <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} onClick={() => setDrawerOpen(false)} />
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
                <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
-import { CheckCircle2, Loader2, MessageCircle } from "lucide-react";
+import { CheckCircle2, Loader2, MessageCircle, PackageCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // txt_transaction の 1 レコード
@@ -57,7 +57,7 @@ export default function AdminTransactionsPage() {
         .from("txt_transaction")
         .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, points, is_read")
         .order("id", { ascending: false })
-        .in("status", ["matched", "completed"]); // マッチングした取引のみ表示
+        .in("status", ["matched", "received", "completed"]); // 進行中（matched/received）と完了を表示
 
       if (error) {
         console.error("取引の取得に失敗しました:", error);
@@ -173,18 +173,18 @@ export default function AdminTransactionsPage() {
           <img
             src={u.icon_src}
             alt=""
-            className="w-9 h-9 rounded-full object-cover shrink-0"
+            className="w-7 h-7 rounded-full object-cover shrink-0"
           />
         ) : (
-          <span className="w-9 h-9 rounded-full bg-gray-200 shrink-0" />
+          <span className="w-7 h-7 rounded-full bg-gray-200 shrink-0" />
         )}
         <span className="truncate">{u?.username ?? "不明"}</span>
         {userId && (
           <Button
             onClick={() => router.push(`/admin/messages/${userId}`)}
-            className="ml-1 h-8 px-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm gap-1 shrink-0"
+            className="ml-1 h-7 px-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs gap-1 shrink-0"
           >
-            <MessageCircle className="w-4 h-4" />
+            <MessageCircle className="w-3.5 h-3.5" />
             メッセージ
           </Button>
         )}
@@ -192,7 +192,10 @@ export default function AdminTransactionsPage() {
     );
   };
 
-  const matchedTx = transactions.filter((t) => t.status === "matched");
+  // 進行中タブ（譲渡中）：マッチング中(matched) と 受取確認済み(received) の両方
+  const matchedTx = transactions.filter(
+    (t) => t.status === "matched" || t.status === "received"
+  );
   const completedTx = transactions.filter((t) => t.status === "completed");
   const unreadCount = matchedTx.filter((t) => !t.is_read).length;
   const shownTx = view === "matched" ? matchedTx : completedTx;
@@ -239,15 +242,15 @@ export default function AdminTransactionsPage() {
         </p>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-gray-200">
-          <table className="w-full text-lg text-left">
+          <table className="w-full text-sm text-left">
             <thead>
               <tr className="bg-gray-50 text-left text-gray-500">
-                <th className="px-5 py-4 text-lg font-semibold">ID</th>
-                <th className="px-5 py-4 text-lg font-semibold">贈与者</th>
-                <th className="px-5 py-4 text-lg font-semibold">受取者</th>
-                <th className="px-5 py-4 text-lg font-semibold">教科書</th>
-                <th className="px-5 py-4 text-lg font-semibold">取引ポイント</th>
-                <th className="px-5 py-4 text-lg font-semibold">ステータス</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">ID</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">贈与者</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">受取者</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">教科書</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">取引ポイント</th>
+                <th className="px-3.5 py-2.5 text-xs font-semibold">ステータス</th>
               </tr>
             </thead>
             <tbody>
@@ -261,39 +264,46 @@ export default function AdminTransactionsPage() {
                     unread ? "bg-amber-50 hover:bg-amber-100 cursor-pointer" : ""
                   }`}
                 >
-                  <td className="px-5 py-4 text-gray-500 tabular-nums">
+                  <td className="px-3.5 py-2.5 text-gray-500 tabular-nums">
                     {unread && (
                       <span className="inline-block w-2 h-2 rounded-full bg-red-500 mr-2 align-middle" />
                     )}
                     {t.id}
                   </td>
-                  <td className="px-5 py-4">{renderUser(t.giver_id)}</td>
-                  <td className="px-5 py-4">{renderUser(t.receiver_id)}</td>
-                  <td className="px-5 py-4">
+                  <td className="px-3.5 py-2.5">{renderUser(t.giver_id)}</td>
+                  <td className="px-3.5 py-2.5">{renderUser(t.receiver_id)}</td>
+                  <td className="px-3.5 py-2.5">
                     <span className="text-gray-700">
                       {t.txt_post_id != null ? bookMap[t.txt_post_id] ?? "不明" : "不明"}
                     </span>
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="px-3.5 py-2.5">
                     <span className="font-bold text-amber-600 whitespace-nowrap">
                       {t.points != null ? `${t.points.toLocaleString()} pt` : "—"}
                     </span>
                   </td>
-                  <td className="px-5 py-4">
+                  <td className="px-3.5 py-2.5">
                     {t.status === "completed" ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-3 py-1 font-bold text-green-600 whitespace-nowrap">
                         <CheckCircle2 className="w-4 h-4" />
                         譲渡完了
                       </span>
-                    ) : t.status === "matched" ? (
-                      <div className="flex items-center gap-3">
-                        <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 font-bold text-blue-600 whitespace-nowrap">
-                          譲渡中
-                        </span>
+                    ) : t.status === "matched" || t.status === "received" ? (
+                      <div className="flex items-center gap-2">
+                        {t.status === "received" ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-3 py-1 font-bold text-amber-700 whitespace-nowrap">
+                            <PackageCheck className="w-4 h-4" />
+                            受取確認済み
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 font-bold text-blue-600 whitespace-nowrap">
+                            譲渡中
+                          </span>
+                        )}
                         <Button
                           onClick={() => handleComplete(t.id)}
                           disabled={updatingId === t.id}
-                          className="rounded-full bg-green-600 hover:bg-green-700 text-white h-8 px-3"
+                          className="rounded-full bg-green-600 hover:bg-green-700 text-white h-7 px-3 text-xs"
                         >
                           {updatingId === t.id ? (
                             <Loader2 className="w-4 h-4 animate-spin" />
@@ -304,7 +314,7 @@ export default function AdminTransactionsPage() {
                         <Button
                           onClick={() => handleCancel(t.id)}
                           disabled={updatingId === t.id}
-                          className="rounded-full bg-white border border-red-300 text-red-600 hover:bg-red-50 h-8 px-3"
+                          className="rounded-full bg-white border border-red-300 text-red-600 hover:bg-red-50 h-7 px-3 text-xs"
                         >
                           取り消し
                         </Button>
