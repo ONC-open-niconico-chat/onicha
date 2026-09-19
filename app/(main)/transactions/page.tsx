@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
+import { MeetScheduler } from "./MeetScheduler";
 import { ArrowLeftRight, Clock, Coins, Loader2, MessageCircle, PackageCheck } from "lucide-react";
 
 // マッチング中（status = 'matched'）の取引1件。
@@ -205,8 +206,13 @@ export default function TransactionsPage() {
                     </Link>
                   )}
 
+                  {/* 受け渡しの日時・場所 調整（マッチング中のみ） */}
+                  {tx.status === "matched" && myId && (
+                    <MeetScheduler txId={tx.id} myId={myId} />
+                  )}
+
                   {/* 状態・アクション */}
-                  <div className="pt-3 border-t border-dashed border-gray-200 space-y-3">
+                  <div className="pt-3 mt-3 border-t border-dashed border-gray-200 space-y-3">
                     {tx.status === "received" ? (
                       // 受け取り確認済み：運営の最終確認待ち
                       <div className="flex items-center gap-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">

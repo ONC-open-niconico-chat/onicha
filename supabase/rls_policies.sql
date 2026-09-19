@@ -107,6 +107,7 @@ create policy "sender deletes chat" on public.chat
 -- ------------------------------------------------------------
 drop policy if exists "全操作可能" on public.notification;
 drop policy if exists "read own notifications" on public.notification;
+drop policy if exists "read sent notifications" on public.notification;
 drop policy if exists "staff reads notifications" on public.notification;
 drop policy if exists "insert notification as self" on public.notification;
 drop policy if exists "update own notifications" on public.notification;
@@ -114,6 +115,11 @@ drop policy if exists "delete own notifications" on public.notification;
 
 create policy "read own notifications" on public.notification
   for select to authenticated using (auth.uid() = receiver_id);
+
+-- 送信者が自分の送った通知を読めるようにする（教科書譲渡の「リクエスト済み/取り下げ」
+-- 状態は notification を sender_id で SELECT して判定するため、これが無いと状態が反映されない）
+create policy "read sent notifications" on public.notification
+  for select to authenticated using (auth.uid() = sender_id);
 
 create policy "staff reads notifications" on public.notification
   for select to authenticated
