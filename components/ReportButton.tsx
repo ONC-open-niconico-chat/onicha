@@ -20,25 +20,12 @@ export function ReportButton({
   targetType,
   targetId,
   className,
-  hideTrigger = false,
-  open: openProp,
-  onOpenChange,
 }: {
   targetType: "txt_post" | "txt_post_reply" | "post" | "user" | "message";
   targetId: string | number;
   className?: string;
-  // トリガー（旗ボタン）を出さず、外部から open を制御するモード。
-  // 例：チャットの右クリックメニューから通報モーダルを開く。
-  hideTrigger?: boolean;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
 }) {
-  const [openState, setOpenState] = useState(false);
-  const open = openProp ?? openState;
-  const setOpen = (v: boolean) => {
-    onOpenChange?.(v);
-    if (openProp === undefined) setOpenState(v);
-  };
+  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [detail, setDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -72,19 +59,17 @@ export function ReportButton({
 
   return (
     <>
-      {!hideTrigger && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setOpen(true);
-          }}
-          className={`text-gray-400 hover:text-red-500 transition-colors ${className ?? ""}`}
-          title="報告する"
-        >
-          <Flag className="w-4 h-4" />
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen(true);
+        }}
+        className={`text-gray-400 hover:text-red-500 transition-colors ${className ?? ""}`}
+        title="報告する"
+      >
+        <Flag className="w-4 h-4" />
+      </button>
 
       {open && (
         <div
