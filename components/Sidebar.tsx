@@ -39,6 +39,9 @@ export function Sidebar() {
   // 未読通知の件数（バッジ表示用）
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // 取引中（matched / received）の譲渡が自分にあるか（サイドバーの赤ドット表示用）
+  const [activeTxCount, setActiveTxCount] = useState(0);
+
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
 
@@ -77,6 +80,17 @@ export function Sidebar() {
       }
     };
 
+    // 取引中（matched / received）の譲渡が自分にあるか（件数）
+    const fetchActiveTx = async () => {
+      if (!myId) return;
+      const { count } = await supabase
+        .from("txt_transaction")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["matched", "received"])
+        .or(`giver_id.eq.${myId},receiver_id.eq.${myId}`);
+      setActiveTxCount(count ?? 0);
+    };
+
     const init = async () => {
       const {
         data: { session },
@@ -85,6 +99,7 @@ export function Sidebar() {
       myId = session.user.id;
       await fetchUnread();
       await fetchPoints();
+      await fetchActiveTx();
 
       // 管理者判定：staff_members に自分の user_id があるか
       const { data: staff } = await supabase
@@ -105,7 +120,11 @@ export function Sidebar() {
             const rec =
               (payload.new as { receiver_id?: string })?.receiver_id ??
               (payload.old as { receiver_id?: string })?.receiver_id;
-            if (rec === myId) fetchUnread();
+            if (rec === myId) {
+              fetchUnread();
+              // 承諾/完了/取消は通知を伴うため、取引中バッジもここで更新する
+              fetchActiveTx();
+            }
           }
         )
         .subscribe();
@@ -136,6 +155,27 @@ export function Sidebar() {
       });
     };
   }, []);
+
+  // 画面遷移のたびに取引中の件数を取り直す（承諾直後などリアルタイム通知が無いケースも拾う）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      const me = session?.user?.id;
+      if (!me) return;
+      const { count } = await supabase
+        .from("txt_transaction")
+        .select("*", { count: "exact", head: true })
+        .in("status", ["matched", "received"])
+        .or(`giver_id.eq.${me},receiver_id.eq.${me}`);
+      if (!cancelled) setActiveTxCount(count ?? 0);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   // ポイント / ランク表示ブロック（デスクトップ・モバイルのドロワーで共用）
   const pointsBlock =
@@ -187,7 +227,7 @@ export function Sidebar() {
         <nav className="flex flex-col gap-2">
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
-          <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} />
+          <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -211,7 +251,12 @@ export function Sidebar() {
           onClick={() => setDrawerOpen(true)}
           className="flex-1 flex flex-col items-center justify-center gap-0.5 text-gray-600 hover:text-blue-600 transition-colors"
         >
-          <Menu className="w-5 h-5" />
+          <span className="relative flex items-center">
+            <Menu className="w-5 h-5" />
+            {activeTxCount > 0 && (
+              <span className="absolute -top-1 -right-1.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+            )}
+          </span>
           <span className="text-[10px] font-medium">メニュー</span>
         </button>
       </nav>
@@ -234,7 +279,7 @@ export function Sidebar() {
             </div>
 
             <nav className="flex flex-col gap-2">
-              <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} onClick={() => setDrawerOpen(false)} />
+              <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} onClick={() => setDrawerOpen(false)} />
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
                <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (
@@ -256,6 +301,7 @@ function SidebarItem({
   label,
   active,
   badge = 0,
+  dot = false,
   onClick,
 }: {
   href: string;
@@ -263,6 +309,8 @@ function SidebarItem({
   label: string;
   active: boolean;
   badge?: number;
+  // 件数バッジではなく「ある／ない」を示す赤いドット（取引中の譲渡など）
+  dot?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -273,11 +321,13 @@ function SidebarItem({
       >
         <span className="relative flex items-center">
           {icon}
-          {badge > 0 && (
+          {badge > 0 ? (
             <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[11px] font-bold flex items-center justify-center">
               {badge > 99 ? "99+" : badge}
             </span>
-          )}
+          ) : dot ? (
+            <span className="absolute -top-1 -right-1.5 w-2.5 h-2.5 rounded-full bg-red-500 ring-2 ring-white" />
+          ) : null}
         </span>
         {label}
       </Button>

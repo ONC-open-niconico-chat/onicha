@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
-import { ArrowLeftRight, Clock, Coins, Loader2, MessageCircle, PackageCheck } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, Clock, Coins, Loader2, MessageCircle, MessagesSquare, PackageCheck } from "lucide-react";
 
 // マッチング中（status = 'matched'）の取引1件。
 // giver = 教科書を譲る側（ポイントを受け取る）／receiver = 受け取る側（ポイントを支払う）。
@@ -216,13 +216,22 @@ export default function TransactionsPage() {
                           : "受け取りを確認しました。運営の確認後にポイントが移動します。"}
                       </div>
                     ) : iAmGiver ? (
-                      // 譲る側・受け渡し待ち
-                      <p className="text-sm text-gray-500">
-                        受け渡し時に、相手が「受け取りました」を押します。
-                      </p>
+                      // 譲る側・受け渡し待ち：相手が「受け取りました」を押したことを確認するよう促す
+                      <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-300 px-3 py-2.5">
+                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                        <p className="text-sm font-bold text-red-600">
+                          受け渡し時に、相手が「受け取りました」を押したことを確認してください。
+                        </p>
+                      </div>
                     ) : (
                       // 受け取る側・受け渡し待ち：受け取りボタン
-                      <div>
+                      <div className="space-y-2">
+                        <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-300 px-3 py-2.5">
+                          <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
+                          <p className="text-sm font-bold text-red-600">
+                            受取時に、「受け取りました」ボタンを押したことを相手に確認させてください。
+                          </p>
+                        </div>
                         <button
                           onClick={() => handleReceived(tx.id)}
                           disabled={updatingId === tx.id}
@@ -235,22 +244,34 @@ export default function TransactionsPage() {
                           )}
                           受け取りました
                         </button>
-                        <p className="text-xs text-gray-400 mt-1.5">
-                          ※ 教科書を受け取った、その場で押してください。
-                        </p>
+                        
                       </div>
                     )}
 
-                    {/* 受け渡しの連絡・コメントは投稿ページで */}
-                    {tx.post && (
-                      <Link
-                        href={`/txtpost/${tx.post.id}`}
-                        className="inline-flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                        投稿・コメントを見る
-                      </Link>
-                    )}
+                    {/* 相談用の導線（メッセージ／投稿コメント）。両者の間隔を少し広めに */}
+                    <div className="flex flex-col items-start gap-4">
+                      {/* 受け渡しの相談は相手とのメッセージで */}
+                      {partner && (
+                        <Link
+                          href={`/messages/${partner.id}`}
+                          className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm text-white bg-blue-600 hover:bg-blue-700 active:scale-95 transition-all"
+                        >
+                          <MessagesSquare className="w-4 h-4" />
+                          メッセージで相談する
+                        </Link>
+                      )}
+
+                      {/* 投稿ページ（コメント）へ */}
+                      {tx.post && (
+                        <Link
+                          href={`/txtpost/${tx.post.id}`}
+                          className="inline-flex items-center gap-2 text-sm text-gray-500 hover:underline"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                          投稿・コメントを見る
+                        </Link>
+                      )}
+                    </div>
                   </div>
                 </div>
               </li>
