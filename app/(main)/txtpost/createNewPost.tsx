@@ -146,8 +146,8 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       return;
     }
 
-    // 追加した教科書を選択状態にする（価格はサーバーと同じ 定価×0.4 で算出して表示）
-    setSelectedBook({ id: newId as number, title, price: Math.round(listPrice * 0.4) });
+    // 追加した教科書を選択状態にする（価格はサーバーと同じ「定価×0.4 の一の位切り捨て＝10の倍数に切り下げ」で算出して表示）
+    setSelectedBook({ id: newId as number, title, price: Math.floor((listPrice * 0.4) / 10) * 10 });
     setBookTitle(title);
     setSuggestions([]);
     setBookError("");
