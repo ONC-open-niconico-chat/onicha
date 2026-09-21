@@ -226,7 +226,7 @@ export function Sidebar() {
 
         <nav className="flex flex-col gap-2">
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
-          <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
+          <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} onClick={() => window.dispatchEvent(new Event("txtpost:refresh"))} />
           <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
@@ -244,7 +244,7 @@ export function Sidebar() {
       <nav className={`${hideMobileBar ? "hidden" : "flex"} md:hidden fixed bottom-0 inset-x-0 z-40 items-stretch justify-around border-t border-gray-200 bg-white/95 backdrop-blur-sm pb-[env(safe-area-inset-bottom)] h-16`}>
         <MobileTab href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
         <MobileTab href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")}  />
-        <MobileTab href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="譲渡" active={isActive("/txtpost")} />
+        <MobileTab href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="譲渡" active={isActive("/txtpost")} onClick={() => window.dispatchEvent(new Event("txtpost:refresh"))} />
         <MobileTab href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
         <button
           type="button"
