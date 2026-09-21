@@ -4,7 +4,7 @@ export const metadata = { title: "プライバシーポリシー | ユジリン�
 
 export default function PrivacyPage() {
   return (
-    <LegalPage title="プライバシーポリシー" updated="【2026年9月19日】">
+    <LegalPage title="プライバシーポリシー" updated="【YYYY年M月D日】">
       <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3">
         ※ 本ポリシーは現在ドラフト（暫定版）です。運営者・連絡先・委託先など【 】の項目は確定前です。
       </div>
