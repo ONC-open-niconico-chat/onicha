@@ -681,8 +681,9 @@ begin
     raise exception 'invalid list price';
   end if;
 
+  -- price = 定価 × 0.4 の一の位を切り捨て（＝10の倍数に切り下げ）
   insert into textbook (title, price, list_price)
-  values (v_title, round(p_list_price * 0.4)::integer, p_list_price)
+  values (v_title, (floor(p_list_price * 0.4 / 10) * 10)::integer, p_list_price)
   returning id into v_id;
 
   return v_id;
