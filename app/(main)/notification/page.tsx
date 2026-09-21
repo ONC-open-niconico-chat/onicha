@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase"; // パスはプロジェクトに合わせて調整してください
 import { useRouter } from "next/navigation";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
-import { CheckCheck, Trash2 } from "lucide-react";
+import { CheckCheck, MessagesSquare, Trash2 } from "lucide-react";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 
 
@@ -266,9 +266,9 @@ const handleDeleteAll = async () => {
   if (loading) return <div className="p-4">通知を読み込み中...</div>;
 
   return (
-    <div className="w-full ml-4 p-4">
-      <div className="flex items-center justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold">あなたへの通知</h1>
+    <div className="w-full p-4">
+      <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+        <h1 className="text-xl sm:text-2xl font-bold">あなたへの通知</h1>
 
         {/* ─── 右上：一括操作ボタン ─── */}
         <div className="flex items-center gap-2 shrink-0">
@@ -324,7 +324,7 @@ const handleDeleteAll = async () => {
                   notif.is_read ? "bg-white" : "bg-indigo-50 border-indigo-200 cursor-pointer"
                 }`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   {/* 送信者アイコン（無ければ public のオニチャアイコンを表示） */}
                   <img
                     src={senderIcon}
@@ -332,8 +332,8 @@ const handleDeleteAll = async () => {
                     className="w-10 h-10 rounded-full object-cover shrink-0"
                   />
 
-                  <div className="flex-1">
-                    <p className="text-sm text-gray-800 leading-relaxed">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-800 leading-relaxed break-words">
                       {notif.notification_type === "follow" ? (
                         <>
                           {senderNameEl} さんにフォローされました
@@ -401,16 +401,21 @@ const handleDeleteAll = async () => {
                       {new Date(notif.created_at).toLocaleString("ja-JP")}
                     </p>
                   </div>
+                </div>
 
                 {/* 右側：承諾・拒否ボタンエリア（教科書譲渡リクエストのときだけ表示） */}
                 {isRequestNotification(notif) && (
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap md:justify-end">
                         {requestStatus === "accepted" ? (
-                          <>
-                            <span className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 font-bold text-sm rounded-xl">
-                            承諾しました
+                          <div className="flex flex-col items-start md:items-end gap-1">
+                            <span className="px-4 py-2 bg-green-50 text-green-700 border border-green-200 font-bold text-sm rounded-xl whitespace-nowrap">
+                              承諾しました ✓
                             </span>
-                          </>
+                            <span className="inline-flex items-center gap-1 text-xs font-bold text-indigo-700  border  rounded-full px-2.5 py-1">
+                              <MessagesSquare className="w-3.5 h-3.5 shrink-0" />
+                              メッセージから受け渡しの日時を話し合いましょう！
+                            </span>
+                          </div>
                         ) : requestStatus === "rejected" ? (
                             <span className="px-4 py-2 bg-gray-50 text-gray-500 border border-gray-200 font-bold text-sm rounded-xl">
                             見送りました
@@ -449,7 +454,6 @@ const handleDeleteAll = async () => {
                         </button>
                     </div>
                 )}
-                </div>
               </div>
             );
           })}
