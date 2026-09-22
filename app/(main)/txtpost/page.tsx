@@ -60,6 +60,8 @@ function TxtPostContent() {
   // 自分の投稿のみ / リクエスト中のみ の絞り込み
   const [mineOnly, setMineOnly] = useState(false);
   const [requestedOnly, setRequestedOnly] = useState(false);
+  // 「譲渡」タブ再タップでの再読み込み用（値を変えると goToPage が作り直され、1ページ目から取り直す）
+  const [refreshTick, setRefreshTick] = useState(0);
   // ログインユーザー / 自分がリクエスト中（保留中）の投稿ID
   const [myId, setMyId] = useState<string | null>(null);
   const [requestedPostIds, setRequestedPostIds] = useState<Set<number>>(new Set());
@@ -186,6 +188,7 @@ function TxtPostContent() {
       myId,
       requestedPostIds,
       debouncedSearch,
+      refreshTick,
     ]
   );
 
@@ -200,6 +203,25 @@ function TxtPostContent() {
     goToPage(0);
     // goToPage は上記依存で作り直されるので、これで各条件変更を拾える
   }, [goToPage]);
+
+  // メニューバーの「譲渡」再タップで発火。絞り込みを既定に戻し、先頭・1ページ目に更新する。
+  useEffect(() => {
+    const onRefresh = () => {
+      setFilter("all");
+      setSearch("");
+      setDebouncedSearch("");
+      setShowMatched(false);
+      setMineOnly(false);
+      setRequestedOnly(false);
+      setRefreshTick((t) => t + 1); // 条件が既定のままでも確実に再取得させる
+      try {
+        document.querySelector("main")?.scrollTo({ top: 0 });
+        window.scrollTo({ top: 0 });
+      } catch {}
+    };
+    window.addEventListener("txtpost:refresh", onRefresh);
+    return () => window.removeEventListener("txtpost:refresh", onRefresh);
+  }, []);
 
   // ログインユーザーと、自分がリクエスト中（保留中）の投稿IDを取得
   useEffect(() => {
@@ -227,8 +249,8 @@ function TxtPostContent() {
 
   return (
     <div>
-      <div className="border-b border-gray-200 sticky top-0 bg-white/80 backdrop-blur-sm z-10">
-        <div className="relative border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold sticky top-0 bg-white z-10">
+      <div className="border-b border-gray-200 md:sticky md:top-0 bg-white/80 backdrop-blur-sm z-10">
+        <div className="relative border-b border-gray-200 flex items-center justify-center py-4 text-xl font-bold bg-white">
         教科書ポスト
           <button
             type="button"
