@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { Flag, Loader2, ExternalLink, Check, X as XIcon } from "lucide-react";
+import { Flag, Loader2, ExternalLink, Check, X as XIcon, Ban, ShieldCheck } from "lucide-react";
 
 // report テーブルの 1 レコード
 interface Report {
@@ -72,6 +72,9 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
   const [view, setView] = useState<"pending" | "done">("pending");
+  // 利用停止中のユーザーID集合（被通報ユーザー分）と、停止/解除の処理中ユーザー
+  const [suspendedIds, setSuspendedIds] = useState<Set<string>>(new Set());
+  const [suspendingUserId, setSuspendingUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchReports = async () => {
@@ -105,11 +108,64 @@ export default function AdminReportsPage() {
         setUserMap(map);
       }
 
+      // 被通報ユーザーの利用停止状態を取得
+      const reportedIds = Array.from(
+        new Set(rows.map((r) => r.reporterd_user_id).filter((v): v is string => !!v))
+      );
+      if (reportedIds.length > 0) {
+        const { data: sus } = await supabase
+          .from("suspended_users")
+          .select("user_id")
+          .in("user_id", reportedIds);
+        setSuspendedIds(new Set((sus ?? []).map((s) => (s as { user_id: string }).user_id)));
+      }
+
       setLoading(false);
     };
 
     fetchReports();
   }, []);
+
+  // 利用停止 / 解除（運営専用RPC。DB側のトリガーで書き込みが止まる）
+  const handleSuspend = async (userId: string) => {
+    const reason = window.prompt(
+      "利用停止の理由を入力してください（ユーザーに表示されます）",
+      "利用規約違反のため"
+    );
+    if (reason === null) return; // キャンセル
+    setSuspendingUserId(userId);
+    const { error } = await supabase.rpc("suspend_user", {
+      p_user_id: userId,
+      p_reason: reason.trim() || null,
+    });
+    setSuspendingUserId(null);
+    if (error) {
+      const m = error.message.includes("cannot suspend staff")
+        ? "運営アカウントは停止できません。"
+        : error.message.includes("not authorized")
+        ? "権限がありません。"
+        : "利用停止に失敗しました。";
+      window.alert(m);
+      return;
+    }
+    setSuspendedIds((prev) => new Set(prev).add(userId));
+  };
+
+  const handleUnsuspend = async (userId: string) => {
+    if (!window.confirm("この利用者の利用停止を解除しますか？")) return;
+    setSuspendingUserId(userId);
+    const { error } = await supabase.rpc("unsuspend_user", { p_user_id: userId });
+    setSuspendingUserId(null);
+    if (error) {
+      window.alert("解除に失敗しました。");
+      return;
+    }
+    setSuspendedIds((prev) => {
+      const next = new Set(prev);
+      next.delete(userId);
+      return next;
+    });
+  };
 
   // status を更新（運営のみ・RLS で許可）
   const updateStatus = async (id: number, status: string) => {
@@ -194,6 +250,12 @@ export default function AdminReportsPage() {
                     <Link href={`/profile/${r.reporterd_user_id}`} className="font-bold text-blue-600 hover:underline">
                       {userLabel(r.reporterd_user_id)}
                     </Link>
+                    {suspendedIds.has(r.reporterd_user_id) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-bold ml-2">
+                        <Ban className="w-3 h-3" />
+                        利用停止中
+                      </span>
+                    )}
                   </div>
                   <div>
                     <span className="text-gray-500">通報者：</span>
@@ -260,6 +322,35 @@ export default function AdminReportsPage() {
                       className="inline-flex items-center gap-1 rounded-full border border-gray-300 hover:bg-gray-100 disabled:opacity-50 text-gray-600 px-3 py-1.5 text-sm font-bold transition"
                     >
                       未対応に戻す
+                    </button>
+                  )}
+
+                  {/* 対象ユーザーの利用停止 / 解除 */}
+                  {suspendedIds.has(r.reporterd_user_id) ? (
+                    <button
+                      onClick={() => handleUnsuspend(r.reporterd_user_id)}
+                      disabled={suspendingUserId === r.reporterd_user_id}
+                      className="inline-flex items-center gap-1 rounded-full border border-gray-300 hover:bg-gray-100 disabled:opacity-50 text-gray-700 px-3 py-1.5 text-sm font-bold transition"
+                    >
+                      {suspendingUserId === r.reporterd_user_id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ShieldCheck className="w-4 h-4" />
+                      )}
+                      利用停止を解除
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleSuspend(r.reporterd_user_id)}
+                      disabled={suspendingUserId === r.reporterd_user_id}
+                      className="inline-flex items-center gap-1 rounded-full bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white px-3 py-1.5 text-sm font-bold transition"
+                    >
+                      {suspendingUserId === r.reporterd_user_id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Ban className="w-4 h-4" />
+                      )}
+                      対象を利用停止
                     </button>
                   )}
                 </div>
