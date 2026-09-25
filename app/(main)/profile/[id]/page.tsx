@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, use } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useRouter } from 'next/navigation';
 import { Avatar } from '@mui/material';
-import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, AlertCircle, X, Trash2 } from 'lucide-react';
+import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, AlertCircle, X, Trash2, Ban, ShieldCheck, Loader2 } from 'lucide-react';
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '@/components/EditProfile';
 import { ReportButton } from '@/components/ReportButton';
@@ -127,7 +127,77 @@ export default function App({ params }: Props) {
   // alert()の代わりに使うエラーバナー
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // 運営（staff）かどうか・表示中ユーザーが利用停止中か・停止/解除の処理中
+  const [isStaff, setIsStaff] = useState(false);
+  const [targetSuspended, setTargetSuspended] = useState(false);
+  const [suspendBusy, setSuspendBusy] = useState(false);
+
   const isMe = myId === userId;
+
+  // 運営判定＋表示中ユーザーの利用停止状態を取得（運営のみ停止状態を参照）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const me = session?.user?.id;
+      if (!me) return;
+      const { data: staff } = await supabase
+        .from("staff_members")
+        .select("user_id")
+        .eq("user_id", me)
+        .maybeSingle();
+      if (cancelled) return;
+      const staffOk = !!staff;
+      setIsStaff(staffOk);
+      if (staffOk) {
+        const { data: sus } = await supabase
+          .from("suspended_users")
+          .select("user_id")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!cancelled) setTargetSuspended(!!sus);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  // 利用停止 / 解除（運営専用RPC）
+  const handleSuspendUser = async () => {
+    const reason = window.prompt(
+      "利用停止の理由を入力してください（ユーザーに表示されます）",
+      "利用規約違反のため"
+    );
+    if (reason === null) return;
+    setSuspendBusy(true);
+    const { error } = await supabase.rpc("suspend_user", {
+      p_user_id: userId,
+      p_reason: reason.trim() || null,
+    });
+    setSuspendBusy(false);
+    if (error) {
+      alert(
+        error.message.includes("cannot suspend staff")
+          ? "運営アカウントは停止できません。"
+          : error.message.includes("not authorized")
+          ? "権限がありません。"
+          : "利用停止に失敗しました。"
+      );
+      return;
+    }
+    setTargetSuspended(true);
+  };
+
+  const handleUnsuspendUser = async () => {
+    if (!window.confirm("この利用者の利用停止を解除しますか？")) return;
+    setSuspendBusy(true);
+    const { error } = await supabase.rpc("unsuspend_user", { p_user_id: userId });
+    setSuspendBusy(false);
+    if (error) {
+      alert("解除に失敗しました。");
+      return;
+    }
+    setTargetSuspended(false);
+  };
 
   const showError = useCallback((message: string) => {
     setErrorMessage(message);
@@ -750,6 +820,28 @@ export default function App({ params }: Props) {
                   className="h-9 px-3 rounded-full border border-gray-300 hover:bg-gray-100 flex items-center"
                 />
               )}
+              {/* 運営のみ：このユーザーの利用停止 / 解除 */}
+              {isStaff && (
+                targetSuspended ? (
+                  <button
+                    onClick={handleUnsuspendUser}
+                    disabled={suspendBusy}
+                    className="h-9 px-3 sm:px-4 rounded-full border border-gray-300 text-sm font-bold hover:bg-gray-100 transition flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
+                  >
+                    {suspendBusy ? <Loader2 size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+                    停止解除
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSuspendUser}
+                    disabled={suspendBusy}
+                    className="h-9 px-3 sm:px-4 rounded-full bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition flex items-center gap-1.5 whitespace-nowrap disabled:opacity-60"
+                  >
+                    {suspendBusy ? <Loader2 size={16} className="animate-spin" /> : <Ban size={16} />}
+                    利用停止
+                  </button>
+                )
+              )}
             </>
           )}
         </div>
@@ -757,8 +849,14 @@ export default function App({ params }: Props) {
         {/* ユーザープロフィール詳細 */}
         <div className="px-4 sm:px-6 pb-4">
           <div className="mb-3">
-            <h1 className="text-xl font-extrabold tracking-tight leading-tight">
+            <h1 className="text-xl font-extrabold tracking-tight leading-tight flex items-center gap-2 flex-wrap">
               {displayProfile.username}
+              {isStaff && targetSuspended && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs font-bold">
+                  <Ban className="w-3 h-3" />
+                  利用停止中
+                </span>
+              )}
             </h1>
             {(profile?.grade || facul?.name || dept?.name) && (
               <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
