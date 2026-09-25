@@ -11,6 +11,7 @@ const tabs = [
   { href: "/admin/messages", label: "メッセージ" },
   { href: "/admin/textbooks", label: "教科書価格" },
   { href: "/admin/reports", label: "通報" },
+  { href: "/admin/suspensions", label: "利用停止" },
   { href: "/admin/deleted", label: "削除ログ" },
 ];
 
