@@ -17,6 +17,7 @@ const MESSAGES: Record<string, string> = {
   "transaction not matched": "この操作を実行できません（マッチング中の取引のみ対象です）。",
   "receiver insufficient points": "受取者のポイントが不足しているため完了できません。",
   "not authenticated": "ログインが必要です。再ログインしてください。",
+  "account suspended": "アカウントを利用停止中のため、この操作はできません。運営へのお問い合わせのみ可能です。",
 };
 
 export function txtRequestErrorMessage(message?: string | null): string {
