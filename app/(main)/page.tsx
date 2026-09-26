@@ -268,7 +268,7 @@ export default function HomePage() {
     [followingIds]
   );
 
-  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
+  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId,enabled:myId !== null, onError: showError });
   const schoolFeed = usePagedFeed({
     applyFilters: applyFiltersSchool,
     uid: myId,
