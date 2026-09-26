@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
+import { ReportButton } from "@/components/ReportButton";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -44,6 +45,10 @@ export default function ChatPage() {
   const [inputText, setInputText] = useState("");
   const [partner, setPartner] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  // 送信可否：相手が運営、または自分と相手の取引が「取引中(matched/received)」のときのみ true
+  const [canSend, setCanSend] = useState(false);
+  // 通報中のメッセージ id（右クリックメニューの「通報」で開く）
+  const [reportMsgId, setReportMsgId] = useState<string | null>(null);
 
   // 💡 右クリックメニューの表示状態を管理するステート
   const [contextMenu, setContextMenu] = useState<{
@@ -102,6 +107,21 @@ export default function ChatPage() {
           .single();
 
         if (userData) setPartner(userData);
+
+        // 送信可否を判定：相手が運営、または「取引中(matched/received)」の相手のときのみ送れる。
+        let allowSend = !!userData?.is_official;
+        if (!allowSend) {
+          const { data: activeTx } = await supabase
+            .from("txt_transaction")
+            .select("id")
+            .in("status", ["matched", "received"])
+            .or(
+              `and(giver_id.eq.${myId},receiver_id.eq.${receiverId}),and(giver_id.eq.${receiverId},receiver_id.eq.${myId})`
+            )
+            .limit(1);
+          allowSend = (activeTx?.length ?? 0) > 0;
+        }
+        setCanSend(allowSend);
 
         // ② 過去のメッセージ履歴を取得
         const { data: chatData, error: chatError } = await supabase
@@ -204,8 +224,8 @@ export default function ChatPage() {
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputText.trim() || !myId || !receiverId) return;
-    // DMは運営（公式アカウント）宛のみ。運営以外には送信しない。
-    if (partner && !partner.is_official) return;
+    // 運営、または取引中(matched/received)の相手のみ送信可能。
+    if (!canSend) return;
 
     const messageContent = inputText;
     const replyToId = replyingMessage?.id || null;
@@ -268,27 +288,6 @@ export default function ChatPage() {
       return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     } catch {
       return "";
-    }
-  };
-
-  // メッセージを送信取り消しする処理
-  const handleUnsendMessage = async (messageId: string) => {
-    if (!confirm("このメッセージの送信を取り消しますか？")) return;
-
-    try {
-      const { error } = await supabase
-        .from("chat")
-        .delete()
-        .eq("id", messageId);
-
-      if (error) throw error;
-
-      setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
-    } catch (error) {
-      console.error("送信取消に失敗しました:", error);
-      alert("送信取消に失敗しました。時間をおいて再度お試しください。");
-    } finally {
-      setContextMenu(null);
     }
   };
 
@@ -549,9 +548,9 @@ export default function ChatPage() {
             </div>
           )}
 
-          {partner && !partner.is_official ? (
+          {!canSend ? (
             <div className="m-4 rounded-2xl bg-gray-50 border border-gray-200 px-5 py-4 text-center text-sm text-gray-500">
-              運営以外にはメッセージを送れません。
+              取引中ではないため、メッセージを送信できません（閲覧のみ）。
             </div>
           ) : (
           <form onSubmit={handleSendMessage} className="flex items-center gap-3 bg-[#EFF3F4] rounded-full px-5 py-2.5 m-4">
@@ -630,15 +629,31 @@ export default function ChatPage() {
               コピー
             </button>
 
-            {contextMenu.isMe && (
-              <button 
+            {!contextMenu.isMe && (
+              <button
                 className="w-full text-left px-4 py-2 hover:bg-red-50 text-red-600 border-t border-gray-100 transition"
-                onClick={() => handleUnsendMessage(contextMenu.messageId)}
+                onClick={() => {
+                  setReportMsgId(contextMenu.messageId);
+                  setContextMenu(null);
+                }}
               >
-                送信取消
+                通報
               </button>
             )}
           </div>
+        )}
+
+        {/* メッセージ通報モーダル（右クリックメニューの「通報」で開く） */}
+        {reportMsgId && (
+          <ReportButton
+            hideTrigger
+            open
+            targetType="message"
+            targetId={reportMsgId}
+            onOpenChange={(o) => {
+              if (!o) setReportMsgId(null);
+            }}
+          />
         )}
 
       </div>

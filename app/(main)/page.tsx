@@ -268,9 +268,7 @@ export default function HomePage() {
     [followingIds]
   );
 
-  // uid（myId）が解決してから取得する。null のまま取得すると is_liked_by_me が
-  // 全て false になり、「いいね済みでも押せる（再insertがDB制約で弾かれる）」不具合になる。
-  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, enabled: myId !== null, onError: showError });
+  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
   const schoolFeed = usePagedFeed({
     applyFilters: applyFiltersSchool,
     uid: myId,
@@ -638,7 +636,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="w-full min-h-full bg-white text-gray-900 selection:bg-blue-100">
+    <div className="w-full min-h-screen bg-white text-gray-900 selection:bg-blue-100">
       {/* エラーバナー */}
       {errorMessage && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)] bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 shadow-lg flex items-start gap-2">
@@ -650,7 +648,7 @@ export default function HomePage() {
         </div>
       )}
 
-      <div className="w-full min-h-full border-l border-gray-100">
+      <div className="w-full min-h-screen border-l border-gray-100">
         {/* タイムライン表示 */}
         <>
 

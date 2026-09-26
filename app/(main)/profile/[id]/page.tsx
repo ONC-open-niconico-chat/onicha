@@ -754,7 +754,7 @@ export default function App({ params }: Props) {
         </div>
       )}
 
-      <div className="w-full min-h-full border-l border-gray-100">
+      <div className="w-full min-h-screen border-l border-gray-100">
 
         {/* ヘッダー背景（グラデーション） */}
         <div className="relative">
