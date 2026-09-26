@@ -97,7 +97,7 @@ export default function MessageListPage() {
   }
 
   return (
-    <div className="w-full bg-white min-h-screen text-black p-4 md:p-6">
+    <div className="w-full bg-white min-h-full text-black p-4 md:p-6">
       <h1 className="text-2xl font-bold border-b border-gray-100 pb-4 mb-2">メッセージ</h1>
       <p className="text-sm text-gray-400 mb-4">メッセージは運営とのやり取りのみ可能です。</p>
 
