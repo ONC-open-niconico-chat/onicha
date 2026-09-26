@@ -326,7 +326,7 @@ export default function PostDetailPage({ params }: Props) {
   };
 
   return (
-    <div className="w-full min-h-screen bg-white">
+    <div className="w-full min-h-full bg-white">
       {errorMessage && (
         <div className="m-3 p-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm flex items-center justify-between">
           <span>{errorMessage}</span>
