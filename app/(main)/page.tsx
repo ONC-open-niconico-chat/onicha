@@ -268,7 +268,9 @@ export default function HomePage() {
     [followingIds]
   );
 
-  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, onError: showError });
+  // uid（myId）が解決してから取得する。null のまま取得すると is_liked_by_me が
+  // 全て false になり、「いいね済みでも押せる（再insertがDB制約で弾かれる）」不具合になる。
+  const allFeed = usePagedFeed({ applyFilters: applyFiltersAll, uid: myId, enabled: myId !== null, onError: showError });
   const schoolFeed = usePagedFeed({
     applyFilters: applyFiltersSchool,
     uid: myId,
