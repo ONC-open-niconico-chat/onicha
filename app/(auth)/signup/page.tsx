@@ -105,7 +105,7 @@ export default function Signup() {
   
 
   return (
-    <div className="size-full flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50 overflow-auto py-8">
+    <div className="min-h-dvh flex items-center justify-center bg-linear-to-br from-purple-50 to-blue-50 py-8">
       <div className="w-full max-w-4xl mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-6 sm:p-8">
           <div className="text-center mb-6">
