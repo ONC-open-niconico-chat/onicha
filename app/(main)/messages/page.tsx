@@ -151,15 +151,11 @@ export default function MessageListPage() {
               className="flex items-center gap-4 py-4 px-2 hover:bg-gray-50 rounded-xl cursor-pointer transition"
             >
                 <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center overflow-hidden border border-gray-100 shadow-sm">
-                    {partner.icon_src ? (
-                        <img
-                            src={partner.icon_src}
-                            alt={partner.username}
-                            className="w-full h-full object-cover"
-                        />
-                    ) : (
-                        <span className="text-xl">👤</span>
-                    )}
+                    <img
+                        src={partner.icon_src || "/yujilink_icon/yujilink_icon.JPG"}
+                        alt={partner.username}
+                        className="w-full h-full object-cover"
+                    />
                 </div>
 
                 <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
