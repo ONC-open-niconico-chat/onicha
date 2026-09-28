@@ -206,9 +206,13 @@ export default function App({ params }: Props) {
   // 投稿後に直接呼び出して画面を完全同期するため、fetchDataを共通関数として定義
   const fetchAllData = useCallback(async () => {
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      // getSession はローカル保存のセッションを即時に返す（ネットワーク往復なし）。
+      // getUser だと認証検証の往復がボトルネックになり、プロフィール表示や
+      // isMe（編集/ログアウト/削除ボタン）の反映が遅くなる。
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
 
-      if (authError || !user) {
+      if (!user) {
         router.push('/login');
         return;
       }

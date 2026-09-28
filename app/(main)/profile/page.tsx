@@ -9,10 +9,11 @@ export default function ProfileIndex() {
 
   useEffect(() => {
     async function redirectToMyProfile() {
-      // ログイン中のユーザー情報を取得
-      const { data: { user }, error } = await supabase.auth.getUser();
-      
-      if (error || !user) {
+      // ログイン中のユーザー情報を取得（getSession はローカル即時取得で高速・安定）
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+
+      if (!user) {
         // 未ログインならログイン画面へ
         router.replace('/login');
         return;
