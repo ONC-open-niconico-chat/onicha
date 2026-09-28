@@ -297,9 +297,12 @@ export default function HomePage() {
   }, []);
 
   const fetchMyInfo = useCallback(async () => {
+    // getSession はローカル保存のセッションを即時に返す（ネットワーク往復なし）。
+    // myId を素早く確定させ、削除ボタン等の isMine 判定が「反応しない/リロードで直る」のを防ぐ。
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
 
     if (!user) {
       router.push("/login");
@@ -491,7 +494,13 @@ export default function HomePage() {
         onClick={() => router.push(`/post/${post.id}`)}
         className="p-4 hover:bg-gray-50/50 cursor-pointer transition flex gap-3 border-b border-gray-100"
       >
-        <Avatar src={u?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} sx={{ width: 40, height: 40 }} />
+        <Link
+          href={`/profile/${post.user_id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="shrink-0"
+        >
+          <Avatar src={u?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} sx={{ width: 40, height: 40 }} />
+        </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 text-[15px] mb-0.5 flex-wrap">
             <Link
