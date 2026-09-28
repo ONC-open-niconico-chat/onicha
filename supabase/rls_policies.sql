@@ -29,8 +29,11 @@ create policy "update own profile" on public."user"
   with check (auth.uid() = id);
 
 -- 経済・権限カラムはクライアントから UPDATE 不可にする（RPC は所有者権限で実行されるため影響なし）。
-revoke update (points, reserved_points, total_earned_points, is_official)
-  on public."user" from anon, authenticated;
+-- 注意：テーブル全体の UPDATE 権限が付いていると列単位の REVOKE は無効になる（テーブル権限が全列に及ぶため）。
+-- そのため「テーブルUPDATEを外して、編集可能な列だけ GRANT し直す」方式にする。
+revoke update on public."user" from anon, authenticated;
+grant update (username, bio, grade, department_id, icon_src)
+  on public."user" to authenticated;
 -- （INSERT/DELETE ポリシーは付けない＝クライアントからの作成/削除は不可。
 --   user 行の作成は auth トリガー等のサーバー側で行われる想定。）
 
