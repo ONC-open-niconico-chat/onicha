@@ -338,11 +338,7 @@ export default function ChatPage() {
           </button>
           
           <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 mr-3 flex items-center justify-center border border-gray-100">
-            {partner?.icon_src ? (
-              <img src={partner.icon_src} alt={partner.username} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-gray-500 text-sm">👤</span>
-            )}
+            <img src={partner?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} alt={partner?.username} className="w-full h-full object-cover" />
           </div>
 
           <div className="flex flex-col flex-1">
@@ -360,15 +356,11 @@ export default function ChatPage() {
           {/* 中央のプロフィール紹介部分 */}
           <div className="flex flex-col items-center py-8 border-b border-gray-50 mb-6">
             <div className="w-20 h-20 rounded-full overflow-hidden bg-gray-200 flex items-center justify-center border border-gray-100 mb-3 shadow-sm">
-              {partner?.icon_src ? (
-                <img 
-                  src={partner.icon_src} 
-                  alt={partner.username} 
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-gray-500 text-3xl">👤</span>
-              )}
+              <img
+                src={partner?.icon_src || "/yujilink_icon/yujilink_icon.JPG"}
+                alt={partner?.username}
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="font-bold text-xl flex items-center gap-1">
               {partner?.username || "ユーザー"}
@@ -450,11 +442,7 @@ export default function ChatPage() {
                         <div className="flex items-center gap-1.5 font-bold">
                           {/* 💡 リプライ元ユーザーのアイコンを表示 */}
                           <div className="w-4 h-4 rounded-full overflow-hidden bg-gray-300 flex items-center justify-center shrink-0">
-                            {replyIcon ? (
-                              <img src={replyIcon} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              <span className="text-[9px]">👤</span>
-                            )}
+                            <img src={replyIcon || "/yujilink_icon/yujilink_icon.JPG"} alt="" className="w-full h-full object-cover" />
                           </div>
                           {/* 💡 リプライ元ユーザーの名前を表示 */}
                           <span>{replyName}</span>
@@ -507,11 +495,7 @@ export default function ChatPage() {
           {replyingMessage && (
             <div className="flex items-center gap-3 px-6 py-2.5 border-b border-gray-100 animate-in slide-in-from-bottom duration-150">
               <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0 flex items-center justify-center border border-gray-100 shadow-inner">
-                {partner?.icon_src ? (
-                  <img src={partner.icon_src} alt={partner.username} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-sm">👤</span>
-                )}
+                <img src={partner?.icon_src || "/yujilink_icon/yujilink_icon.JPG"} alt={partner?.username} className="w-full h-full object-cover" />
               </div>
 
               <div className="flex-1 min-w-0">
