@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
 import { ReportButton } from "@/components/ReportButton";
+import { ShieldCheck } from "lucide-react";
 
 // メッセージ1件分の型定義
 interface ChatMessage {
@@ -349,6 +350,16 @@ export default function ChatPage() {
           </div>
           
         </div>
+
+        {/* 受け渡しの安全喚起（運営チャットでは不要なので非表示）。軽めの1行バー。 */}
+        {!partner?.is_official && (
+          <div className="bg-amber-50 border-b border-amber-100 px-4 py-1.5 text-center">
+            <p className="text-[11px] leading-snug text-amber-700 inline-flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+              安全のため、明るい時間に琉球大学構内での受け渡しを推奨します。
+            </p>
+          </div>
+        )}
 
         {/* チャットタイムライン部分 */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4 pb-28">
