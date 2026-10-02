@@ -4,28 +4,15 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getYujiRank, nextYujiRank } from "@/lib/yujiRank";
 
 // お問い合わせ用 Google フォームの URL。
 // 環境変数 NEXT_PUBLIC_CONTACT_FORM_URL があればそれを使う。未設定なら下の値を差し替える。
 // ★ TODO: 実際の Google フォールURL（例 https://forms.gle/xxxx）に置き換えてください。
 const CONTACT_FORM_URL =
   process.env.NEXT_PUBLIC_CONTACT_FORM_URL || "https://forms.gle/your-form-id";
-
-// 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
-const RANKS = [
-  { name: "god", label: "God", min: 50000, src: "/rank_icons/7_god.jpg" },
-  { name: "master", label: "Master", min: 10000, src: "/rank_icons/6_master.jpg" },
-  { name: "diamond", label: "Diamond", min: 5000, src: "/rank_icons/5_diamond.jpg" },
-  { name: "platinum", label: "Platinum", min: 3000, src: "/rank_icons/4_platinum.jpg" },
-  { name: "gold", label: "Gold", min: 2000, src: "/rank_icons/3_gold.jpg" },
-  { name: "silver", label: "Silver", min: 1500, src: "/rank_icons/2_silver.jpg" },
-  { name: "bronze", label: "Bronze", min: 0, src: "/rank_icons/1_bronze.jpg" },
-];
-
-const getRank = (totalEarned: number) =>
-  RANKS.find((r) => totalEarned >= r.min) ?? RANKS[RANKS.length - 1];
 
 // 会話詳細（独自の入力バーを持つフルスクリーン画面）ではモバイル下部バーを隠す
 const isConversationRoute = (pathname: string) =>
@@ -45,10 +32,8 @@ export function Sidebar() {
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
 
-  // 現在のポイント / 仮消費（予約）ポイント / 累計獲得ポイント
-  const [points, setPoints] = useState<number | null>(null);
-  const [reserved, setReserved] = useState<number>(0);
-  const [totalEarned, setTotalEarned] = useState<number | null>(null);
+  // 譲った相手の人数（ユジランクの根拠）
+  const [giveCount, setGiveCount] = useState<number | null>(null);
 
   // モバイル：メニュー（ドロワー）の開閉
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -66,20 +51,6 @@ export function Sidebar() {
       setUnreadCount(count ?? 0);
     };
 
-    const fetchPoints = async () => {
-      if (!myId) return;
-      const { data } = await supabase
-        .from("user")
-        .select("points, reserved_points, total_earned_points")
-        .eq("id", myId)
-        .single();
-      if (data) {
-        setPoints(data.points ?? 0);
-        setReserved(data.reserved_points ?? 0);
-        setTotalEarned(data.total_earned_points ?? 0);
-      }
-    };
-
     // 取引中（matched / received）の譲渡が自分にあるか（件数）
     const fetchActiveTx = async () => {
       if (!myId) return;
@@ -91,6 +62,17 @@ export function Sidebar() {
       setActiveTxCount(count ?? 0);
     };
 
+    // 譲った相手の人数（give_count）を取得
+    const fetchGiveCount = async () => {
+      if (!myId) return;
+      const { data } = await supabase
+        .from("user")
+        .select("give_count")
+        .eq("id", myId)
+        .single();
+      setGiveCount(data?.give_count ?? 0);
+    };
+
     const init = async () => {
       const {
         data: { session },
@@ -98,8 +80,8 @@ export function Sidebar() {
       if (!session?.user) return;
       myId = session.user.id;
       await fetchUnread();
-      await fetchPoints();
       await fetchActiveTx();
+      await fetchGiveCount();
 
       // 管理者判定：staff_members に自分の user_id があるか
       const { data: staff } = await supabase
@@ -122,30 +104,15 @@ export function Sidebar() {
               (payload.old as { receiver_id?: string })?.receiver_id;
             if (rec === myId) {
               fetchUnread();
-              // 承諾/完了/取消は通知を伴うため、取引中バッジもここで更新する
+              // 承諾/完了/取消は通知を伴うため、取引中バッジ・譲渡実績もここで更新する
               fetchActiveTx();
+              fetchGiveCount();
             }
           }
         )
         .subscribe();
 
-      // 自分の user 行の更新（ポイント変動）をリアルタイムに反映
-      // サーバー側フィルタで「自分の行だけ」受信する（全ユーザー分の配信を避ける）
-      const userChannel = supabase
-        .channel("sidebar-user-points")
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "user", filter: `id=eq.${myId}` },
-          (payload) => {
-            const row = payload.new as { id?: string; points?: number; reserved_points?: number; total_earned_points?: number };
-            setPoints(row.points ?? 0);
-            setReserved(row.reserved_points ?? 0);
-            setTotalEarned(row.total_earned_points ?? 0);
-          }
-        )
-        .subscribe();
-
-      return [channel, userChannel];
+      return [channel];
     };
 
     const channelsPromise = init();
@@ -177,35 +144,36 @@ export function Sidebar() {
     };
   }, [pathname]);
 
-  // ポイント / ランク表示ブロック（デスクトップ・モバイルのドロワーで共用）
-  const pointsBlock =
-    points !== null && totalEarned !== null ? (
-      <div className="mt-auto border-t border-gray-200 pt-4">
+  // ユジランク表示ブロック（譲った人数ベース。デスクトップ・モバイルのドロワーで共用）
+  const rankBlock =
+    giveCount !== null ? (
+      <Link
+        href="/yujirank"
+        onClick={() => setDrawerOpen(false)}
+        className="mt-auto block border-t border-gray-200 pt-4 hover:bg-gray-50 rounded-lg transition-colors"
+      >
         <div className="flex items-center gap-3">
           <img
-            src={getRank(totalEarned).src}
-            alt={getRank(totalEarned).label}
+            src={getYujiRank(giveCount).src}
+            alt={getYujiRank(giveCount).label}
             className="w-12 h-12 rounded-lg object-cover shrink-0"
           />
           <div className="min-w-0">
-            <div className="font-bold text-gray-900">{getRank(totalEarned).label}</div>
-            <div className="text-xs text-gray-500">累計 {totalEarned.toLocaleString()} pt</div>
+            <div className="font-bold text-gray-900">{getYujiRank(giveCount).label}</div>
+            <div className="text-xs text-gray-500">譲った相手 {giveCount.toLocaleString()} 人</div>
           </div>
         </div>
-        <div className="mt-3 flex items-baseline justify-between">
-          <span className="text-sm text-gray-600">利用可能ポイント</span>
-          <span className="text-lg font-bold text-blue-600">
-            {Math.max(points - reserved, 0).toLocaleString()}
-            <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
-          </span>
-        </div>
-        {reserved > 0 && (
-          <div className="mt-0.5 flex items-baseline justify-between text-xs text-gray-400">
-            <span>予約中（リクエスト保留分）</span>
-            <span>{reserved.toLocaleString()} pt</span>
-          </div>
-        )}
-      </div>
+        {(() => {
+          const nxt = nextYujiRank(giveCount);
+          return nxt ? (
+            <div className="mt-2 text-xs text-gray-400">
+              次の <span className="font-bold text-gray-600">{nxt.rank.label}</span> まであと {nxt.remaining} 人
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-amber-500 font-bold">最高ランク達成！🎉</div>
+          );
+        })()}
+      </Link>
     ) : null;
 
   return (
@@ -228,6 +196,7 @@ export function Sidebar() {
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
           <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} />
+          <SidebarItem href="/yujirank" icon={<Trophy className="w-5 h-5" />} label="ユジランク" active={isActive("/yujirank")} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -237,7 +206,7 @@ export function Sidebar() {
           )}
         </nav>
 
-        {pointsBlock}
+        {rankBlock}
       </div>
 
       {/* ─── モバイル：下部タブバー（md 未満／会話画面では非表示） ─── */}
@@ -280,6 +249,7 @@ export function Sidebar() {
 
             <nav className="flex flex-col gap-2">
               <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} onClick={() => setDrawerOpen(false)} />
+              <SidebarItem href="/yujirank" icon={<Trophy className="w-5 h-5" />} label="ユジランク" active={isActive("/yujirank")} onClick={() => setDrawerOpen(false)} />
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
                <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (
@@ -287,7 +257,7 @@ export function Sidebar() {
               )}
             </nav>
 
-            {pointsBlock}
+            {rankBlock}
           </div>
         </div>
       )}

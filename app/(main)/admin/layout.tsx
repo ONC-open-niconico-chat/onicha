@@ -9,7 +9,7 @@ import { getOfficialUserId } from "@/lib/official";
 const tabs = [
   { href: "/admin", label: "取引管理" },
   { href: "/admin/messages", label: "メッセージ" },
-  { href: "/admin/textbooks", label: "教科書価格" },
+  { href: "/admin/textbooks", label: "教科書確認" },
   { href: "/admin/reports", label: "通報" },
   { href: "/admin/suspensions", label: "利用停止" },
   { href: "/admin/deleted", label: "削除ログ" },
@@ -22,7 +22,7 @@ export default function AdminLayout({
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
 
-  // ユーザー追加・未確認の教科書件数（教科書価格タブのバッジ用）
+  // 未確認（ユーザー追加後まだ確認していない）の教科書件数（教科書確認タブのバッジ用）
   const [unconfirmedCount, setUnconfirmedCount] = useState(0);
   // 未読の譲渡中取引件数（取引管理タブのバッジ用）
   const [unreadTxCount, setUnreadTxCount] = useState(0);
@@ -38,7 +38,6 @@ export default function AdminLayout({
         supabase
           .from("textbook")
           .select("*", { count: "exact", head: true })
-          .not("list_price", "is", null)
           .eq("confirmed", false),
         supabase
           .from("txt_transaction")

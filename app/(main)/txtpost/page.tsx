@@ -22,7 +22,6 @@ export interface Post {
   book: {
     id:number;
     title:string;
-    price?:number | null;
   }
 
   condition: {
@@ -81,8 +80,7 @@ function TxtPostContent() {
       ),
       book:"textbook" (
         id,
-        title,
-        price
+        title
       ),
       condition:"txtbook_condition" (
         id,
@@ -465,24 +463,23 @@ function TxtPostContent() {
                 <ul className="space-y-1.5">
                   <li>
                     <span className="inline-block font-bold text-blue-700 bg-blue-50 rounded px-1.5 py-0.5 mr-1">譲ります</span>
-                    使わない教科書を出品します。受け取った相手から<b>ポイントを獲得</b>できます。
+                    使わない教科書を出品します。必要としている相手に<b>無償で譲ります</b>。
                   </li>
                   <li>
                     <span className="inline-block font-bold text-green-700 bg-green-50 rounded px-1.5 py-0.5 mr-1">譲ってください</span>
-                    欲しい教科書を募集します。受け取るときに<b>ポイントを消費</b>します（投稿時に必要ポイントを仮消費します）。
+                    欲しい教科書を募集します。持っている人から<b>無償で譲ってもらいます</b>。
                   </li>
-                  <li>教科書データベースに登録されている教科書のみ投稿できます。登録されていない教科書を新規追加して投稿することもできます。その際、投稿する書籍の定価を入力してください。
+                  <li>教科書データベースに登録されている教科書のみ投稿できます。登録されていない教科書は新規追加して投稿することもできます。
                   </li>
                 </ul>
               </section>
 
-              {/* ポイント */}
+              {/* 無償について */}
               <section>
-                <h3 className="font-bold text-lg text-gray-900 mb-2">② ポイントの仕組み</h3>
+                <h3 className="font-bold text-lg text-gray-900 mb-2">② 完全無償でのやり取り</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>教科書ごとに必要ポイントが設定されています。</li>
-                  <li>譲ると <b className="text-blue-600">＋ポイント</b>、受け取ると <b className="text-red-500">−ポイント</b>。</li>
-                  <li><b>利用可能ポイント</b> ＝ 所持ポイント − 仮消費ポイント。</li>
+                  <li>本サービスの教科書譲渡は、<b>お金やポイントなどの対価を一切伴わない</b>無償の譲渡です。</li>
+                  <li>受け渡し時に金銭等を要求することは禁止です。</li>
                 </ul>
               </section>
 
@@ -493,8 +490,7 @@ function TxtPostContent() {
                   <li>投稿を見つけて「譲ってください／譲ります」ボタンでリクエスト</li>
                   <li>相手（投稿者）が承諾するとマッチング成立</li>
                   <li>双方で受け渡し日時をメッセージで相談し、受け渡しを行います。</li>
-                  <li>受け渡し時に、受取者が贈与者の確認を得て、「受け取りました」を押します。</li>
-                  <li>運営が完了処理を行い、贈与者へポイントを付与し、受取者がポイントを消費します。</li>
+                  <li>受け渡し時に、受取者が贈与者の確認を得て「受け取りました」を押すと、譲渡が完了します。</li>
                 </ol>
                 <p className="mt-2 text-gray-500 text-sm">
                   ※ リクエストは相手が対応する前なら取り下げできます。投稿者はリクエストに対して承諾／見送りを選べます。
@@ -505,7 +501,7 @@ function TxtPostContent() {
               <section>
                 <h3 className="font-bold text-lg text-gray-900 mb-2">④ 注意点</h3>
                 <ul className="list-disc list-inside space-y-1">
-                  <li>「譲ってください」の投稿には、必要ポイント分の利用可能残高が必要です。</li>
+                  <li>受け渡しは、安全のため琉大構内など人目のある場所で行うことを推奨します。</li>
                   <li>マッチング済みの投稿は削除できません。</li>
                   <li>出品できる書籍は、講義で使う教科書や学習用の参考書のみです。漫画や雑誌は不可です。不適切な書籍の投稿は削除される可能性があります。</li>
                 </ul>
