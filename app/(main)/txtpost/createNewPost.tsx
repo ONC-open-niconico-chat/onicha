@@ -15,7 +15,6 @@ interface CreatePostFormProps {
 interface SearchTextbook {
   id: number;
   title: string;
-  price?: number | null; // この教科書の価格（seeking の必要ポイント表示に使用）
 }
 
 export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFormProps) {
@@ -27,37 +26,11 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
   // 新規教科書追加フォーム
   const [showNewBook, setShowNewBook] = useState(false);
   const [newBookTitle, setNewBookTitle] = useState("");
-  const [newBookListPrice, setNewBookListPrice] = useState(""); // 定価
   const [creatingBook, setCreatingBook] = useState(false);
   const [giveType, setGiveType] = useState<"offering" | "seeking">("offering");
   const MAX_IMAGES = 4; // 画像の最大枚数
   const [imageFiles, setImageFiles] = useState<File[]>([]); // 添付する画像（最大4枚）
   const [imagePreviews, setImagePreviews] = useState<string[]>([]); // プレビュー用URL
-  // 自分の利用可能ポイント（points - reserved_points）。seeking の必要ポイント判定に使用。
-  const [availablePoints, setAvailablePoints] = useState<number | null>(null);
-
-  // 自分の所持/予約ポイントを取得して利用可能残高を求める
-  useEffect(() => {
-    const loadPoints = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data } = await supabase
-        .from("user")
-        .select("points, reserved_points")
-        .eq("id", user.id)
-        .single();
-      setAvailablePoints((data?.points ?? 0) - (data?.reserved_points ?? 0));
-    };
-    loadPoints();
-  }, []);
-
-  // seeking のとき、選択教科書の価格＝必要ポイント。残高不足かどうか。
-  const requiredPoints = selectedBook?.price ?? null;
-  const seekingInsufficient =
-    giveType === "seeking" &&
-    requiredPoints != null &&
-    availablePoints != null &&
-    availablePoints < requiredPoints;
 
   // 画像が選択されたときの処理（既存の選択に追加、最大4枚まで）
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,7 +80,7 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       // Supabaseの ilike（大文字小文字を区別しない部分一致）で検索！
       const { data, error } = await supabase
         .from("textbook")
-        .select("id, title, price")
+        .select("id, title")
         .ilike("title", `%${bookTitle}%`) // 「%文字%」で含むものを探す
         .limit(5); // 多すぎても困るので最大5件
 
@@ -119,24 +92,18 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
     searchBooks();
   }, [bookTitle, selectedBook]);
 
-  // 新規教科書を追加：RPC で定価×0.4 を price として登録（価格はサーバー側で計算）
+  // 新規教科書を追加：タイトルのみで登録（価格・定価は扱わない）
   const handleCreateTextbook = async () => {
     const title = newBookTitle.trim();
-    const listPrice = Number(newBookListPrice);
 
     if (!title) {
       alert("教科書名を入力してください。");
-      return;
-    }
-    if (!Number.isFinite(listPrice) || listPrice <= 0) {
-      alert("定価は正の数で入力してください。");
       return;
     }
 
     setCreatingBook(true);
     const { data: newId, error } = await supabase.rpc("create_textbook", {
       p_title: title,
-      p_list_price: Math.round(listPrice),
     });
     setCreatingBook(false);
 
@@ -146,15 +113,14 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       return;
     }
 
-    // 追加した教科書を選択状態にする（価格はサーバーと同じ「定価×0.4 の一の位切り捨て＝10の倍数に切り下げ」で算出して表示）
-    setSelectedBook({ id: newId as number, title, price: Math.floor((listPrice * 0.4) / 10) * 10 });
+    // 追加した教科書を選択状態にする
+    setSelectedBook({ id: newId as number, title });
     setBookTitle(title);
     setSuggestions([]);
     setBookError("");
     // フォームを閉じてリセット
     setShowNewBook(false);
     setNewBookTitle("");
-    setNewBookListPrice("");
   };
 
   const handleSubmit = async (formData: FormData) => {
@@ -185,12 +151,6 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       }
       const targetBookId: number = selectedBook.id;
 
-      // seeking はポイント不足だと投稿不可（サーバー側 RPC でも最終チェックされる）
-      if (seekingInsufficient) {
-        setBookError("利用可能ポイントが不足しているため投稿できません。");
-        return;
-      }
-
       // 2.5 画像が選ばれていれば images バケットにアップロードして公開URLを取得（最大4枚）
       const imageUrls: string[] = [];
       for (const file of imageFiles) {
@@ -209,7 +169,6 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
       }
 
       // 3. RPC で投稿を作成。
-      //    seeking は残高チェック＋価格分の予約（reserved_points）までアトミックに行う。
       const { error } = await supabase.rpc("create_txt_post", {
         p_give_type: giveType,
         p_textbook_id: targetBookId,
@@ -344,16 +303,8 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                     placeholder="教科書名"
                     className="w-full px-3 py-2 border rounded-lg text-s focus:outline-blue-500 bg-white"
                   />
-                  <input
-                    type="number"
-                    min={0}
-                    value={newBookListPrice}
-                    onChange={(e) => setNewBookListPrice(e.target.value)}
-                    placeholder="定価（円）"
-                    className="w-full px-3 py-2 border rounded-lg text-s focus:outline-blue-500 bg-white"
-                  />
-                  <p className="text-sm text-red-500">
-                    入力された定価は後ほど運営で確認させていただくことがあります。
+                  <p className="text-sm text-gray-500">
+                    追加した教科書名は後ほど運営で確認させていただくことがあります。
                   </p>
                   <div className="flex gap-2">
                     <button
@@ -369,7 +320,6 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                       onClick={() => {
                         setShowNewBook(false);
                         setNewBookTitle("");
-                        setNewBookListPrice("");
                       }}
                       className="px-4 py-2 rounded-lg font-bold text-gray-600 text-sm bg-white border border-gray-300 hover:bg-gray-50"
                     >
@@ -449,51 +399,15 @@ export default function CreatePostForm({ onPostCreated, onclose }: CreatePostFor
                 </div>
             </div>
 
-            {/* 必要ポイント（譲ってください＝投稿主が支払う側）の案内 */}
-            {giveType === "seeking" && (
-              <div
-                className={`mb-3 rounded-xl border p-3 text-sm ${
-                  seekingInsufficient
-                    ? "border-red-200 bg-red-50 text-red-700"
-                    : "border-green-200 bg-green-50 text-green-700"
-                }`}
-              >
-                {requiredPoints == null ? (
-                  <p>教科書を選択すると、募集に必要なポイントが表示されます。</p>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between">
-                      <span>必要ポイント</span>
-                      <span className="font-bold">{requiredPoints} pt</span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>利用可能ポイント</span>
-                      <span className="font-bold">
-                        {availablePoints == null ? "…" : `${availablePoints} pt`}
-                      </span>
-                    </div>
-                    {seekingInsufficient && (
-                      <p className="mt-1 font-medium">
-                        ポイントが不足しているため投稿できません。譲渡完了でポイントを獲得できます。
-                      </p>
-                    )}
-                    <p className="mt-1 text-xs opacity-80">
-                      ※ 募集の投稿時に必要ポイントを確保（予約）します。譲渡完了または投稿削除で解放されます。
-                    </p>
-                  </>
-                )}
-              </div>
-            )}
-
             {/* 送信ボタン */}
             <button
                 type="submit"
-                disabled={loading || seekingInsufficient}
+                disabled={loading}
                 className={`w-full py-3 rounded-xl font-bold text-white text-s  shadow-md transition-all active:scale-98 ${
                 giveType === "offering" ? "bg-blue-600 hover:bg-blue-700" : "bg-green-600 hover:bg-green-700"
-                } ${loading || seekingInsufficient ? "opacity-50 cursor-not-allowed" : ""}`}
+                } ${loading ? "opacity-50 cursor-not-allowed" : ""}`}
             >
-                {loading ? "投稿中..." : seekingInsufficient ? "ポイント不足" : "投稿する"}
+                {loading ? "投稿中..." : "投稿する"}
             </button>
         </form>
     </div>
