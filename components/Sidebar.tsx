@@ -4,8 +4,9 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail } from "lucide-react";
+import { Home, Bell, MessageCircle, User, Handshake, ArrowLeftRight, ShieldCheck, Menu, X, Mail, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { getYujiRank, nextYujiRank } from "@/lib/yujiRank";
 
 // お問い合わせ用 Google フォームの URL。
 // 環境変数 NEXT_PUBLIC_CONTACT_FORM_URL があればそれを使う。未設定なら下の値を差し替える。
@@ -30,6 +31,9 @@ export function Sidebar() {
 
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
+
+  // 譲った相手の人数（ユジランクの根拠）
+  const [giveCount, setGiveCount] = useState<number | null>(null);
 
   // モバイル：メニュー（ドロワー）の開閉
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -58,6 +62,17 @@ export function Sidebar() {
       setActiveTxCount(count ?? 0);
     };
 
+    // 譲った相手の人数（give_count）を取得
+    const fetchGiveCount = async () => {
+      if (!myId) return;
+      const { data } = await supabase
+        .from("user")
+        .select("give_count")
+        .eq("id", myId)
+        .single();
+      setGiveCount(data?.give_count ?? 0);
+    };
+
     const init = async () => {
       const {
         data: { session },
@@ -66,6 +81,7 @@ export function Sidebar() {
       myId = session.user.id;
       await fetchUnread();
       await fetchActiveTx();
+      await fetchGiveCount();
 
       // 管理者判定：staff_members に自分の user_id があるか
       const { data: staff } = await supabase
@@ -88,8 +104,9 @@ export function Sidebar() {
               (payload.old as { receiver_id?: string })?.receiver_id;
             if (rec === myId) {
               fetchUnread();
-              // 承諾/完了/取消は通知を伴うため、取引中バッジもここで更新する
+              // 承諾/完了/取消は通知を伴うため、取引中バッジ・譲渡実績もここで更新する
               fetchActiveTx();
+              fetchGiveCount();
             }
           }
         )
@@ -127,6 +144,38 @@ export function Sidebar() {
     };
   }, [pathname]);
 
+  // ユジランク表示ブロック（譲った人数ベース。デスクトップ・モバイルのドロワーで共用）
+  const rankBlock =
+    giveCount !== null ? (
+      <Link
+        href="/yujirank"
+        onClick={() => setDrawerOpen(false)}
+        className="mt-auto block border-t border-gray-200 pt-4 hover:bg-gray-50 rounded-lg transition-colors"
+      >
+        <div className="flex items-center gap-3">
+          <img
+            src={getYujiRank(giveCount).src}
+            alt={getYujiRank(giveCount).label}
+            className="w-12 h-12 rounded-lg object-cover shrink-0"
+          />
+          <div className="min-w-0">
+            <div className="font-bold text-gray-900">{getYujiRank(giveCount).label}</div>
+            <div className="text-xs text-gray-500">譲った相手 {giveCount.toLocaleString()} 人</div>
+          </div>
+        </div>
+        {(() => {
+          const nxt = nextYujiRank(giveCount);
+          return nxt ? (
+            <div className="mt-2 text-xs text-gray-400">
+              次の <span className="font-bold text-gray-600">{nxt.rank.label}</span> まであと {nxt.remaining} 人
+            </div>
+          ) : (
+            <div className="mt-2 text-xs text-amber-500 font-bold">最高ランク達成！🎉</div>
+          );
+        })()}
+      </Link>
+    ) : null;
+
   return (
     <>
       {/* ─── デスクトップ：左サイドバー（md 以上） ─── */}
@@ -147,6 +196,7 @@ export function Sidebar() {
           <SidebarItem href="/" icon={<Home className="w-5 h-5" />} label="ホーム" active={isActive("/")} onClick={() => window.dispatchEvent(new Event("home:refresh"))} />
           <SidebarItem href="/txtpost" icon={<Handshake className="w-5 h-5" />} label="教科書譲渡" active={isActive("/txtpost")} />
           <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} />
+          <SidebarItem href="/yujirank" icon={<Trophy className="w-5 h-5" />} label="ユジランク" active={isActive("/yujirank")} />
           <SidebarItem href="/notification" icon={<Bell className="w-5 h-5" />} label="通知" active={isActive("/notification")} badge={unreadCount} />
           <SidebarItem href="/messages" icon={<MessageCircle className="w-5 h-5" />} label="メッセージ" active={isActive("/messages")} />
           <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} />
@@ -155,6 +205,8 @@ export function Sidebar() {
             <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
           )}
         </nav>
+
+        {rankBlock}
       </div>
 
       {/* ─── モバイル：下部タブバー（md 未満／会話画面では非表示） ─── */}
@@ -197,12 +249,15 @@ export function Sidebar() {
 
             <nav className="flex flex-col gap-2">
               <SidebarItem href="/transactions" icon={<ArrowLeftRight className="w-5 h-5" />} label="取引中の譲渡" active={isActive("/transactions")} dot={activeTxCount > 0} onClick={() => setDrawerOpen(false)} />
+              <SidebarItem href="/yujirank" icon={<Trophy className="w-5 h-5" />} label="ユジランク" active={isActive("/yujirank")} onClick={() => setDrawerOpen(false)} />
               <SidebarItem href="/profile" icon={<User className="w-5 h-5" />} label="プロフィール" active={isActive("/profile")} onClick={() => setDrawerOpen(false)} />
                <ExternalItem href={CONTACT_FORM_URL} icon={<Mail className="w-5 h-5" />} label="ご意見・お問い合わせ" onClick={() => setDrawerOpen(false)} />
               {isStaff && (
                 <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} onClick={() => setDrawerOpen(false)} />
               )}
             </nav>
+
+            {rankBlock}
           </div>
         </div>
       )}

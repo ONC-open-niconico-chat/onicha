@@ -8,6 +8,8 @@ import { Heart, MessageCircle, Settings, LogOut, Image as ImageIcon, Send, Alert
 import * as Tabs from '@radix-ui/react-tabs';
 import EditProfile from '@/components/EditProfile';
 import { ReportButton } from '@/components/ReportButton';
+import Link from 'next/link';
+import { getYujiRank } from '@/lib/yujiRank';
 
 interface UserProfile {
   id: string;
@@ -96,6 +98,9 @@ export default function App({ params }: Props) {
   const [replyPosts, setReplyPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+
+  // このユーザーが譲った相手の人数（ユジランクの根拠）。未取得/未適用時は null。
+  const [giveCount, setGiveCount] = useState<number | null>(null);
 
   // 新規投稿・画像アップロードの状態管理
   const [newPostText, setNewPostText] = useState('');
@@ -326,6 +331,26 @@ export default function App({ params }: Props) {
     setLoading(true);
     fetchAllData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  // 譲った相手の人数（give_count）を取得。カラム未適用でもプロフィール本体を壊さないよう、
+  // メインのプロフィール取得とは分離し、失敗時は非表示（null のまま）にする。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from('user')
+        .select('give_count')
+        .eq('id', userId)
+        .single();
+      if (cancelled) return;
+      if (error) {
+        setGiveCount(null); // カラム未適用など。ランク章は表示しない。
+        return;
+      }
+      setGiveCount((data as { give_count?: number })?.give_count ?? 0);
+    })();
+    return () => { cancelled = true; };
   }, [userId]);
 
   // 画像が選択された時の処理（バリデーション付き）
@@ -862,8 +887,8 @@ export default function App({ params }: Props) {
                 </span>
               )}
             </h1>
-            {(profile?.grade || facul?.name || dept?.name) && (
-              <div className="flex gap-2 mt-1.5 text-xs font-semibold text-gray-500">
+            {(profile?.grade || facul?.name || dept?.name || giveCount !== null) && (
+              <div className="flex items-center gap-2 mt-1.5 text-xs font-semibold text-gray-500 flex-wrap">
                 {profile?.grade ? (
                   <span className="bg-blue-50 text-blue-600 px-2 py-0.5 rounded">
                     {profile.grade}年生
@@ -879,6 +904,17 @@ export default function App({ params }: Props) {
                     {dept.name}
                   </span>
                 ) : null}
+                {/* ユジランク：アイコンのみ表示（クリックでランキングへ） */}
+                {giveCount !== null && (
+                  <Link href="/yujirank" title={`ユジランク：${getYujiRank(giveCount).label}`}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={getYujiRank(giveCount).src}
+                      alt={getYujiRank(giveCount).label}
+                      className="w-6 h-6 rounded object-cover hover:opacity-80 transition-opacity"
+                    />
+                  </Link>
+                )}
               </div>
             )}
           </div>
