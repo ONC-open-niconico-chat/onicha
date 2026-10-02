@@ -44,8 +44,6 @@ export default function NotificationPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   // 承諾・拒否ボタンを押した結果（通知IDごと）。押したらボタンをラベル表示に切り替える。
   const [actionStatus, setActionStatus] = useState<Record<string, "accepted" | "rejected">>({});
-  // 完了通知に紐づく取引ID -> 付与/消費ポイント
-  const [txPoints, setTxPoints] = useState<Record<string, number>>({});
   const router = useRouter();
 
 
@@ -89,27 +87,6 @@ export default function NotificationPage() {
 
         const list = (data as any) || [];
         setNotifications(list);
-
-        // 完了通知に紐づく取引の points をまとめて取得
-        const txIds = list
-          .filter(
-            (n: any) =>
-              (n.notification_type === "transfer_completed_giver" ||
-                n.notification_type === "transfer_completed_receiver") &&
-              n.txt_transaction_id != null
-          )
-          .map((n: any) => n.txt_transaction_id);
-        if (txIds.length > 0) {
-          const { data: txs } = await supabase
-            .from("txt_transaction")
-            .select("id, points")
-            .in("id", txIds);
-          const map: Record<string, number> = {};
-          (txs ?? []).forEach((t: any) => {
-            map[String(t.id)] = t.points ?? 0;
-          });
-          setTxPoints(map);
-        }
       } catch (error) {
         console.error("通知の取得に失敗しました:", error);
       } finally {
@@ -307,11 +284,6 @@ const handleDeleteAll = async () => {
               </span>
             );
             const textbookTitle = notif.txt_post?.book?.title || "削除された教科書";
-            // 完了通知の付与/消費ポイント
-            const completedPoints =
-              notif.txt_transaction_id != null
-                ? txPoints[String(notif.txt_transaction_id)] ?? 0
-                : 0;
 
             // このリクエストに対して既に承諾/拒否したか（DBの値を優先、押した直後はローカル状態）
             const requestStatus = actionStatus[notif.id] ?? notif.request_status;
@@ -359,15 +331,13 @@ const handleDeleteAll = async () => {
                         </>
                       ) : notif.notification_type === "transfer_completed_giver" ? (
                         <>
-                          {senderNameEl} さんとの
-                          <span className="font-bold">「{textbookTitle}」</span> の譲渡が完了しました！
-                          ポイントが <span className="font-bold text-green-600">{completedPoints} pt</span> 付与されました。
+                          {senderNameEl} さんへの
+                          <span className="font-bold">「{textbookTitle}」</span> の譲渡が完了しました！ありがとうございました。
                         </>
                       ) : notif.notification_type === "transfer_completed_receiver" ? (
                         <>
-                          {senderNameEl} さんとの
+                          {senderNameEl} さんからの
                           <span className="font-bold">「{textbookTitle}」</span> の譲渡が完了しました！
-                          ポイントが <span className="font-bold text-red-600">{completedPoints} pt</span> 消費されました。
                         </>
                       ) : notif.notification_type === "request_rejected" ? (
                         <>

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { txtRequestErrorMessage } from "@/lib/txtRequest";
-import { AlertCircle, ArrowLeftRight, Clock, Coins, Loader2, MessageCircle, MessagesSquare, PackageCheck } from "lucide-react";
+import { AlertCircle, ArrowLeftRight, Loader2, MessageCircle, MessagesSquare, PackageCheck } from "lucide-react";
 
 // マッチング中（status = 'matched'）の取引1件。
-// giver = 教科書を譲る側（ポイントを受け取る）／receiver = 受け取る側（ポイントを支払う）。
+// giver = 教科書を譲る側／receiver = 受け取る側。対価のやり取りはない（完全無償）。
 interface TxUser {
   id: string;
   username: string | null;
@@ -16,13 +16,12 @@ interface TxUser {
 interface Transaction {
   id: number;
   status: string;
-  points: number | null;
   giver_id: string;
   receiver_id: string;
   post: {
     id: number;
     give_type: string;
-    book: { id: number; title: string; price: number | null } | null;
+    book: { id: number; title: string } | null;
   } | null;
   giver: TxUser | null;
   receiver: TxUser | null;
@@ -62,10 +61,9 @@ export default function TransactionsPage() {
           `
             id,
             status,
-            points,
             giver_id,
             receiver_id,
-            post:txt_post_id ( id, give_type, book:textbook ( id, title, price ) ),
+            post:txt_post_id ( id, give_type, book:textbook ( id, title ) ),
             giver:giver_id ( id, username, icon_src ),
             receiver:receiver_id ( id, username, icon_src )
           `
@@ -98,11 +96,11 @@ export default function TransactionsPage() {
     load();
   }, []);
 
-  // 受取者が対面での受け渡し時に「受け取りました」を押す。
-  // matched -> received（ポイントは動かさない。確定は運営の完了処理で）。
+  // 受取者が対面での受け渡し時に「受け取りました」を押すと、その場で取引が完了する。
+  // matched -> completed（対価のやり取りはない）。
   const handleReceived = async (txId: number) => {
     const ok = window.confirm(
-      "この教科書を受け取りましたか？\n受け渡し時に、その場で押してください。\n（運営の確認後にポイントが移動します）"
+      "この教科書を受け取りましたか？\n受け渡し時に、その場で押してください。\n押すと譲渡が完了します。"
     );
     if (!ok) return;
 
@@ -116,9 +114,8 @@ export default function TransactionsPage() {
       return;
     }
 
-    setTransactions((prev) =>
-      prev.map((t) => (t.id === txId ? { ...t, status: "received" } : t))
-    );
+    // 完了した取引は一覧（取引中）から外す
+    setTransactions((prev) => prev.filter((t) => t.id !== txId));
   };
 
   return (
@@ -154,14 +151,13 @@ export default function TransactionsPage() {
           {transactions.map((tx) => {
             const iAmGiver = tx.giver_id === myId;
             const partner = iAmGiver ? tx.receiver : tx.giver;
-            const points = tx.points ?? 0;
             const title = tx.post?.book?.title ?? "（教科書情報なし）";
 
             return (
               <li key={tx.id} className="p-4">
                 <div className="border border-gray-200 rounded-2xl p-4">
-                  {/* 役割バッジ＋ポイント */}
-                  <div className="flex items-center justify-between gap-2 mb-2">
+                  {/* 役割バッジ */}
+                  <div className="flex items-center gap-2 mb-2">
                     <span
                       className={`text-xs font-bold px-2.5 py-1 rounded-full ${
                         iAmGiver
@@ -170,14 +166,6 @@ export default function TransactionsPage() {
                       }`}
                     >
                       {iAmGiver ? "あなたが譲る側" : "あなたが受け取る側"}
-                    </span>
-                    <span className="inline-flex items-baseline gap-1 rounded-lg border border-amber-300 bg-amber-50 px-2 py-0.5">
-                      <Coins className="w-3.5 h-3.5 text-amber-500 self-center" />
-                      <span className="text-sm font-bold text-amber-700 tabular-nums">
-                        {iAmGiver ? "+" : "−"}
-                        {points.toLocaleString()}
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-600">pt</span>
                     </span>
                   </div>
 
@@ -207,15 +195,7 @@ export default function TransactionsPage() {
 
                   {/* 状態・アクション */}
                   <div className="pt-3 border-t border-dashed border-gray-200 space-y-3">
-                    {tx.status === "received" ? (
-                      // 受け取り確認済み：運営の最終確認待ち
-                      <div className="flex items-center gap-1.5 text-sm font-medium text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                        <Clock className="w-4 h-4 shrink-0" />
-                        {iAmGiver
-                          ? "相手が受け取りを確認しました。運営の確認をお待ちください。"
-                          : "受け取りを確認しました。運営の確認後にポイントが移動します。"}
-                      </div>
-                    ) : iAmGiver ? (
+                    {iAmGiver ? (
                       // 譲る側・受け渡し待ち：相手が「受け取りました」を押したことを確認するよう促す
                       <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-300 px-3 py-2.5">
                         <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
@@ -224,12 +204,12 @@ export default function TransactionsPage() {
                         </p>
                       </div>
                     ) : (
-                      // 受け取る側・受け渡し待ち：受け取りボタン
+                      // 受け取る側・受け渡し待ち：受け取りボタン（押すと完了）
                       <div className="space-y-2">
                         <div className="flex items-start gap-2 rounded-lg bg-red-50 border border-red-300 px-3 py-2.5">
                           <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 shrink-0" />
                           <p className="text-sm font-bold text-red-600">
-                            受取時に、「受け取りました」ボタンを押したことを相手に確認させてください。
+                            受取時に、「受け取りました」ボタンを押したことを相手に確認させてください。押すと譲渡が完了します。
                           </p>
                         </div>
                         <button
@@ -244,7 +224,7 @@ export default function TransactionsPage() {
                           )}
                           受け取りました
                         </button>
-                        
+
                       </div>
                     )}
 

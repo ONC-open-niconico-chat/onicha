@@ -13,20 +13,6 @@ import { supabase } from "@/lib/supabase";
 const CONTACT_FORM_URL =
   process.env.NEXT_PUBLIC_CONTACT_FORM_URL || "https://forms.gle/your-form-id";
 
-// 累計獲得ポイント（total_earned_points）に応じたランク。min の降順で並べる。
-const RANKS = [
-  { name: "god", label: "God", min: 50000, src: "/rank_icons/7_god.jpg" },
-  { name: "master", label: "Master", min: 10000, src: "/rank_icons/6_master.jpg" },
-  { name: "diamond", label: "Diamond", min: 5000, src: "/rank_icons/5_diamond.jpg" },
-  { name: "platinum", label: "Platinum", min: 3000, src: "/rank_icons/4_platinum.jpg" },
-  { name: "gold", label: "Gold", min: 2000, src: "/rank_icons/3_gold.jpg" },
-  { name: "silver", label: "Silver", min: 1500, src: "/rank_icons/2_silver.jpg" },
-  { name: "bronze", label: "Bronze", min: 0, src: "/rank_icons/1_bronze.jpg" },
-];
-
-const getRank = (totalEarned: number) =>
-  RANKS.find((r) => totalEarned >= r.min) ?? RANKS[RANKS.length - 1];
-
 // 会話詳細（独自の入力バーを持つフルスクリーン画面）ではモバイル下部バーを隠す
 const isConversationRoute = (pathname: string) =>
   /^\/(messages|admin\/messages)\/[^/]+$/.test(pathname);
@@ -45,11 +31,6 @@ export function Sidebar() {
   // 管理者かどうか（staff_members に登録されているか）
   const [isStaff, setIsStaff] = useState(false);
 
-  // 現在のポイント / 仮消費（予約）ポイント / 累計獲得ポイント
-  const [points, setPoints] = useState<number | null>(null);
-  const [reserved, setReserved] = useState<number>(0);
-  const [totalEarned, setTotalEarned] = useState<number | null>(null);
-
   // モバイル：メニュー（ドロワー）の開閉
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -64,20 +45,6 @@ export function Sidebar() {
         .eq("receiver_id", myId)
         .eq("is_read", false);
       setUnreadCount(count ?? 0);
-    };
-
-    const fetchPoints = async () => {
-      if (!myId) return;
-      const { data } = await supabase
-        .from("user")
-        .select("points, reserved_points, total_earned_points")
-        .eq("id", myId)
-        .single();
-      if (data) {
-        setPoints(data.points ?? 0);
-        setReserved(data.reserved_points ?? 0);
-        setTotalEarned(data.total_earned_points ?? 0);
-      }
     };
 
     // 取引中（matched / received）の譲渡が自分にあるか（件数）
@@ -98,7 +65,6 @@ export function Sidebar() {
       if (!session?.user) return;
       myId = session.user.id;
       await fetchUnread();
-      await fetchPoints();
       await fetchActiveTx();
 
       // 管理者判定：staff_members に自分の user_id があるか
@@ -129,23 +95,7 @@ export function Sidebar() {
         )
         .subscribe();
 
-      // 自分の user 行の更新（ポイント変動）をリアルタイムに反映
-      // サーバー側フィルタで「自分の行だけ」受信する（全ユーザー分の配信を避ける）
-      const userChannel = supabase
-        .channel("sidebar-user-points")
-        .on(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "user", filter: `id=eq.${myId}` },
-          (payload) => {
-            const row = payload.new as { id?: string; points?: number; reserved_points?: number; total_earned_points?: number };
-            setPoints(row.points ?? 0);
-            setReserved(row.reserved_points ?? 0);
-            setTotalEarned(row.total_earned_points ?? 0);
-          }
-        )
-        .subscribe();
-
-      return [channel, userChannel];
+      return [channel];
     };
 
     const channelsPromise = init();
@@ -177,37 +127,6 @@ export function Sidebar() {
     };
   }, [pathname]);
 
-  // ポイント / ランク表示ブロック（デスクトップ・モバイルのドロワーで共用）
-  const pointsBlock =
-    points !== null && totalEarned !== null ? (
-      <div className="mt-auto border-t border-gray-200 pt-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={getRank(totalEarned).src}
-            alt={getRank(totalEarned).label}
-            className="w-12 h-12 rounded-lg object-cover shrink-0"
-          />
-          <div className="min-w-0">
-            <div className="font-bold text-gray-900">{getRank(totalEarned).label}</div>
-            <div className="text-xs text-gray-500">累計 {totalEarned.toLocaleString()} pt</div>
-          </div>
-        </div>
-        <div className="mt-3 flex items-baseline justify-between">
-          <span className="text-sm text-gray-600">利用可能ポイント</span>
-          <span className="text-lg font-bold text-blue-600">
-            {Math.max(points - reserved, 0).toLocaleString()}
-            <span className="text-xs text-gray-500 font-normal ml-0.5">pt</span>
-          </span>
-        </div>
-        {reserved > 0 && (
-          <div className="mt-0.5 flex items-baseline justify-between text-xs text-gray-400">
-            <span>予約中（リクエスト保留分）</span>
-            <span>{reserved.toLocaleString()} pt</span>
-          </div>
-        )}
-      </div>
-    ) : null;
-
   return (
     <>
       {/* ─── デスクトップ：左サイドバー（md 以上） ─── */}
@@ -236,8 +155,6 @@ export function Sidebar() {
             <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} />
           )}
         </nav>
-
-        {pointsBlock}
       </div>
 
       {/* ─── モバイル：下部タブバー（md 未満／会話画面では非表示） ─── */}
@@ -286,8 +203,6 @@ export function Sidebar() {
                 <SidebarItem href="/admin" icon={<ShieldCheck className="w-5 h-5" />} label="管理者" active={isActive("/admin")} onClick={() => setDrawerOpen(false)} />
               )}
             </nav>
-
-            {pointsBlock}
           </div>
         </div>
       )}

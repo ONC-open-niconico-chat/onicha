@@ -15,7 +15,6 @@ interface Transaction {
   txt_post_id: number | null;
   giver_id: string | null;
   receiver_id: string | null;
-  points: number | null;
   is_read: boolean;
 }
 
@@ -55,7 +54,7 @@ export default function AdminTransactionsPage() {
       // 1. 取引一覧を取得
       const { data: txData, error } = await supabase
         .from("txt_transaction")
-        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, points, is_read")
+        .select("id, status, completed_at, txt_post_id, giver_id, receiver_id, is_read")
         .order("id", { ascending: false })
         .in("status", ["matched", "received", "completed"]); // 進行中（matched/received）と完了を表示
 
@@ -118,7 +117,7 @@ export default function AdminTransactionsPage() {
     fetchTransactions();
   }, []);
 
-  // 「譲渡完了」ボタン：RPC でアトミックに完了処理（贈与者+500 / 受取者-500）
+  // 「譲渡完了」ボタン：RPC で完了処理（紛争対応の手当て。通常はユーザーの受け取り確認で完了）
   const handleComplete = async (id: number) => {
     const confirmed = window.confirm(
       "この取引を譲渡完了にしますか？"
@@ -141,10 +140,10 @@ export default function AdminTransactionsPage() {
   };
 
   // 「取り消し」ボタン：成立後に立ち消えた取引を RPC で巻き戻す
-  // （取引を cancelled、投稿を募集中に戻し、予約を解放する）
+  // （取引を cancelled、投稿を募集中に戻す）
   const handleCancel = async (id: number) => {
     const confirmed = window.confirm(
-      "この取引を取り消しますか？（投稿は募集中に戻り、予約ポイントは解放されます）"
+      "この取引を取り消しますか？（投稿は募集中に戻ります）"
     );
     if (!confirmed) return;
 
@@ -249,7 +248,6 @@ export default function AdminTransactionsPage() {
                 <th className="px-3.5 py-2.5 text-xs font-semibold">贈与者</th>
                 <th className="px-3.5 py-2.5 text-xs font-semibold">受取者</th>
                 <th className="px-3.5 py-2.5 text-xs font-semibold">教科書</th>
-                <th className="px-3.5 py-2.5 text-xs font-semibold">取引ポイント</th>
                 <th className="px-3.5 py-2.5 text-xs font-semibold">ステータス</th>
               </tr>
             </thead>
@@ -275,11 +273,6 @@ export default function AdminTransactionsPage() {
                   <td className="px-3.5 py-2.5">
                     <span className="text-gray-700">
                       {t.txt_post_id != null ? bookMap[t.txt_post_id] ?? "不明" : "不明"}
-                    </span>
-                  </td>
-                  <td className="px-3.5 py-2.5">
-                    <span className="font-bold text-amber-600 whitespace-nowrap">
-                      {t.points != null ? `${t.points.toLocaleString()} pt` : "—"}
                     </span>
                   </td>
                   <td className="px-3.5 py-2.5">
