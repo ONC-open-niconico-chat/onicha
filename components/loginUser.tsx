@@ -41,7 +41,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       // 1. まずログイン中のAuthユーザーを取得
-      const { data: { user } } = await supabase.auth.getUser();
+      //    getSession はローカル保存のセッションを即時に返す（ネットワーク往復なし）。
+      //    getUser だと検証で遅れ、本人判定（削除ボタン等）が「反応しない/リロードで直る」原因になる。
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user ?? null;
       setAuthUser(user);
 
       if (user) {

@@ -203,12 +203,12 @@ export default function TxtPostDetailPage() {
           replies.map((r) => (
             <div key={r.id} className="flex gap-3 p-4">
               <Link href={`/profile/${r.user_id}`} className="shrink-0">
-                {r.user?.icon_src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={r.user.icon_src} alt="" className="w-10 h-10 rounded-full object-cover" />
-                ) : (
-                  <span className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">👤</span>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={r.user?.icon_src || "/yujilink_icon/yujilink_icon.JPG"}
+                  alt=""
+                  className="w-10 h-10 rounded-full object-cover"
+                />
               </Link>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">

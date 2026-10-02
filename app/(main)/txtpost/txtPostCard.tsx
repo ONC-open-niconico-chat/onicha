@@ -19,8 +19,11 @@ interface PostCardProps {
 }
 
 export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToDetail = true }: PostCardProps) {
-  const { userProfile} = useAuth();
+  const { userProfile, authUser } = useAuth();
   const router = useRouter();
+  // 本人判定・各種取得に使う自分のID。authUser（getSession由来で即時）を優先し、
+  // userProfile（DB取得待ちで遅れることがある）はフォールバック。
+  const currentUserId = authUser?.id ?? userProfile?.id ?? null;
 
   // 拡大表示中の画像インデックス（null なら閉じている）
   const [zoomIndex, setZoomIndex] = useState<number | null>(null);
@@ -35,11 +38,11 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
   const [myReserved, setMyReserved] = useState<number>(0);
 
   // 自分の投稿かどうか
-  const isMine = userProfile?.id != null && String(userProfile.id) === String(txtpost.user.id);
+  const isMine = currentUserId != null && String(currentUserId) === String(txtpost.user.id);
 
   // 既にリクエストを送っているか＆その状態を notification テーブルから判定
   useEffect(() => {
-    const myId = userProfile?.id;
+    const myId = currentUserId;
     if (!myId || isMine) return;
     let active = true;
     (async () => {
@@ -62,11 +65,11 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     return () => {
       active = false;
     };
-  }, [userProfile?.id, isMine, txtpost.id]);
+  }, [currentUserId, isMine, txtpost.id]);
 
   // 自分の所持ポイントを取得（リクエストボタンの有効/無効判定用）
   useEffect(() => {
-    const myId = userProfile?.id;
+    const myId = currentUserId;
     if (!myId || isMine) return;
     let active = true;
     (async () => {
@@ -83,7 +86,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
     return () => {
       active = false;
     };
-  }, [userProfile?.id, isMine]);
+  }, [currentUserId, isMine]);
 
   // この教科書の価格
   const price = txtpost.book?.price ?? null;
@@ -101,7 +104,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
 
   // 自分のリクエスト状態を再取得（送信・取り下げ後に呼ぶ）
   const refreshRequestState = async () => {
-    const myId = userProfile?.id;
+    const myId = currentUserId;
     if (!myId || isMine) return;
     const { data } = await supabase
       .from("notification")
@@ -123,7 +126,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
 
   // 所持/予約ポイントを再取得（送信・取り下げ後に呼ぶ）
   const refreshPoints = async () => {
-    const myId = userProfile?.id;
+    const myId = currentUserId;
     if (!myId) return;
     const { data } = await supabase
       .from("user")
@@ -346,7 +349,7 @@ export function PostCard({ txtpost, onDeleted, showCommentButton = true, linkToD
                 title={insufficientPoints ? `この教科書の受け取りには ${price} ポイントが必要です` : undefined}
                 onClick={async(e) => {
                   e.stopPropagation(); // カード全体のクリックイベントと衝突するのを防ぐ
-                  if (!userProfile?.id) return;
+                  if (!currentUserId) return;
 
                   const actionText = txtpost.give_type === "offering" ? "「譲ってください」" : "「譲ります」";
                   if (!window.confirm(`${txtpost.user.username} さんに${actionText}のリクエストを送りますか？`)) return;

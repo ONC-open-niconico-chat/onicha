@@ -102,8 +102,10 @@ export default function PostDetailPage({ params }: Props) {
   const fetchThread = useCallback(async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      const uid = user?.id ?? null;
+      // getSession はローカル即時取得。getUser（ネットワーク検証）だと myId が遅れ、
+      // 削除/いいね等の本人判定が「反応しない/リロードで直る」原因になる。
+      const { data: { session } } = await supabase.auth.getSession();
+      const uid = session?.user?.id ?? null;
       setMyId(uid);
 
       if (uid) {
