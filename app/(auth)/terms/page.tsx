@@ -4,10 +4,7 @@ export const metadata = { title: "利用規約 | ユジリンク" };
 
 export default function TermsPage() {
   return (
-    <LegalPage title="利用規約" updated="【2026年9月19日】">
-      <div className="rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-sm px-4 py-3">
-        ※ 本規約は現在ドラフト（暫定版）です。運営者・連絡先など【 】の項目は確定前です。
-      </div>
+    <LegalPage title="利用規約" updated="【2026年10月3日】">
 
       <p>
         本規約は、運営者「ユジリンク運営」（以下「運営」）が提供する教科書譲渡・交流サービス「ユジリンク」（以下「本サービス」）の
@@ -118,7 +115,7 @@ export default function TermsPage() {
 
       <h2>第12条（準拠法・管轄）</h2>
       <p>
-        本規約は日本法に準拠します。本サービスに関して紛争が生じた場合、【運営所在地／大学所在地】を管轄する裁判所を
+        本規約は日本法に準拠します。本サービスに関して紛争が生じた場合、運営者の住所地を管轄する裁判所を
         第一審の専属的合意管轄裁判所とします。
       </p>
 
