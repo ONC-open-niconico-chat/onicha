@@ -25,6 +25,24 @@ const medalClass = (rank: number) =>
     ? "bg-amber-700 text-white"
     : "bg-gray-100 text-gray-500";
 
+// 上位3位は少し大きめのサイズに統一（モバイルで名前が途切れないよう1位を特大にはしない）。
+// 4位以降は通常サイズ。li(余白/間隔)・badge(順位バッジ)・img(アイコン/アバター)・name・count のクラス。
+const rankSize = (rank: number) => {
+  if (rank <= 3)
+    return { li: "py-3.5 gap-3.5", badge: "w-10 h-10 text-base", img: "w-12 h-12", name: "text-base", count: "text-base" };
+  return { li: "py-3 gap-3", badge: "w-8 h-8 text-sm", img: "w-9 h-9", name: "text-base", count: "text-sm" };
+};
+
+// 順位ごとの華やかな行背景（1位=金 / 2位=銀 / 3位=銅）。4位以降は背景なし。
+const rowBg = (rank: number) =>
+  rank === 1
+    ? "bg-linear-to-r from-amber-100 to-yellow-50"
+    : rank === 2
+    ? "bg-linear-to-r from-slate-100 to-gray-50"
+    : rank === 3
+    ? "bg-linear-to-r from-orange-100 to-amber-50"
+    : "";
+
 export default function YujiRankPage() {
   const [users, setUsers] = useState<RankUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,6 +98,16 @@ export default function YujiRankPage() {
 
     load();
   }, []);
+
+  // 競技順位（同点は同順位）。users は give_count 降順なので、前の行と同数なら前と同じ順位、
+  // 違えば「自分より上の人数 + 1」= その行のインデックス + 1。カードの順位算出と一致する。
+  const ranks: number[] = [];
+  users.forEach((u, i) => {
+    ranks[i] =
+      i > 0 && (users[i - 1].give_count ?? 0) === (u.give_count ?? 0)
+        ? ranks[i - 1]
+        : i + 1;
+  });
 
   return (
     <div className="w-full">
@@ -141,17 +169,22 @@ export default function YujiRankPage() {
       ) : (
         <ul className="divide-y divide-gray-100">
           {users.map((u, i) => {
-            const rank = i + 1;
+            const rank = ranks[i];
             const count = u.give_count ?? 0;
             const isMe = u.id === myId;
+            const sz = rankSize(rank);
+            // 上位3位は順位ごとの華やかな背景。それ以外で自分の行は青背景。
+            const bg = rank <= 3 ? rowBg(rank) : isMe ? "bg-blue-50" : "";
+            // 上位3位で自分の行は、華やかな背景の上に青リングで「あなた」を強調。
+            const meRing = isMe && rank <= 3 ? "ring-2 ring-inset ring-blue-300" : "";
             return (
               <li
                 key={u.id}
-                className={`flex items-center gap-3 px-4 py-3 ${isMe ? "bg-blue-50" : ""}`}
+                className={`flex items-center px-4 ${sz.li} ${bg} ${meRing}`}
               >
                 {/* 順位 */}
                 <span
-                  className={`w-8 h-8 shrink-0 rounded-full flex items-center justify-center text-sm font-bold tabular-nums ${medalClass(
+                  className={`${sz.badge} shrink-0 rounded-full flex items-center justify-center font-bold tabular-nums ${medalClass(
                     rank
                   )}`}
                 >
@@ -163,7 +196,7 @@ export default function YujiRankPage() {
                 <img
                   src={getYujiRank(count).src}
                   alt={getYujiRank(count).label}
-                  className="w-9 h-9 rounded-md object-cover shrink-0"
+                  className={`${sz.img} rounded-md object-cover shrink-0`}
                   title={getYujiRank(count).label}
                 />
 
@@ -176,16 +209,16 @@ export default function YujiRankPage() {
                   <img
                     src={u.icon_src || DEFAULT_ICON}
                     alt=""
-                    className="w-9 h-9 rounded-full object-cover shrink-0"
+                    className={`${sz.img} rounded-full object-cover shrink-0`}
                   />
-                  <span className="truncate font-medium text-gray-800 group-hover:underline">
+                  <span className={`truncate font-medium text-gray-800 group-hover:underline ${sz.name}`}>
                     {u.username ?? "名無しユーザー"}
                     {isMe && <span className="ml-1 text-xs text-blue-600 font-bold">（あなた）</span>}
                   </span>
                 </Link>
 
                 {/* 譲った相手の人数 */}
-                <span className="shrink-0 text-sm font-bold text-gray-700 tabular-nums">
+                <span className={`shrink-0 font-bold text-gray-700 tabular-nums ${sz.count}`}>
                   {count.toLocaleString()} 人
                 </span>
               </li>

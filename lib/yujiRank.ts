@@ -10,13 +10,13 @@ export interface YujiRank {
 }
 
 export const YUJI_RANKS: YujiRank[] = [
-  { name: "god", label: "God", min: 30, src: "/rank_icons/7_god.jpg" },
-  { name: "master", label: "Master", min: 20, src: "/rank_icons/6_master.jpg" },
-  { name: "diamond", label: "Diamond", min: 10, src: "/rank_icons/5_diamond.jpg" },
-  { name: "platinum", label: "Platinum", min: 5, src: "/rank_icons/4_platinum.jpg" },
-  { name: "gold", label: "Gold", min: 3, src: "/rank_icons/3_gold.jpg" },
-  { name: "silver", label: "Silver", min: 1, src: "/rank_icons/2_silver.jpg" },
-  { name: "bronze", label: "Bronze", min: 0, src: "/rank_icons/1_bronze.jpg" },
+  { name: "god", label: "God", min: 30, src: "/rank_icons/7_god.png" },
+  { name: "master", label: "Master", min: 20, src: "/rank_icons/6_master.png" },
+  { name: "diamond", label: "Diamond", min: 10, src: "/rank_icons/5_diamond.png" },
+  { name: "platinum", label: "Platinum", min: 5, src: "/rank_icons/4_platinum.png" },
+  { name: "gold", label: "Gold", min: 3, src: "/rank_icons/3_gold.png" },
+  { name: "silver", label: "Silver", min: 1, src: "/rank_icons/2_silver.png" },
+  { name: "bronze", label: "Bronze", min: 0, src: "/rank_icons/1_bronze.png" },
 ];
 
 // 譲った相手の人数からランクを求める
