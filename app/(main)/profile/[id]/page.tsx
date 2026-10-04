@@ -1079,7 +1079,7 @@ export default function App({ params }: Props) {
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-gray-900 truncate hover:underline">{u.username}</span>
                         <span className="bg-blue-50 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-semibold shrink-0">
-                          {u.grade}年生
+                          {u.grade ? `${u.grade}年生` : null}
                         </span>
                       </div>
                       <p className="text-xs text-gray-500 mt-1 line-clamp-2 whitespace-pre-wrap">
