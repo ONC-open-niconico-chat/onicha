@@ -1,0 +1,24 @@
+# Dependabot：依存ライブラリの脆弱性/更新を自動でPR化する。
+# ・version updates（最新化PR）はこのファイルで設定。
+# ・Dependabot alerts / security updates は GitHub の
+#   Settings → Code security（Dependabot alerts / Dependabot security updates）でONにすること。
+#   （このファイルだけでは有効化されない）
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    groups:
+      # マイナー/パッチはまとめて1PRにして通知ノイズを減らす
+      minor-and-patch:
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # 独自仕様の Next はメジャー自動更新を避ける（手動で慎重に上げる）。
+      # ※ 16.x 内のセキュリティ修正(minor/patch)は引き続きPRされる。
+      - dependency-name: "next"
+        update-types:
+          - "version-update:semver-major"
