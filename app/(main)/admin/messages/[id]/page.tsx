@@ -85,7 +85,7 @@ export default function AdminChatPage() {
     if (!officialId || !userId) return;
 
     const channel = supabase
-      .channel(`admin-chat-${userId}`)
+      .channel(`admin-chat-${userId}-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "chat" },

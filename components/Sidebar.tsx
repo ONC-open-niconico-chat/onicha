@@ -9,10 +9,10 @@ import { supabase } from "@/lib/supabase";
 import { getYujiRank, nextYujiRank } from "@/lib/yujiRank";
 
 // お問い合わせ用 Google フォームの URL。
-// 環境変数 NEXT_PUBLIC_CONTACT_FORM_URL があればそれを使う。未設定なら下の値を差し替える。
-// ★ TODO: 実際の Google フォールURL（例 https://forms.gle/xxxx）に置き換えてください。
+// 環境変数 NEXT_PUBLIC_CONTACT_FORM_URL があればそれを優先。未設定なら下の既定値（利用規約 第13条と同一のフォーム）を使う。
 const CONTACT_FORM_URL =
-  process.env.NEXT_PUBLIC_CONTACT_FORM_URL || "https://forms.gle/your-form-id";
+  process.env.NEXT_PUBLIC_CONTACT_FORM_URL ||
+  "https://docs.google.com/forms/d/e/1FAIpQLSefqKHiWdHpgH8AOjbzMfUVsIDOIYAYxUUIx_zJwEBalgFSRw/viewform?usp=dialog";
 
 // 会話詳細（独自の入力バーを持つフルスクリーン画面）ではモバイル下部バーを隠す
 const isConversationRoute = (pathname: string) =>
@@ -91,9 +91,12 @@ export function Sidebar() {
         .maybeSingle();
       setIsStaff(!!staff);
 
-      // 通知の追加・既読化をリアルタイムに反映
+      // 通知の追加・既読化をリアルタイムに反映。
+      // チャンネル名はマウントごとに一意にする（React StrictMode の二重実行や
+      // 速い再マウントで、同名の“既にsubscribe済み”チャンネルを再利用して
+      // 「cannot add postgres_changes callbacks after subscribe()」になるのを防ぐ）。
       const channel = supabase
-        .channel("sidebar-notifications")
+        .channel(`sidebar-notifications-${Math.random().toString(36).slice(2)}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "notification" },

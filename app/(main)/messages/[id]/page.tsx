@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-// 💡 あなたのプロジェクトのSupabaseクライアントのパスに書き換えてください
 import { supabase } from "@/lib/supabase";
 import { createNotification } from "@/lib/notifications";
 import { VerifiedBadge } from "@/components/VerifiedBadge";
@@ -169,8 +168,10 @@ export default function ChatPage() {
   useEffect(() => {
     if (!myId || !receiverId) return;
 
+    // チャンネル名はマウントごとに一意に（StrictModeの二重実行や再マウントで
+    // 同名の既subscribe済みチャンネルを再利用して例外になるのを防ぐ）。
     const channel = supabase
-      .channel("realtime-chats")
+      .channel(`realtime-chats-${Math.random().toString(36).slice(2)}`)
       .on(
         "postgres_changes",
         {
