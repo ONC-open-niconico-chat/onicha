@@ -17,8 +17,21 @@ updates:
           - "minor"
           - "patch"
     ignore:
-      # 独自仕様の Next はメジャー自動更新を避ける（手動で慎重に上げる）。
-      # ※ 16.x 内のセキュリティ修正(minor/patch)は引き続きPRされる。
+      # 開発ツール/フレームワークのメジャー自動更新は避ける（手動で慎重に上げる）。
+      # ※ いずれも minor/patch とセキュリティ修正は引き続きPRされる。
+      # Next は独自仕様のため major は手動対応。
       - dependency-name: "next"
+        update-types:
+          - "version-update:semver-major"
+      # TypeScript major はツールチェーン互換(Next/typescript-eslint等)が揃ってから手動で。
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
+      # ESLint major は eslint-config-next の対応確認後に手動で。
+      - dependency-name: "eslint"
+        update-types:
+          - "version-update:semver-major"
+      # @types/node は実行環境(Vercel)の Node メジャーに合わせて手動で上げる。
+      - dependency-name: "@types/node"
         update-types:
           - "version-update:semver-major"
