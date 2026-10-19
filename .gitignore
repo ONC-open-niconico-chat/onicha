@@ -10,3 +10,5 @@ tsconfig.tsbuildinfo
 
 # OS 生成物
 .DS_Store
+
+next-env.d.ts
